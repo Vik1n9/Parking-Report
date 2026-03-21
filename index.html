@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>停車回報產生器 - 智能跳項版 (Excel輸出「滿」)</title>
+    <title>停車回報產生器 - 混合輸入模式 (支援簡稱)</title>
     <style>
         * {
             box-sizing: border-box;
@@ -15,7 +15,7 @@
             margin: 0;
         }
         .container {
-            max-width: 680px;
+            max-width: 720px;
             margin: 0 auto;
             background: #ffffff;
             padding: 24px 28px;
@@ -148,12 +148,6 @@
         .note strong {
             color: #1e466e;
         }
-        hr {
-            margin: 14px 0;
-            border: 0;
-            height: 1px;
-            background: linear-gradient(to right, #d0dfed, transparent);
-        }
         .legend {
             display: flex;
             flex-wrap: wrap;
@@ -170,27 +164,25 @@
             border-radius: 20px;
             border: 1px solid #dce4ec;
         }
-        .copy-feedback {
-            transition: all 0.2s;
-        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🚗 停車回報轉換器 <span style="font-size: 0.8rem;">(跳項/順序 雙模式)</span></h2>
+    <h2>🚗 停車回報轉換器 <span style="font-size: 0.8rem;">(簡稱輸入混合模式)</span></h2>
     <div class="input-group">
-        <label>📋 輸入數據 (支援兩種模式)</label>
+        <label>📋 輸入數據 (混合模式：空格分隔順序值 + 鍵值對，支援簡稱)</label>
         <input type="text" id="dataInput" 
-               placeholder="模式1 (順序) : 465 285 8 8 0 0.1 x x x x&#10;模式2 (跳項) : 一樓以上=120 一樓以下=45 P1=0.3 紡C=x 柏油路=0" 
-               value="465 285 8 8 0 0.1 x x x x">
-        <div class="mode-badge" id="modeIndicator">⚡ 目前解析模式: 順序模式 (空格順序)</div>
+               placeholder="範例1 (純順序) : 465 285 8 8 0 0.1 x x x x&#10;範例2 (混合簡稱) : 423 256 7 7 E=0.4&#10;範例3 (純簡稱) : 一樓以上=120 P1=0.3 R=0" 
+               value="423 256 7 7 E=0.4">
+        <div class="mode-badge" id="modeIndicator">🧩 混合解析: 順序值 + 鍵值對</div>
         <div class="legend">
             <span>🚗 車位區: 數字=車位數</span>
             <span>🅿️ 成數區: 8 → 8成</span>
             <span>🔢 0.1~0.9 → X台車</span>
             <span>❌ x → 沒停車</span>
             <span>🈵 0 → 滿 (Excel輸出)</span>
+            <span>🔤 簡稱: A~E (紡A~紡E), R (柏油路)</span>
         </div>
     </div>
 
@@ -211,22 +203,32 @@
     </div>
     
     <div class="note">
-        <strong>✨ 雙模式說明 (保留快速輸入 + 跳項輸入)</strong><br>
-        🚀 <strong>模式① 順序模式(快速)</strong>：直接輸入10個值，用<strong>空格</strong>分隔。少於10個自動補「x」，多於10個忽略。<br>
-        🧠 <strong>模式② 跳項模式(靈活)</strong>：使用「<strong>區域名稱=數值</strong>」格式，多組用空格分開。<br>
-        &nbsp;&nbsp;👉 支援的區域名稱：<strong>一樓以上、一樓以下、P1、P3、紡A、紡B、紡C、紡D、紡E、柏油路</strong><br>
-        &nbsp;&nbsp;👉 範例：<code>一樓以上=120 P1=0.2 柏油路=6</code> → 未指定的區域自動設為「x」(沒停車)<br>
+        <strong>✨ 混合輸入模式 (支援簡稱)</strong><br>
+        • 您可以使用<strong>順序值 + 鍵值對</strong>混合輸入。順序值依序對應：一樓以上、一樓以下、P1、P3、紡A、紡B、紡C、紡D、紡E、柏油路。<br>
+        • 鍵值對可使用<strong>完整名稱</strong>或<strong>簡稱</strong>：<br>
+        &nbsp;&nbsp;A = 紡A, B = 紡B, C = 紡C, D = 紡D, E = 紡E, R = 柏油路, P1/P3 不變。<br>
+        • 範例：<code>423 256 7 7 E=0.4</code><br>
+        &nbsp;&nbsp;→ 一樓以上=423, 一樓以下=256, P1=7, P3=7, 紡E=0.4 (尚有4台車)，其餘區域設為「x」(未停車)。<br>
+        • 若只輸入順序值（無等號），即傳統順序模式；若只輸入鍵值對（無純數字），即純跳項模式；若混合，則先依序填入，再用鍵值對覆蓋。<br>
         ✅ 數字格式：車位區直接寫數字 (如 120)、成數區寫整數 (如 8)、台車寫 0.1~0.9、全滿寫 0、沒停車寫 x。<br>
-        📌 <strong>Excel輸出調整</strong>：原本「全滿」現已改為「滿」，更簡潔。
+        📌 中控回報台車數字直接顯示阿拉伯數字 (例如「尚有4台車」)，不再轉換為中文。
     </div>
 </div>
 
 <script>
-    // 固定欄位順序與標籤
+    // 固定欄位順序與完整標籤 (用於顯示)
     const labels = ["一樓以上", "一樓以下", "P1", "P3", "紡A", "紡B", "紡C", "紡D", "紡E", "柏油路"];
     
-    // 中文數字轉換 (用於中控回報台車顯示美觀)
-    const zhNum = {'1':'一', '2':'兩', '3':'三', '4':'四', '5':'五', '6':'六', '7':'七', '8':'八', '9':'九', '10':'十'};
+    // 別名映射: 簡稱 -> 完整標籤
+    const aliasMap = {
+        "A": "紡A",
+        "B": "紡B",
+        "C": "紡C",
+        "D": "紡D",
+        "E": "紡E",
+        "R": "柏油路"
+        // P1, P3 本身已是完整名稱，不需要額外映射
+    };
     
     // DOM 元素
     const dataInput = document.getElementById('dataInput');
@@ -236,7 +238,68 @@
     const copyReportBtn = document.getElementById('copyReportBtn');
     const copyExcelBtn = document.getElementById('copyExcelBtn');
     
-    // ----- 核心: 將原始值轉為 Excel 備註文字 (修改: 全滿 → 滿) -----
+    // 將輸入的鍵名正規化為完整標籤
+    function normalizeKey(key) {
+        // 先檢查是否為完整標籤 (包含在 labels 中)
+        if (labels.includes(key)) return key;
+        // 檢查別名
+        if (aliasMap[key]) return aliasMap[key];
+        // 否則回傳 null
+        return null;
+    }
+    
+    // ----- 混合解析：同時支援順序值與鍵值對 (支援簡稱) -----
+    function parseMixedMode(inputStr) {
+        // 初始化結果陣列，全部預設為 'x'
+        const result = new Array(labels.length).fill('x');
+        
+        // 分割成 tokens (保留空白分割)
+        const tokens = inputStr.trim().split(/\s+/).filter(t => t !== '');
+        if (tokens.length === 0) return result;
+        
+        // 區分純值與鍵值對
+        const plainValues = [];      // 不含等號的 token
+        const keyValuePairs = [];    // 含等號的 token
+        
+        for (let token of tokens) {
+            if (token.includes('=')) {
+                keyValuePairs.push(token);
+            } else {
+                plainValues.push(token);
+            }
+        }
+        
+        // 1. 依序將 plainValues 填入 result (從索引0開始)
+        for (let i = 0; i < plainValues.length && i < labels.length; i++) {
+            result[i] = plainValues[i];
+        }
+        
+        // 2. 建立完整標籤到索引的映射
+        const labelToIndex = {};
+        labels.forEach((label, idx) => {
+            labelToIndex[label] = idx;
+        });
+        
+        // 3. 處理鍵值對，覆蓋對應索引 (支援簡稱)
+        for (let pair of keyValuePairs) {
+            const equalPos = pair.indexOf('=');
+            if (equalPos === -1) continue;
+            let key = pair.substring(0, equalPos).trim();
+            let value = pair.substring(equalPos + 1).trim();
+            
+            const fullLabel = normalizeKey(key);
+            if (fullLabel && labelToIndex.hasOwnProperty(fullLabel)) {
+                const idx = labelToIndex[fullLabel];
+                result[idx] = value;
+            } else {
+                console.warn(`無效的區域名稱: "${key}"，請使用完整名稱或簡稱 (A~E, R, P1, P3)`);
+            }
+        }
+        
+        return result;
+    }
+    
+    // ----- 將原始值轉為 Excel 備註文字 (全滿 → 滿) -----
     function convertToExcelText(index, rawVal) {
         let val = (rawVal !== undefined && rawVal !== null) ? rawVal.toString().toLowerCase().trim() : 'x';
         if (val === '') val = 'x';
@@ -245,19 +308,19 @@
         
         if (isCarCountArea) {
             if (val === 'x') return '未停車';
-            if (val === '0') return '滿';      // 原「全滿」改為「滿」
-            return val;   // 保留原始數字
+            if (val === '0') return '滿';
+            return val;
         }
         
         // 成數 / 剩餘台車區域
         if (val === 'x') return '未停車';
-        if (val === '0') return '滿';          // 原「全滿」改為「滿」
+        if (val === '0') return '滿';
         
         if (val.startsWith('0.')) {
             let decimalPart = val.substring(2);
             let carCount = parseInt(decimalPart, 10);
             if (isNaN(carCount)) carCount = 0;
-            if (carCount === 0) return '滿';   // 原「全滿」改為「滿」
+            if (carCount === 0) return '滿';
             return `${carCount}台車`;
         }
         
@@ -268,7 +331,7 @@
         return val;
     }
     
-    // 產生中控回報文字 (保持原有格式，不影響)
+    // 產生中控回報文字 (台車數字直接使用阿拉伯數字)
     function generateReportText(tokens, nowTime) {
         const hh = String(nowTime.getHours()).padStart(2, '0');
         const mm = String(nowTime.getMinutes()).padStart(2, '0');
@@ -282,7 +345,7 @@
                 if (val === 'x') {
                     resultText += `${labels[i]} 沒停車\n`;
                 } else if (val === '0') {
-                    resultText += `${labels[i]} 全滿\n`;   // 中控回報維持「全滿」口語
+                    resultText += `${labels[i]} 全滿\n`;
                 } else {
                     resultText += `${labels[i]}${val}車位\n`;
                 }
@@ -290,11 +353,11 @@
                 if (val === 'x') {
                     resultText += `${labels[i]} 沒停車\n`;
                 } else if (val === '0') {
-                    resultText += `${labels[i]} 全滿\n`;   // 中控回報維持「全滿」
+                    resultText += `${labels[i]} 全滿\n`;
                 } else if (val.startsWith('0.')) {
                     const digit = val.substring(2);
-                    const ch = zhNum[digit] || digit;
-                    resultText += `${labels[i]} 尚有${ch}台車\n`;
+                    // 直接使用數字，不轉換中文
+                    resultText += `${labels[i]} 尚有${digit}台車\n`;
                 } else {
                     resultText += `${labels[i]} 尚有${val}成車位\n`;
                 }
@@ -303,60 +366,7 @@
         return resultText.trim();
     }
     
-    // ----- 跳項解析 (鍵值對模式) -----
-    function parseKeyValueMode(inputStr) {
-        let result = new Array(labels.length).fill('x');
-        const pairs = inputStr.match(/(\S+)=(\S+)/g);
-        if (!pairs) return result;
-        
-        const labelToIndex = {};
-        labels.forEach((label, idx) => {
-            labelToIndex[label] = idx;
-        });
-        
-        let anyValid = false;
-        for (let pair of pairs) {
-            const equalPos = pair.indexOf('=');
-            if (equalPos === -1) continue;
-            let key = pair.substring(0, equalPos).trim();
-            let value = pair.substring(equalPos + 1).trim();
-            
-            if (labelToIndex.hasOwnProperty(key)) {
-                const idx = labelToIndex[key];
-                result[idx] = value;
-                anyValid = true;
-            }
-        }
-        return anyValid ? result : null;
-    }
-    
-    // ----- 順序模式解析 -----
-    function parseSequenceMode(inputStr) {
-        const tokens = inputStr.split(/\s+/).filter(t => t !== '');
-        const finalTokens = [];
-        for (let i = 0; i < labels.length; i++) {
-            finalTokens.push(i < tokens.length ? tokens[i] : 'x');
-        }
-        return finalTokens;
-    }
-    
-    // 取得當前的 tokens 陣列 (根據輸入模式自動判斷)
-    function getCurrentTokens() {
-        const inputVal = dataInput.value.trim();
-        if (!inputVal) return null;
-        
-        const hasEqualSign = inputVal.includes('=');
-        let kvResult = null;
-        if (hasEqualSign) {
-            kvResult = parseKeyValueMode(inputVal);
-            if (kvResult !== null && kvResult.some(v => v !== 'x')) {
-                return kvResult;
-            }
-        }
-        return parseSequenceMode(inputVal);
-    }
-    
-    // 更新 UI 並顯示模式
+    // 主更新函式
     function updateAll() {
         const inputVal = dataInput.value.trim();
         
@@ -368,34 +378,22 @@
             return;
         }
         
-        let tokens = null;
-        let usedMode = "順序模式 (空格順序)";
-        let isKeyValueMode = false;
+        // 使用混合模式解析
+        const tokens = parseMixedMode(inputVal);
         
-        const hasEqualSign = inputVal.includes('=');
-        let kvResult = null;
-        
-        if (hasEqualSign) {
-            kvResult = parseKeyValueMode(inputVal);
-            if (kvResult !== null && kvResult.some(v => v !== 'x')) {
-                tokens = kvResult;
-                isKeyValueMode = true;
-                usedMode = "✨ 跳項模式 (鍵值對) — 未指定區域自動補 x";
-            } else {
-                tokens = parseSequenceMode(inputVal);
-                usedMode = "⚠️ 偵測到等號但無法解析跳項，改用順序模式 (空格分隔)";
-            }
+        // 判斷輸入類型以顯示友好提示
+        const hasEqual = inputVal.includes('=');
+        const hasPlain = /\d/.test(inputVal) && !/^\s*([^\s=]+=\S+\s*)+$/.test(inputVal);
+        let modeDesc = "";
+        if (hasEqual && hasPlain) {
+            modeDesc = "🧩 混合模式 (順序值 + 鍵值對)";
+        } else if (hasEqual) {
+            modeDesc = "✨ 純跳項模式 (僅鍵值對，支援簡稱)";
         } else {
-            tokens = parseSequenceMode(inputVal);
-            usedMode = "🔁 順序模式 (空格分隔) — 快速輸入10欄位";
+            modeDesc = "🔁 純順序模式 (空格分隔)";
         }
-        
-        if (!tokens || tokens.length !== labels.length) {
-            tokens = new Array(labels.length).fill('x');
-        }
-        
-        modeIndicator.innerText = `📌 目前解析模式: ${usedMode}`;
-        modeIndicator.style.background = isKeyValueMode ? "#e0f2fe" : "#e9ecef";
+        modeIndicator.innerText = `📌 解析模式: ${modeDesc}`;
+        modeIndicator.style.background = "#e0f2fe";
         
         const now = new Date();
         const reportText = generateReportText(tokens, now);
@@ -454,7 +452,7 @@
         updateAll();
     });
     
-    // 添加快速填入樣例連結（增強體驗）
+    // 添加快速填入樣例連結
     const addSampleLinks = () => {
         const noteDiv = document.querySelector('.note');
         if (!noteDiv) return;
@@ -466,7 +464,7 @@
         sampleWrapper.style.justifyContent = 'center';
         
         const seqSample = document.createElement('span');
-        seqSample.innerText = '📋 填入順序範例';
+        seqSample.innerText = '📋 純順序範例';
         seqSample.style.cssText = 'background:#eef2fa; padding:4px 12px; border-radius:30px; cursor:pointer; font-size:12px; font-weight:500;';
         seqSample.onclick = () => {
             dataInput.value = "465 285 8 8 0 0.1 x x x x";
@@ -474,18 +472,18 @@
         };
         
         const kvSample = document.createElement('span');
-        kvSample.innerText = '🚀 填入跳項範例';
+        kvSample.innerText = '🚀 純簡稱範例';
         kvSample.style.cssText = 'background:#e0f2fe; padding:4px 12px; border-radius:30px; cursor:pointer; font-size:12px; font-weight:500;';
         kvSample.onclick = () => {
-            dataInput.value = "一樓以上=320 一樓以下=180 P1=0.3 紡B=7 柏油路=0";
+            dataInput.value = "一樓以上=320 一樓以下=180 P1=0.3 B=7 R=0";
             updateAll();
         };
         
         const mixSample = document.createElement('span');
-        mixSample.innerText = '✨ 混合跳項示範';
+        mixSample.innerText = '✨ 混合簡稱範例';
         mixSample.style.cssText = 'background:#e6f7e6; padding:4px 12px; border-radius:30px; cursor:pointer; font-size:12px; font-weight:500;';
         mixSample.onclick = () => {
-            dataInput.value = "P3=0.5 紡A=x 紡C=4 一樓以上=88 一樓以下=0";
+            dataInput.value = "423 256 7 7 E=0.4";
             updateAll();
         };
         
