@@ -1,673 +1,760 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>停車回報轉換</title>
-    <style>
-        :root {
-            --bg: #f0f4f8;
-            --card: #ffffff;
-            --primary: #1a5fa8;
-            --primary-light: #e8f0fb;
-            --green: #1b7a3d;
-            --green-light: #e6f7ed;
-            --red: #c0392b;
-            --red-light: #fdecea;
-            --yellow: #b8860b;
-            --yellow-light: #fef9e7;
-            --text: #1a2533;
-            --muted: #637285;
-            --border: #dce6f0;
-            --radius: 16px;
-            --radius-sm: 10px;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>停車回報轉換</title>
+<style>
+/* ═══════════════════ TOKENS ═══════════════════ */
+:root {
+  --bg:       #f0f4f9;
+  --surface:  #ffffff;
+  --border:   #d8e3ee;
+  --blue:     #1a5fa8;
+  --blue-lt:  #e6effa;
+  --green:    #1a6e38;
+  --green-lt: #e4f5ec;
+  --red:      #b32a1e;
+  --red-lt:   #fce9e8;
+  --amber:    #9a6000;
+  --amber-lt: #fef5e0;
+  --text:     #18232f;
+  --sub:      #5a6e82;
+  --mono:     'SF Mono','Cascadia Code','Consolas',monospace;
+  --sans:     'Helvetica Neue','PingFang TC','Microsoft JhengHei',sans-serif;
+  --r:        12px;
+  --r-sm:     8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  font-size:14px;
+}
 
-        body {
-            font-family: 'Helvetica Neue', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100dvh;
-            padding: 0 0 env(safe-area-inset-bottom) 0;
-        }
+/* ─── header ─── */
+.topbar{
+  background:var(--blue);
+  color:#fff;
+  padding:14px 24px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.15);
+  position:sticky;top:0;z-index:20;
+}
+.topbar-title{font-size:1.05rem;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+.topbar-sub{font-size:.72rem;opacity:.7;margin-top:1px}
+.topbar-time{
+  margin-left:auto;
+  display:flex;align-items:center;gap:10px;
+}
+#clockDisplay{
+  font-size:1.3rem;font-weight:800;letter-spacing:1px;
+  font-variant-numeric:tabular-nums;
+  opacity:.92;
+}
+#refreshBtn{
+  display:flex;align-items:center;gap:5px;
+  background:rgba(255,255,255,0.18);
+  border:1px solid rgba(255,255,255,0.35);
+  color:#fff;
+  border-radius:30px;
+  padding:6px 14px;
+  font-size:.75rem;font-weight:600;
+  cursor:pointer;white-space:nowrap;
+  transition:background .15s;
+}
+#refreshBtn:hover{background:rgba(255,255,255,0.28)}
+#refreshBtn:active{background:rgba(255,255,255,0.38)}
 
-        /* ── Header ── */
-        .header {
-            background: var(--primary);
-            color: white;
-            padding: 18px 20px 16px;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
-        }
-        .header h1 {
-            font-size: 1.15rem;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-        }
-        .header p {
-            font-size: 0.75rem;
-            opacity: 0.75;
-            margin-top: 2px;
-        }
+/* ─── layout ─── */
+.page{
+  max-width:1100px;
+  margin:0 auto;
+  padding:20px 20px 40px;
+  display:grid;
+  grid-template-columns:380px 1fr;
+  grid-template-rows:auto;
+  gap:16px;
+  align-items:start;
+}
+/* ─ left col ─ */
+.col-left{
+  display:flex;flex-direction:column;gap:14px;
+  grid-row:1;grid-column:1;
+}
+/* ─ right col ─ */
+.col-right{
+  display:flex;flex-direction:column;gap:14px;
+  grid-row:1;grid-column:2;
+}
 
-        /* ── Main layout ── */
-        .main {
-            padding: 16px 14px 120px;
-            max-width: 640px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
+/* ─── card ─── */
+.card{
+  background:var(--surface);
+  border-radius:var(--r);
+  border:1px solid var(--border);
+  box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  overflow:hidden;
+}
+.card-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 16px;
+  border-bottom:1px solid var(--border);
+  background:#fafcff;
+}
+.card-head-label{
+  font-size:.78rem;font-weight:700;
+  color:var(--blue);letter-spacing:.3px;
+  display:flex;align-items:center;gap:6px;
+}
+.card-body{padding:14px 16px}
 
-        /* ── Card ── */
-        .card {
-            background: var(--card);
-            border-radius: var(--radius);
-            box-shadow: 0 1px 6px rgba(0,0,0,0.07);
-            overflow: hidden;
-        }
-        .card-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 16px 10px;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.82rem;
-            font-weight: 700;
-            color: var(--primary);
-            letter-spacing: 0.3px;
-        }
-        .card-body { padding: 14px 16px; }
+/* ─── text input ─── */
+.input-wrap{position:relative}
+#dataInput{
+  width:100%;
+  padding:12px 42px 12px 12px;
+  font-size:15px;
+  font-family:var(--mono);
+  line-height:1.55;
+  border:2px solid var(--border);
+  border-radius:var(--r-sm);
+  background:#fafcff;
+  resize:vertical;
+  min-height:80px;
+  color:var(--text);
+  transition:border-color .18s,box-shadow .18s;
+}
+#dataInput:focus{
+  outline:none;
+  border-color:var(--blue);
+  box-shadow:0 0 0 3px rgba(26,95,168,0.13);
+}
+.clear-btn{
+  position:absolute;top:9px;right:9px;
+  width:26px;height:26px;
+  background:#e4ecf5;border:none;border-radius:50%;
+  font-size:13px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--sub);transition:background .15s;
+}
+.clear-btn:hover{background:#c9d8e8}
 
-        /* ── Input ── */
-        .input-wrap {
-            position: relative;
-        }
-        #dataInput {
-            width: 100%;
-            padding: 14px 46px 14px 14px;
-            font-size: 16px; /* 防止 iOS 自動縮放 */
-            line-height: 1.6;
-            border: 2px solid var(--border);
-            border-radius: var(--radius-sm);
-            background: #fafcff;
-            resize: vertical;
-            min-height: 90px;
-            font-family: 'SF Mono', 'Menlo', 'Cascadia Code', monospace;
-            color: var(--text);
-            transition: border-color 0.2s;
-            -webkit-appearance: none;
-        }
-        #dataInput:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(26,95,168,0.12);
-        }
-        .clear-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 28px;
-            height: 28px;
-            background: #e0e7ef;
-            border: none;
-            border-radius: 50%;
-            font-size: 14px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--muted);
-            transition: background 0.15s;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .clear-btn:active { background: #c8d6e5; }
+.mode-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  background:var(--blue-lt);color:var(--blue);
+  border-radius:30px;padding:3px 10px;
+  font-size:.68rem;font-weight:600;margin-top:7px;
+}
 
-        /* ── Mode badge ── */
-        .mode-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            background: var(--primary-light);
-            color: var(--primary);
-            border-radius: 30px;
-            padding: 4px 12px;
-            font-size: 0.72rem;
-            font-weight: 600;
-            margin-top: 8px;
-        }
+/* ─── quick-field inputs ─── */
+.qf-grid{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:6px;
+  margin-top:4px;
+}
+.qf-item{display:flex;flex-direction:column;gap:3px}
+.qf-label{
+  font-size:.62rem;font-weight:700;
+  color:var(--sub);letter-spacing:.4px;text-align:center;
+}
+.qf-input{
+  width:100%;
+  padding:7px 6px;
+  font-size:14px;font-family:var(--mono);
+  text-align:center;
+  border:1.5px solid var(--border);
+  border-radius:6px;
+  background:#fafcff;
+  color:var(--text);
+  transition:border-color .15s;
+}
+.qf-input:focus{
+  outline:none;border-color:var(--blue);
+  box-shadow:0 0 0 2px rgba(26,95,168,0.12);
+}
+.qf-hint{
+  font-size:.62rem;color:#9aabb8;text-align:center;
+  margin-top:2px;
+}
 
-        /* ── Quick examples ── */
-        .examples-row {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-top: 10px;
-        }
-        .ex-chip {
-            padding: 7px 14px;
-            border-radius: 30px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            cursor: pointer;
-            border: 1.5px solid transparent;
-            -webkit-tap-highlight-color: transparent;
-            transition: opacity 0.15s;
-        }
-        .ex-chip:active { opacity: 0.7; }
-        .chip-seq  { background: #eef2fb; border-color: #c5d4f0; color: #2c5a7a; }
-        .chip-kv   { background: #e6f7ed; border-color: #b0dfbf; color: #1b6b3a; }
-        .chip-mix  { background: #fef3e7; border-color: #f0c07a; color: #7a4a00; }
+/* ─── example chips ─── */
+.chips-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.chip{
+  padding:6px 13px;border-radius:30px;font-size:.72rem;font-weight:600;
+  cursor:pointer;border:1.5px solid transparent;
+  transition:opacity .15s,transform .1s;white-space:nowrap;
+  user-select:none;
+}
+.chip:hover{opacity:.85}
+.chip:active{transform:scale(.96)}
+.chip-a{background:#eef2fb;border-color:#c4d3ef;color:#1f4a82}
+.chip-b{background:var(--green-lt);border-color:#a8d9bc;color:#155a2d}
+.chip-c{background:#fef3e0;border-color:#eec96b;color:#7a4900}
 
-        /* ── Legend ── */
-        .legend-toggle {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 11px 16px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--muted);
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .legend-toggle .arrow { transition: transform 0.2s; display: inline-block; }
-        .legend-toggle.open .arrow { transform: rotate(180deg); }
-        .legend-body {
-            display: none;
-            padding: 0 16px 14px;
-            border-top: 1px solid var(--border);
-        }
-        .legend-body.open { display: block; }
-        .legend-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 6px;
-            margin-top: 8px;
-        }
-        .legend-item {
-            background: var(--bg);
-            border-radius: 8px;
-            padding: 7px 10px;
-            font-size: 0.73rem;
-            color: var(--text);
-            line-height: 1.4;
-        }
-        .legend-item b { color: var(--primary); }
+/* ─── legend accordion ─── */
+.legend-trigger{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;cursor:pointer;font-size:.75rem;
+  font-weight:600;color:var(--sub);user-select:none;
+}
+.legend-arrow{transition:transform .2s;display:inline-block;font-style:normal}
+.legend-trigger.open .legend-arrow{transform:rotate(180deg)}
+.legend-panel{
+  display:none;border-top:1px solid var(--border);
+  padding:12px 16px 14px;
+}
+.legend-panel.open{display:block}
+.legend-tbl{
+  display:grid;grid-template-columns:1fr 1fr 1fr;
+  gap:5px;
+}
+.legend-cell{
+  background:var(--bg);border-radius:6px;
+  padding:6px 9px;font-size:.68rem;line-height:1.45;
+}
+.legend-cell b{color:var(--blue)}
+.legend-seq{
+  margin-top:8px;font-size:.68rem;color:var(--sub);
+  background:var(--bg);border-radius:6px;padding:7px 10px;line-height:1.6;
+}
+.legend-seq code{
+  background:#dce8f5;color:var(--blue);
+  padding:1px 4px;border-radius:3px;font-size:.68rem;
+}
 
-        /* ── Output: parking zone cards ── */
-        .zone-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-        }
-        .zone-card {
-            border-radius: var(--radius-sm);
-            padding: 10px 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-            border: 1.5px solid transparent;
-        }
-        .zone-card.full  { background: var(--red-light);    border-color: #f5b8b3; }
-        .zone-card.ok    { background: var(--green-light);  border-color: #9fd8b4; }
-        .zone-card.few   { background: var(--yellow-light); border-color: #f0d070; }
-        .zone-card.empty { background: #f3f5f8;             border-color: #dce4ec; }
-        .zone-name {
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .zone-status {
-            font-size: 1rem;
-            font-weight: 800;
-            line-height: 1.2;
-        }
-        .zone-card.full  .zone-status { color: var(--red); }
-        .zone-card.ok    .zone-status { color: var(--green); }
-        .zone-card.few   .zone-status { color: var(--yellow); }
-        .zone-card.empty .zone-status { color: #9aabb8; }
+/* ─── zone cards ─── */
+.zone-grid{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:7px;
+}
+.zone-card{
+  border-radius:var(--r-sm);padding:9px 8px 8px;
+  display:flex;flex-direction:column;gap:2px;
+  border:1.5px solid transparent;
+  transition:transform .12s;
+}
+.zone-card:hover{transform:translateY(-1px)}
+.zone-card.ok   {background:var(--green-lt);border-color:#9fd8b4}
+.zone-card.few  {background:var(--amber-lt);border-color:#ecc97a}
+.zone-card.full {background:var(--red-lt);  border-color:#f0b0aa}
+.zone-card.empty{background:#f2f5f9;        border-color:#d5e0ea}
+.zn{
+  font-size:.6rem;font-weight:700;color:var(--sub);
+  letter-spacing:.5px;text-transform:uppercase;
+}
+.zs{
+  font-size:.88rem;font-weight:800;line-height:1.2;margin-top:1px;
+}
+.zone-card.ok   .zs{color:var(--green)}
+.zone-card.few  .zs{color:var(--amber)}
+.zone-card.full .zs{color:var(--red)}
+.zone-card.empty .zs{color:#8fa0b2}
 
-        /* ── Report text (口播) ── */
-        #reportText {
-            background: var(--green-light);
-            border-left: 4px solid var(--green);
-            border-radius: var(--radius-sm);
-            padding: 14px 16px;
-            font-size: 0.9rem;
-            line-height: 1.85;
-            white-space: pre-wrap;
-            color: #1a3a28;
-            word-break: break-all;
-            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
-        }
+/* ─── report text ─── */
+#reportText{
+  background:var(--green-lt);
+  border-left:4px solid var(--green);
+  border-radius:var(--r-sm);
+  padding:13px 15px;
+  font-size:.88rem;line-height:1.9;
+  white-space:pre-wrap;
+  color:#173323;
+  font-family:var(--sans);
+  word-break:break-all;
+}
 
-        /* ── Excel output ── */
-        #excelOutput {
-            background: #eef4ff;
-            border: 1.5px solid #bdd4ff;
-            border-radius: var(--radius-sm);
-            padding: 12px 14px;
-            font-size: 0.78rem;
-            white-space: pre-wrap;
-            word-break: break-all;
-            color: #0c2b4b;
-            font-family: 'SF Mono', monospace;
-        }
+/* ─── excel output ─── */
+.excel-wrap{
+  background:#eef4ff;
+  border:1.5px solid #bdd4ff;
+  border-radius:var(--r-sm);
+  padding:11px 14px;
+  overflow-x:auto;
+}
+.excel-table{
+  border-collapse:collapse;
+  min-width:100%;
+  font-size:.76rem;
+}
+.excel-table th{
+  padding:4px 10px;background:#dce9ff;
+  color:#0c2b6a;font-weight:700;
+  border:1px solid #b6caee;
+  white-space:nowrap;font-size:.67rem;
+}
+.excel-table td{
+  padding:5px 10px;text-align:center;
+  border:1px solid #c8daef;
+  font-family:var(--mono);font-size:.78rem;
+  color:#0c2b4b;background:#f3f8ff;
+  white-space:nowrap;
+}
+#excelRaw{
+  display:none; /* hidden; only copied */
+}
 
-        /* ── Time bar ── */
-        .time-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 16px;
-            background: #f4f8ff;
-            border-bottom: 1px solid var(--border);
-        }
-        #timeDisplay {
-            font-size: 1.1rem;
-            font-weight: 800;
-            color: var(--primary);
-            font-feature-settings: "tnum";
-            font-variant-numeric: tabular-nums;
-        }
-        .refresh-time-btn {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 30px;
-            padding: 7px 14px;
-            font-size: 0.78rem;
-            font-weight: 700;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .refresh-time-btn:active { opacity: 0.8; }
+/* ─── copy buttons ─── */
+.btn-row{display:flex;gap:8px;margin-top:10px}
+.btn{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:10px 14px;border:none;border-radius:9px;
+  font-size:.82rem;font-weight:700;cursor:pointer;
+  transition:background .15s,transform .1s,opacity .15s;
+  white-space:nowrap;
+}
+.btn:hover{filter:brightness(1.08)}
+.btn:active{transform:scale(.97);opacity:.88}
+.btn-green{background:var(--green);color:#fff}
+.btn-blue {background:var(--blue); color:#fff}
+.btn-sm{
+  padding:6px 12px;font-size:.73rem;border-radius:7px;
+  flex:none;
+}
 
-        /* ── Sticky bottom buttons ── */
-        .sticky-btns {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(240,244,248,0.95);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-            display: flex;
-            gap: 10px;
-            box-shadow: 0 -1px 10px rgba(0,0,0,0.09);
-        }
-        .btn-main {
-            flex: 1;
-            padding: 15px 12px;
-            border: none;
-            border-radius: 14px;
-            font-size: 0.9rem;
-            font-weight: 700;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-            transition: opacity 0.15s, transform 0.1s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
-        .btn-main:active { opacity: 0.8; transform: scale(0.97); }
-        .btn-report { background: var(--green); color: white; }
-        .btn-excel  { background: var(--primary); color: white; }
+/* ─── responsive: mobile ≤ 760 ─── */
+@media(max-width:760px){
+  .page{
+    grid-template-columns:1fr;
+    grid-template-rows:auto;
+    padding:12px 12px 100px;
+    gap:12px;
+  }
+  .col-left{grid-column:1;grid-row:1}
+  .col-right{grid-column:1;grid-row:2}
+  .zone-grid{grid-template-columns:repeat(2,1fr)}
+  .qf-grid{grid-template-columns:repeat(5,1fr)}
+  .topbar-sub{display:none}
+  #clockDisplay{font-size:1.1rem}
+  .legend-tbl{grid-template-columns:1fr 1fr}
+  /* floating copy buttons on mobile */
+  .sticky-bar{
+    display:flex;
+    position:fixed;bottom:0;left:0;right:0;
+    background:rgba(240,244,249,.95);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    gap:10px;
+    box-shadow:0 -1px 10px rgba(0,0,0,.1);
+    z-index:15;
+  }
+  .sticky-bar .btn{padding:13px;font-size:.85rem}
+  .inline-btns{display:none}
+}
+@media(min-width:761px){
+  .sticky-bar{display:none}
+  .inline-btns{display:flex}
+}
 
-        /* ── Empty state ── */
-        .empty-hint {
-            text-align: center;
-            color: #b0bec8;
-            font-size: 0.82rem;
-            padding: 20px 0 10px;
-        }
-
-        /* ── Note ── */
-        .note-text {
-            font-size: 0.75rem;
-            color: var(--muted);
-            line-height: 1.65;
-            padding: 12px 16px;
-        }
-        .note-text code {
-            background: #eef2f9;
-            padding: 1px 5px;
-            border-radius: 4px;
-            font-size: 0.78rem;
-            color: var(--primary);
-        }
-    </style>
+/* ─── misc ─── */
+.empty-state{
+  text-align:center;color:#b0bec8;
+  font-size:.8rem;padding:18px 0 10px;
+  grid-column:1/-1;
+}
+.section-label{
+  font-size:.73rem;font-weight:700;
+  color:var(--sub);margin-bottom:4px;letter-spacing:.3px;
+}
+</style>
 </head>
 <body>
 
-<div class="header">
-    <h1>🚗 停車回報轉換</h1>
-    <p>混合輸入 · 自動產生中控回報 · Excel 數值</p>
-</div>
+<!-- ══ Top bar ══ -->
+<header class="topbar">
+  <div>
+    <div class="topbar-title">🚗 停車回報轉換</div>
+    <div class="topbar-sub">混合輸入 · 即時轉換 · 一鍵複製</div>
+  </div>
+  <div class="topbar-time">
+    <span id="clockDisplay">--:--</span>
+    <button id="refreshBtn">🔄 更新時間</button>
+  </div>
+</header>
 
-<div class="main">
+<div class="page">
 
-    <!-- ① 輸入卡 -->
+  <!-- ══════ LEFT COL ══════ -->
+  <div class="col-left">
+
+    <!-- 文字輸入 -->
     <div class="card">
-        <div class="card-header">📋 輸入數據</div>
-        <div class="card-body">
-            <div class="input-wrap">
-                <textarea id="dataInput"
-                    placeholder="範例1 (純順序): 465 285 8 8 0 0.1 x x x x&#10;範例2 (混合): 423 256 7 7 E=0.4&#10;範例3 (純簡稱): 一樓以上=320 P1=0.3 B=7 R=0"
-                    rows="3">423 256 7 7 E=0.4</textarea>
-                <button class="clear-btn" id="clearBtn" title="清除">✕</button>
-            </div>
-            <div class="mode-badge" id="modeIndicator">🧩 混合模式</div>
-
-            <div class="examples-row">
-                <span class="ex-chip chip-seq" data-val="465 285 8 8 0 0.1 x x x x">📋 純順序</span>
-                <span class="ex-chip chip-kv"  data-val="一樓以上=320 一樓以下=180 P1=0.3 B=7 R=0">🔑 純簡稱</span>
-                <span class="ex-chip chip-mix" data-val="423 256 7 7 E=0.4">✨ 混合</span>
-            </div>
+      <div class="card-head">
+        <span class="card-head-label">📋 文字輸入（空格分隔）</span>
+        <span class="mode-badge" id="modeIndicator">⚡ 等待輸入</span>
+      </div>
+      <div class="card-body">
+        <div class="input-wrap">
+          <textarea id="dataInput" rows="2"
+            placeholder="範例: 423 256 7 7 E=0.4&#10;支援順序、簡稱、混合三種模式"></textarea>
+          <button class="clear-btn" id="clearBtn" title="清除">✕</button>
         </div>
+        <div class="chips-row">
+          <span class="chip chip-a" data-val="465 285 8 8 0 0.1 x x x x">📋 純順序</span>
+          <span class="chip chip-b" data-val="一樓以上=320 一樓以下=180 P1=0.3 B=7 R=0">🔑 純簡稱</span>
+          <span class="chip chip-c" data-val="423 256 7 7 E=0.4">✨ 混合</span>
+        </div>
+      </div>
     </div>
 
-    <!-- ② 說明 (折疊) -->
+    <!-- 快速欄位輸入 -->
     <div class="card">
-        <div class="legend-toggle" id="legendToggle">
-            <span>📖 輸入說明 &amp; 欄位對照</span>
-            <span class="arrow">▼</span>
+      <div class="card-head">
+        <span class="card-head-label">⌨️ 快速欄位輸入</span>
+        <span style="font-size:.65rem;color:var(--sub)">Tab 切換 · Enter 確認</span>
+      </div>
+      <div class="card-body">
+        <div class="qf-grid" id="qfGrid">
+          <!-- generated by JS -->
         </div>
-        <div class="legend-body" id="legendBody">
-            <div class="legend-grid">
-                <div class="legend-item">🔢 車位區<br><b>整數</b> = 剩餘車位</div>
-                <div class="legend-item">🅿️ 成數區<br><b>8</b> = 尚有8成</div>
-                <div class="legend-item">🚗 台車區<br><b>0.1~0.9</b> = X台車</div>
-                <div class="legend-item">🈵 全滿<br><b>0</b> = 全滿</div>
-                <div class="legend-item">❌ 未停車<br><b>x</b> = 沒停車</div>
-                <div class="legend-item">🔤 簡稱<br><b>A~E</b>=紡A~E，<b>R</b>=柏油路</div>
-            </div>
-            <div class="note-text" style="padding:10px 0 0;">
-                順序：一樓以上、一樓以下、P1、P3、紡A、紡B、紡C、紡D、紡E、柏油路<br>
-                範例：<code>423 256 7 7 E=0.4</code> → 一樓以上=423，紡E=0.4台車，其餘x
-            </div>
+        <div class="qf-hint" style="margin-top:8px">
+          整數=車位/成數 &nbsp;·&nbsp; 0.1~0.9=台車 &nbsp;·&nbsp; 0=全滿 &nbsp;·&nbsp; x=未停車
         </div>
+      </div>
     </div>
 
-    <!-- ③ 停車狀況卡片 -->
+    <!-- 說明折疊 -->
     <div class="card">
-        <div class="card-header">🗺️ 各區停車狀況</div>
-        <div class="card-body" style="padding-top:10px;">
-            <div class="zone-grid" id="zoneGrid">
-                <div class="empty-hint" style="grid-column:1/-1">請輸入數據</div>
-            </div>
+      <div class="legend-trigger" id="legendTrigger">
+        <span>📖 輸入說明 &amp; 欄位對照</span>
+        <i class="legend-arrow">▼</i>
+      </div>
+      <div class="legend-panel" id="legendPanel">
+        <div class="legend-tbl">
+          <div class="legend-cell">🔢 車格數區<br><b>整數</b> = 剩餘車位</div>
+          <div class="legend-cell">🅿️ 成數區<br><b>8</b> = 尚有 8 成</div>
+          <div class="legend-cell">🚗 台車<br><b>0.1~0.9</b> = X 台車</div>
+          <div class="legend-cell">🈵 全滿<br><b>0</b></div>
+          <div class="legend-cell">❌ 未停車<br><b>x</b></div>
+          <div class="legend-cell">🔤 簡稱<br><b>A~E</b>=紡 A~E &nbsp;<b>R</b>=柏油路</div>
         </div>
+        <div class="legend-seq">
+          <b>欄位順序：</b>一樓以上、一樓以下、P1、P3、紡A、紡B、紡C、紡D、紡E、柏油路<br>
+          <b>範例：</b><code>423 256 7 7 E=0.4</code> → 一樓以上=423，紡E=尚有4台車，其餘 x
+        </div>
+      </div>
     </div>
 
-    <!-- ④ 中控回報 -->
+  </div><!-- /col-left -->
+
+  <!-- ══════ RIGHT COL ══════ -->
+  <div class="col-right">
+
+    <!-- 各區狀況 -->
     <div class="card">
-        <div class="time-bar">
-            <div>
-                <div style="font-size:0.7rem;color:var(--muted);font-weight:600;margin-bottom:2px;">回報時間</div>
-                <div id="timeDisplay">--:--</div>
-            </div>
-            <button class="refresh-time-btn" id="refreshTimeBtn">🔄 更新時間</button>
+      <div class="card-head">
+        <span class="card-head-label">🗺️ 各區停車狀況</span>
+      </div>
+      <div class="card-body">
+        <div class="zone-grid" id="zoneGrid">
+          <div class="empty-state">請輸入數據</div>
         </div>
-        <div class="card-header" style="border-top:none;">📢 中控回報格式（口播）</div>
-        <div class="card-body" style="padding-top:0;">
-            <div id="reportText">請輸入數據後自動產生…</div>
-        </div>
+      </div>
     </div>
 
-    <!-- ⑤ Excel 輸出 -->
+    <!-- 中控回報 -->
     <div class="card">
-        <div class="card-header">📎 假日停車場 Excel 數值</div>
-        <div class="card-body">
-            <div id="excelOutput">請輸入數據後自動產生…</div>
+      <div class="card-head">
+        <span class="card-head-label">📢 中控回報（口播）</span>
+      </div>
+      <div class="card-body">
+        <div id="reportText" style="color:#9aabb8;font-size:.85rem">請輸入數據後自動產生…</div>
+        <div class="btn-row inline-btns" style="margin-top:12px">
+          <button class="btn btn-green" id="copyReportBtnD">📋 複製中控回報</button>
         </div>
+      </div>
     </div>
 
-    <div class="note-text" style="color:#9aabb8;text-align:center;font-size:0.7rem;">
-        台車數以阿拉伯數字顯示 · 時間格式 HH:MM
+    <!-- Excel 輸出 -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-head-label">📎 假日停車場 Excel 數值</span>
+      </div>
+      <div class="card-body">
+        <div class="excel-wrap">
+          <table class="excel-table" id="excelTable">
+            <thead><tr id="excelHead"></tr></thead>
+            <tbody><tr id="excelBody"></tr></tbody>
+          </table>
+        </div>
+        <div id="excelRaw"></div>
+        <div class="btn-row inline-btns" style="margin-top:10px">
+          <button class="btn btn-blue" id="copyExcelBtnD">📎 複製 Excel 值（Tab 分隔）</button>
+        </div>
+      </div>
     </div>
 
-</div>
+  </div><!-- /col-right -->
 
-<!-- 固定底部按鈕 -->
-<div class="sticky-btns">
-    <button class="btn-main btn-report" id="copyReportBtn">📋 複製中控回報</button>
-    <button class="btn-main btn-excel"  id="copyExcelBtn">📎 複製 Excel 值</button>
+</div><!-- /page -->
+
+<!-- Mobile sticky bar -->
+<div class="sticky-bar">
+  <button class="btn btn-green" id="copyReportBtnM">📋 複製中控回報</button>
+  <button class="btn btn-blue"  id="copyExcelBtnM">📎 複製 Excel 值</button>
 </div>
 
 <script>
-    const labels = ["一樓以上","一樓以下","P1","P3","紡A","紡B","紡C","紡D","紡E","柏油路"];
-    const aliasMap = { A:"紡A", B:"紡B", C:"紡C", D:"紡D", E:"紡E", R:"柏油路" };
+/* ═══ DATA ═══ */
+const LABELS    = ["一樓以上","一樓以下","P1","P3","紡A","紡B","紡C","紡D","紡E","柏油路"];
+const ALIAS_MAP = {A:"紡A",B:"紡B",C:"紡C",D:"紡D",E:"紡E",R:"柏油路"};
+const IS_CAR    = [true,true,false,false,false,false,false,false,false,false];
 
-    // ─ DOM
-    const dataInput      = document.getElementById('dataInput');
-    const modeIndicator  = document.getElementById('modeIndicator');
-    const zoneGrid       = document.getElementById('zoneGrid');
-    const reportText     = document.getElementById('reportText');
-    const excelOutput    = document.getElementById('excelOutput');
-    const timeDisplay    = document.getElementById('timeDisplay');
-    const copyReportBtn  = document.getElementById('copyReportBtn');
-    const copyExcelBtn   = document.getElementById('copyExcelBtn');
-    const clearBtn       = document.getElementById('clearBtn');
-    const refreshTimeBtn = document.getElementById('refreshTimeBtn');
-    const legendToggle   = document.getElementById('legendToggle');
-    const legendBody     = document.getElementById('legendBody');
+/* ═══ STATE ═══ */
+let currentTime = new Date();
+let qfValues    = new Array(LABELS.length).fill('x'); // mirrors each QF input
 
-    let currentTime = new Date();
+/* ═══ DOM ═══ */
+const $  = id => document.getElementById(id);
+const dataInput       = $('dataInput');
+const clearBtn        = $('clearBtn');
+const modeIndicator   = $('modeIndicator');
+const zoneGrid        = $('zoneGrid');
+const reportText      = $('reportText');
+const excelHead       = $('excelHead');
+const excelBody       = $('excelBody');
+const excelRaw        = $('excelRaw');
+const clockDisplay    = $('clockDisplay');
+const refreshBtn      = $('refreshBtn');
+const legendTrigger   = $('legendTrigger');
+const legendPanel     = $('legendPanel');
 
-    // ─ 說明折疊
-    legendToggle.addEventListener('click', () => {
-        const open = legendBody.classList.toggle('open');
-        legendToggle.classList.toggle('open', open);
-    });
+/* ═══ BUILD QUICK-FIELD INPUTS ═══ */
+const qfGrid = $('qfGrid');
+LABELS.forEach((lbl, i) => {
+  const wrap = document.createElement('div');
+  wrap.className = 'qf-item';
+  wrap.innerHTML = `<div class="qf-label">${lbl}</div>
+    <input class="qf-input" type="text" id="qf${i}" value="x" maxlength="8"
+      autocomplete="off" autocorrect="off" spellcheck="false">`;
+  qfGrid.appendChild(wrap);
 
-    // ─ 正規化 key
-    function normalizeKey(key) {
-        if (labels.includes(key)) return key;
-        return aliasMap[key] || null;
+  const inp = wrap.querySelector('input');
+  inp.addEventListener('input', () => {
+    syncQfToText();
+    updateAll('qf');
+  });
+  inp.addEventListener('focus', () => inp.select());
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const next = document.getElementById(`qf${i+1}`);
+      if (next) { next.focus(); next.select(); }
     }
+  });
+});
 
-    // ─ 混合解析
-    function parseMixedMode(inputStr) {
-        const result = new Array(labels.length).fill('x');
-        const tokens = inputStr.trim().split(/\s+/).filter(t => t !== '');
-        if (!tokens.length) return result;
+/* ═══ LEGEND TOGGLE ═══ */
+legendTrigger.addEventListener('click', () => {
+  const open = legendPanel.classList.toggle('open');
+  legendTrigger.classList.toggle('open', open);
+});
 
-        const plains = [], pairs = [];
-        tokens.forEach(t => (t.includes('=') ? pairs : plains).push(t));
+/* ═══ PARSING ═══ */
+function normalizeKey(k) {
+  if (LABELS.includes(k)) return k;
+  return ALIAS_MAP[k] || null;
+}
 
-        plains.forEach((v, i) => { if (i < labels.length) result[i] = v; });
+function parseText(str) {
+  const result = new Array(LABELS.length).fill('x');
+  const tokens = str.trim().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return result;
+  const plains = [], pairs = [];
+  tokens.forEach(t => (t.includes('=') ? pairs : plains).push(t));
+  plains.forEach((v, i) => { if (i < LABELS.length) result[i] = v; });
+  const labelIdx = Object.fromEntries(LABELS.map((l,i) => [l,i]));
+  pairs.forEach(pair => {
+    const eq = pair.indexOf('=');
+    if (eq === -1) return;
+    const key = pair.slice(0,eq).trim();
+    const val = pair.slice(eq+1).trim();
+    const full = normalizeKey(key);
+    if (full != null && labelIdx[full] !== undefined) result[labelIdx[full]] = val;
+  });
+  return result;
+}
 
-        const labelIdx = {};
-        labels.forEach((l, i) => labelIdx[l] = i);
+/* ═══ SYNC: text → QF inputs ═══ */
+function syncTextToQf(tokens) {
+  tokens.forEach((v, i) => {
+    const el = document.getElementById(`qf${i}`);
+    if (el && el !== document.activeElement) el.value = v;
+  });
+}
 
-        pairs.forEach(pair => {
-            const eq = pair.indexOf('=');
-            if (eq === -1) return;
-            const key = pair.slice(0, eq).trim();
-            const val = pair.slice(eq + 1).trim();
-            const full = normalizeKey(key);
-            if (full && labelIdx.hasOwnProperty(full)) result[labelIdx[full]] = val;
-        });
-        return result;
+/* ═══ SYNC: QF → text ═══ */
+function syncQfToText() {
+  const vals = LABELS.map((_, i) => {
+    const el = document.getElementById(`qf${i}`);
+    return el ? el.value.trim() || 'x' : 'x';
+  });
+  dataInput.value = vals.join(' ');
+}
+
+/* ═══ ZONE INFO ═══ */
+function zoneInfo(i, raw) {
+  const v = (raw ?? 'x').toString().toLowerCase().trim() || 'x';
+  if (v === 'x')  return {cls:'empty', s:'未停車'};
+  if (v === '0')  return {cls:'full',  s:'全滿 🈵'};
+  if (IS_CAR[i])  return {cls:'ok',    s:`${v} 車位`};
+  if (v.startsWith('0.')) {
+    const n = parseInt(v.slice(2),10) || 0;
+    if (!n) return {cls:'full', s:'全滿 🈵'};
+    return {cls:'few', s:`尚有 ${n} 台`};
+  }
+  const n = parseInt(v,10);
+  if (!isNaN(n)) {
+    return {cls: n>=7?'ok': n>=4?'few':'full', s:`${n} 成`};
+  }
+  return {cls:'empty', s:v};
+}
+
+/* ═══ EXCEL TEXT ═══ */
+function toExcel(i, raw) {
+  const v = (raw ?? 'x').toString().toLowerCase().trim() || 'x';
+  if (v === 'x')  return '未停車';
+  if (v === '0')  return '滿';
+  if (IS_CAR[i])  return v;
+  if (v.startsWith('0.')) {
+    const n = parseInt(v.slice(2),10) || 0;
+    return n ? `${n}台車` : '滿';
+  }
+  const n = parseInt(v,10);
+  return isNaN(n) ? v : `${n}成`;
+}
+
+/* ═══ REPORT ═══ */
+function buildReport(tokens, t) {
+  const hm = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+  let out = `中控回報:\n${hm} 保全回報停車情況：\n`;
+  LABELS.forEach((lbl, i) => {
+    const v = (tokens[i] ?? 'x').toString().toLowerCase().trim();
+    if (IS_CAR[i]) {
+      if (v==='x')  out += `${lbl} 沒停車\n`;
+      else if (v==='0') out += `${lbl} 全滿\n`;
+      else out += `${lbl}${v}車位\n`;
+    } else {
+      if (v==='x')  out += `${lbl} 沒停車\n`;
+      else if (v==='0') out += `${lbl} 全滿\n`;
+      else if (v.startsWith('0.')) out += `${lbl} 尚有${v.slice(2)}台車\n`;
+      else out += `${lbl} 尚有${v}成車位\n`;
     }
+  });
+  return out.trim();
+}
 
-    // ─ 取得狀態類別 & 顯示文字
-    function getZoneInfo(index, raw) {
-        const val = (raw ?? 'x').toString().toLowerCase().trim() || 'x';
-        const isCar = index <= 1; // 車格數區
+/* ═══ MAIN UPDATE ═══ */
+let lastSource = 'text';
 
-        if (val === 'x') return { cls: 'empty', label: '未停車' };
-        if (val === '0') return { cls: 'full',  label: '全滿 🈵' };
+function updateAll(source) {
+  if (source) lastSource = source;
+  const input = dataInput.value.trim();
+  clockDisplay.textContent = `${String(currentTime.getHours()).padStart(2,'0')}:${String(currentTime.getMinutes()).padStart(2,'0')}`;
 
-        if (isCar) {
-            return { cls: 'ok', label: `${val} 車位` };
-        }
+  if (!input) {
+    zoneGrid.innerHTML = '<div class="empty-state">請輸入數據</div>';
+    reportText.textContent = '請輸入數據後自動產生…';
+    reportText.style.color = '#9aabb8';
+    excelHead.innerHTML = '';
+    excelBody.innerHTML = '';
+    excelRaw.textContent = '';
+    modeIndicator.textContent = '⚡ 等待輸入';
+    modeIndicator.style.cssText = 'background:#e9ecef;color:#637285';
+    return;
+  }
 
-        if (val.startsWith('0.')) {
-            const n = parseInt(val.slice(2), 10) || 0;
-            if (n === 0) return { cls: 'full', label: '全滿 🈵' };
-            return { cls: 'few', label: `尚有 ${n} 台車` };
-        }
+  const tokens = parseText(input);
 
-        const n = parseInt(val, 10);
-        if (!isNaN(n)) {
-            const cls = n >= 7 ? 'ok' : n >= 4 ? 'few' : 'full';
-            return { cls, label: `${n} 成車位` };
-        }
-        return { cls: 'empty', label: val };
-    }
+  // sync to QF only when text input was the source
+  if (lastSource === 'text') syncTextToQf(tokens);
 
-    // ─ Excel 文字
-    function toExcelText(index, raw) {
-        const val = (raw ?? 'x').toString().toLowerCase().trim() || 'x';
-        const isCar = index <= 1;
-        if (val === 'x') return '未停車';
-        if (val === '0') return '滿';
-        if (isCar) return val;
-        if (val.startsWith('0.')) {
-            const n = parseInt(val.slice(2), 10) || 0;
-            return n === 0 ? '滿' : `${n}台車`;
-        }
-        const n = parseInt(val, 10);
-        return isNaN(n) ? val : `${n}成`;
-    }
+  // mode badge
+  const hasEq  = input.includes('=');
+  const hasNum = /\d/.test(input) && !/^\s*([^\s=]+=\S+\s*)+$/.test(input);
+  modeIndicator.textContent = hasEq&&hasNum ? '🧩 混合模式' : hasEq ? '✨ 簡稱模式' : '🔁 順序模式';
+  modeIndicator.style.cssText = 'background:var(--blue-lt);color:var(--blue)';
 
-    // ─ 格式化時間
-    function fmtTime(d) {
-        return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-    }
+  // zones
+  zoneGrid.innerHTML = LABELS.map((lbl,i) => {
+    const {cls,s} = zoneInfo(i, tokens[i]);
+    return `<div class="zone-card ${cls}"><div class="zn">${lbl}</div><div class="zs">${s}</div></div>`;
+  }).join('');
 
-    // ─ 產生中控回報
-    function buildReport(tokens, time) {
-        let t = `中控回報:\n${fmtTime(time)} 保全回報停車情況：\n`;
-        labels.forEach((lbl, i) => {
-            const val = (tokens[i] ?? 'x').toString().toLowerCase().trim();
-            if (i <= 1) {
-                if (val === 'x') t += `${lbl} 沒停車\n`;
-                else if (val === '0') t += `${lbl} 全滿\n`;
-                else t += `${lbl}${val}車位\n`;
-            } else {
-                if (val === 'x') t += `${lbl} 沒停車\n`;
-                else if (val === '0') t += `${lbl} 全滿\n`;
-                else if (val.startsWith('0.')) {
-                    const d = val.slice(2);
-                    t += `${lbl} 尚有${d}台車\n`;
-                } else {
-                    t += `${lbl} 尚有${val}成車位\n`;
-                }
-            }
-        });
-        return t.trim();
-    }
+  // report
+  const rpt = buildReport(tokens, currentTime);
+  reportText.textContent = rpt;
+  reportText.style.color = '';
 
-    // ─ 主更新
-    function updateAll() {
-        const input = dataInput.value.trim();
-        timeDisplay.textContent = fmtTime(currentTime);
+  // excel table
+  excelHead.innerHTML = LABELS.map(l => `<th>${l}</th>`).join('');
+  excelBody.innerHTML = LABELS.map((_,i) => `<td>${toExcel(i,tokens[i])}</td>`).join('');
+  excelRaw.textContent = LABELS.map((_,i) => toExcel(i,tokens[i])).join('\t');
+}
 
-        if (!input) {
-            zoneGrid.innerHTML = '<div class="empty-hint" style="grid-column:1/-1">請輸入數據</div>';
-            reportText.textContent = '請輸入數據後自動產生…';
-            excelOutput.textContent = '請輸入數據後自動產生…';
-            modeIndicator.textContent = '⚡ 等待輸入';
-            modeIndicator.style.background = '#e9ecef';
-            modeIndicator.style.color = '#637285';
-            return;
-        }
+/* ═══ COPY ═══ */
+async function copyStr(str, btn) {
+  if (!str || str.startsWith('請輸入')) { alert('尚無可複製的內容'); return; }
+  try {
+    await navigator.clipboard.writeText(str);
+    const orig = btn.textContent;
+    btn.textContent = '✅ 已複製！';
+    setTimeout(() => btn.textContent = orig, 1400);
+  } catch { alert('複製失敗，請手動選取文字'); }
+}
+function copyReport(btn) { copyStr(reportText.textContent, btn); }
+function copyExcel(btn)  { copyStr(excelRaw.textContent, btn); }
 
-        const tokens = parseMixedMode(input);
+['copyReportBtnD','copyReportBtnM'].forEach(id => {
+  $(id)?.addEventListener('click', e => copyReport(e.currentTarget));
+});
+['copyExcelBtnD','copyExcelBtnM'].forEach(id => {
+  $(id)?.addEventListener('click', e => copyExcel(e.currentTarget));
+});
 
-        // 模式提示
-        const hasEq = input.includes('=');
-        const hasNum = /\d/.test(input) && !/^\s*([^\s=]+=\S+\s*)+$/.test(input);
-        if (hasEq && hasNum) {
-            modeIndicator.textContent = '🧩 混合模式（順序 + 鍵值對）';
-        } else if (hasEq) {
-            modeIndicator.textContent = '✨ 純簡稱模式';
-        } else {
-            modeIndicator.textContent = '🔁 純順序模式';
-        }
-        modeIndicator.style.background = '#e8f0fb';
-        modeIndicator.style.color = 'var(--primary)';
+/* ═══ EVENTS ═══ */
+dataInput.addEventListener('input', () => updateAll('text'));
 
-        // 區域卡片
-        zoneGrid.innerHTML = labels.map((lbl, i) => {
-            const { cls, label } = getZoneInfo(i, tokens[i]);
-            return `<div class="zone-card ${cls}">
-                <div class="zone-name">${lbl}</div>
-                <div class="zone-status">${label}</div>
-            </div>`;
-        }).join('');
+clearBtn.addEventListener('click', () => {
+  dataInput.value = '';
+  LABELS.forEach((_,i) => {
+    const el = document.getElementById(`qf${i}`);
+    if (el) el.value = 'x';
+  });
+  dataInput.focus();
+  updateAll('text');
+});
 
-        // 中控回報
-        reportText.textContent = buildReport(tokens, currentTime);
+refreshBtn.addEventListener('click', () => {
+  currentTime = new Date();
+  updateAll();
+  const orig = refreshBtn.textContent;
+  refreshBtn.textContent = '✅ 已更新';
+  setTimeout(() => refreshBtn.textContent = orig, 1300);
+});
 
-        // Excel
-        excelOutput.textContent = labels.map((_, i) => toExcelText(i, tokens[i])).join('\t');
-    }
+document.querySelectorAll('.chip').forEach(c => {
+  c.addEventListener('click', () => {
+    dataInput.value = c.dataset.val;
+    updateAll('text');
+  });
+});
 
-    // ─ 更新時間
-    function refreshTime() {
-        currentTime = new Date();
-        updateAll();
-        refreshTimeBtn.textContent = '✅ 已更新';
-        setTimeout(() => refreshTimeBtn.textContent = '🔄 更新時間', 1200);
-    }
-
-    // ─ 複製
-    async function copyText(text, btn, label) {
-        if (!text || text.startsWith('請輸入')) { alert('尚無可複製的內容'); return; }
-        try {
-            await navigator.clipboard.writeText(text);
-            const orig = btn.textContent;
-            btn.textContent = '✅ 已複製！';
-            setTimeout(() => btn.textContent = orig, 1400);
-        } catch {
-            alert('複製失敗，請手動選取文字');
-        }
-    }
-
-    // ─ 事件綁定
-    dataInput.addEventListener('input', updateAll);
-
-    clearBtn.addEventListener('click', () => {
-        dataInput.value = '';
-        dataInput.focus();
-        updateAll();
-    });
-
-    refreshTimeBtn.addEventListener('click', refreshTime);
-
-    copyReportBtn.addEventListener('click', () =>
-        copyText(reportText.textContent, copyReportBtn, '中控回報'));
-    copyExcelBtn.addEventListener('click', () =>
-        copyText(excelOutput.textContent, copyExcelBtn, 'Excel'));
-
-    document.querySelectorAll('.ex-chip').forEach(chip => {
-        chip.addEventListener('click', () => {
-            dataInput.value = chip.dataset.val;
-            updateAll();
-            dataInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        });
-    });
-
-    // ─ 初始化
-    currentTime = new Date();
-    updateAll();
+/* ═══ INIT ═══ */
+currentTime = new Date();
+dataInput.value = '423 256 7 7 E=0.4';
+updateAll('text');
+dataInput.focus();
+dataInput.select();
 </script>
 </body>
 </html>
