@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>停車回報產生器 - 智能跳項版 (含複製中控)</title>
+    <title>停車回報產生器 - 智能跳項版 (Excel輸出「滿」)</title>
     <style>
         * {
             box-sizing: border-box;
@@ -190,7 +190,7 @@
             <span>🅿️ 成數區: 8 → 8成</span>
             <span>🔢 0.1~0.9 → X台車</span>
             <span>❌ x → 沒停車</span>
-            <span>🈵 0 → 全滿</span>
+            <span>🈵 0 → 滿 (Excel輸出)</span>
         </div>
     </div>
 
@@ -202,7 +202,7 @@
         <button id="copyReportBtn" class="btn-secondary">📋 複製中控回報內容</button>
     </div>
 
-    <div class="label-text">📎 Excel 備註欄 (智能轉換: 數字/幾成/未停車/幾台車)</div>
+    <div class="label-text">📎 Excel 備註欄 (智能轉換: 數字/幾成/未停車/幾台車/滿)</div>
     <div class="card-output">
         <div id="excelOutput"></div>
     </div>
@@ -216,7 +216,8 @@
         🧠 <strong>模式② 跳項模式(靈活)</strong>：使用「<strong>區域名稱=數值</strong>」格式，多組用空格分開。<br>
         &nbsp;&nbsp;👉 支援的區域名稱：<strong>一樓以上、一樓以下、P1、P3、紡A、紡B、紡C、紡D、紡E、柏油路</strong><br>
         &nbsp;&nbsp;👉 範例：<code>一樓以上=120 P1=0.2 柏油路=6</code> → 未指定的區域自動設為「x」(沒停車)<br>
-        ✅ 數字格式：車位區直接寫數字 (如 120)、成數區寫整數 (如 8)、台車寫 0.1~0.9、全滿寫 0、沒停車寫 x。
+        ✅ 數字格式：車位區直接寫數字 (如 120)、成數區寫整數 (如 8)、台車寫 0.1~0.9、全滿寫 0、沒停車寫 x。<br>
+        📌 <strong>Excel輸出調整</strong>：原本「全滿」現已改為「滿」，更簡潔。
     </div>
 </div>
 
@@ -235,7 +236,7 @@
     const copyReportBtn = document.getElementById('copyReportBtn');
     const copyExcelBtn = document.getElementById('copyExcelBtn');
     
-    // ----- 核心: 將原始值轉為 Excel 備註文字 -----
+    // ----- 核心: 將原始值轉為 Excel 備註文字 (修改: 全滿 → 滿) -----
     function convertToExcelText(index, rawVal) {
         let val = (rawVal !== undefined && rawVal !== null) ? rawVal.toString().toLowerCase().trim() : 'x';
         if (val === '') val = 'x';
@@ -244,19 +245,19 @@
         
         if (isCarCountArea) {
             if (val === 'x') return '未停車';
-            if (val === '0') return '全滿';
+            if (val === '0') return '滿';      // 原「全滿」改為「滿」
             return val;   // 保留原始數字
         }
         
         // 成數 / 剩餘台車區域
         if (val === 'x') return '未停車';
-        if (val === '0') return '全滿';
+        if (val === '0') return '滿';          // 原「全滿」改為「滿」
         
         if (val.startsWith('0.')) {
             let decimalPart = val.substring(2);
             let carCount = parseInt(decimalPart, 10);
             if (isNaN(carCount)) carCount = 0;
-            if (carCount === 0) return '全滿';
+            if (carCount === 0) return '滿';   // 原「全滿」改為「滿」
             return `${carCount}台車`;
         }
         
@@ -267,7 +268,7 @@
         return val;
     }
     
-    // 產生中控回報文字 (保留原有格式，未修改時區)
+    // 產生中控回報文字 (保持原有格式，不影響)
     function generateReportText(tokens, nowTime) {
         const hh = String(nowTime.getHours()).padStart(2, '0');
         const mm = String(nowTime.getMinutes()).padStart(2, '0');
@@ -281,7 +282,7 @@
                 if (val === 'x') {
                     resultText += `${labels[i]} 沒停車\n`;
                 } else if (val === '0') {
-                    resultText += `${labels[i]} 全滿\n`;
+                    resultText += `${labels[i]} 全滿\n`;   // 中控回報維持「全滿」口語
                 } else {
                     resultText += `${labels[i]}${val}車位\n`;
                 }
@@ -289,7 +290,7 @@
                 if (val === 'x') {
                     resultText += `${labels[i]} 沒停車\n`;
                 } else if (val === '0') {
-                    resultText += `${labels[i]} 全滿\n`;
+                    resultText += `${labels[i]} 全滿\n`;   // 中控回報維持「全滿」
                 } else if (val.startsWith('0.')) {
                     const digit = val.substring(2);
                     const ch = zhNum[digit] || digit;
