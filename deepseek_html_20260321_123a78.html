@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>停車回報產生器 - 智能跳項版</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            padding: 20px;
+            background-color: #eef2f5;
+            margin: 0;
+        }
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 24px 28px;
+            border-radius: 28px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+            border: 1px solid #dce4ec;
+        }
+        h2 {
+            margin-top: 0;
+            font-size: 1.7rem;
+            font-weight: 600;
+            color: #1e466e;
+            border-left: 5px solid #2196f3;
+            padding-left: 16px;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            font-weight: 600;
+            color: #2c3e4f;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+        #dataInput {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 15px;
+            border: 1px solid #cbd5e1;
+            border-radius: 20px;
+            box-sizing: border-box;
+            transition: 0.2s;
+            background-color: #fefefe;
+            font-family: 'SF Mono', 'Cascadia Code', monospace;
+            resize: vertical;
+        }
+        #dataInput:focus {
+            border-color: #2196f3;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(33,150,243,0.2);
+        }
+        .mode-badge {
+            display: inline-block;
+            background: #e9ecef;
+            border-radius: 40px;
+            padding: 4px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-top: 8px;
+            color: #2c5a7a;
+        }
+        .label-text {
+            font-size: 13px;
+            font-weight: 600;
+            margin: 16px 0 8px 0;
+            color: #1f4e79;
+            letter-spacing: 0.3px;
+        }
+        .card-output {
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #e2edf7;
+        }
+        #outputArea {
+            background-color: #eaf7e0;
+            min-height: 140px;
+            white-space: pre-wrap;
+            font-family: 'SF Mono', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.55;
+            padding: 14px 18px;
+            border-radius: 18px;
+            color: #1f3b2c;
+            border-left: 5px solid #4caf50;
+        }
+        #excelOutput {
+            background-color: #eef4ff;
+            min-height: 52px;
+            padding: 14px 18px;
+            border-radius: 18px;
+            font-family: 'SF Mono', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            border: 1px solid #bdd4ff;
+            color: #0c2b4b;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #1e6f3f;
+            color: white;
+            border: none;
+            border-radius: 60px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        button:hover {
+            background: #0f5a34;
+            transform: translateY(-1px);
+        }
+        .note {
+            font-size: 12px;
+            color: #2c5a7a;
+            background: #f1f5f9;
+            padding: 10px 14px;
+            border-radius: 18px;
+            margin-top: 14px;
+            line-height: 1.5;
+        }
+        .note strong {
+            color: #1e466e;
+        }
+        hr {
+            margin: 14px 0;
+            border: 0;
+            height: 1px;
+            background: linear-gradient(to right, #d0dfed, transparent);
+        }
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 12px;
+            background: #f9fbfd;
+            padding: 8px 12px;
+            border-radius: 20px;
+            margin: 8px 0 0;
+        }
+        .legend span {
+            background: white;
+            padding: 2px 8px;
+            border-radius: 20px;
+            border: 1px solid #dce4ec;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🚗 停車回報轉換器 <span style="font-size: 0.8rem;">(跳項/順序 雙模式)</span></h2>
+    <div class="input-group">
+        <label>📋 輸入數據 (支援兩種模式)</label>
+        <input type="text" id="dataInput" 
+               placeholder="模式1 (順序) : 465 285 8 8 0 0.1 x x x x&#10;模式2 (跳項) : 一樓以上=120 一樓以下=45 P1=0.3 紡C=x 柏油路=0" 
+               value="465 285 8 8 0 0.1 x x x x">
+        <div class="mode-badge" id="modeIndicator">⚡ 目前解析模式: 順序模式 (空格順序)</div>
+        <div class="legend">
+            <span>🚗 車位區: 數字=車位數</span>
+            <span>🅿️ 成數區: 8 → 8成</span>
+            <span>🔢 0.1~0.9 → X台車</span>
+            <span>❌ x → 沒停車</span>
+            <span>🈵 0 → 全滿</span>
+        </div>
+    </div>
+
+    <div class="label-text">📢 中控回報格式 (口播/紀錄)</div>
+    <div class="card-output">
+        <div id="outputArea"></div>
+    </div>
+
+    <div class="label-text">📎 Excel 備註欄 (智能轉換: 數字/幾成/未停車/幾台車)</div>
+    <div class="card-output">
+        <div id="excelOutput"></div>
+    </div>
+    <button onclick="copyExcel()">📋 複製 Excel 數值 (制表符分隔)</button>
+    
+    <div class="note">
+        <strong>✨ 雙模式說明 (保留快速輸入 + 新增跳項輸入)</strong><br>
+        🚀 <strong>模式① 順序模式(快速)</strong>：直接輸入10個值，用<strong>空格</strong>分隔。少於10個自動補「x」，多於10個忽略。<br>
+        🧠 <strong>模式② 跳項模式(靈活)</strong>：使用「<strong>區域名稱=數值</strong>」格式，多組用空格分開。<br>
+        &nbsp;&nbsp;👉 支援的區域名稱：<strong>一樓以上、一樓以下、P1、P3、紡A、紡B、紡C、紡D、紡E、柏油路</strong><br>
+        &nbsp;&nbsp;👉 範例：<code>一樓以上=120 P1=0.2 柏油路=6</code> → 未指定的區域自動設為「x」(沒停車)<br>
+        ✅ 數字格式：車位區直接寫數字 (如 120)、成數區寫整數 (如 8)、台車寫 0.1~0.9、全滿寫 0、沒停車寫 x。
+    </div>
+</div>
+
+<script>
+    // 固定欄位順序與標籤 (用於索引對照)
+    const labels = ["一樓以上", "一樓以下", "P1", "P3", "紡A", "紡B", "紡C", "紡D", "紡E", "柏油路"];
+    
+    // 中文數字轉換 (用於中控回報 台車顯示美觀)
+    const zhNum = {'1':'一', '2':'兩', '3':'三', '4':'四', '5':'五', '6':'六', '7':'七', '8':'八', '9':'九', '10':'十'};
+    
+    // DOM 元素
+    const dataInput = document.getElementById('dataInput');
+    const outputArea = document.getElementById('outputArea');
+    const excelOutput = document.getElementById('excelOutput');
+    const modeIndicator = document.getElementById('modeIndicator');
+    
+    // ----- 核心: 將原始值轉為 Excel 備註文字 (完全保留原有邏輯，未改動) -----
+    function convertToExcelText(index, rawVal) {
+        let val = (rawVal !== undefined && rawVal !== null) ? rawVal.toString().toLowerCase().trim() : 'x';
+        if (val === '') val = 'x';
+        
+        const isCarCountArea = (index === 0 || index === 1);  // 一樓以上 / 一樓以下 => 車格數區
+        
+        if (isCarCountArea) {
+            if (val === 'x') return '未停車';
+            if (val === '0') return '全滿';
+            return val;   // 保留原始數字 (如 "8", "120", "465")
+        }
+        
+        // 成數 / 剩餘台車區域 (P1, P3, 紡A ~ 柏油路)
+        if (val === 'x') return '未停車';
+        if (val === '0') return '全滿';
+        
+        // 處理 0.1, 0.2 ... 0.9, 0.10 等 (尚有幾台車)
+        if (val.startsWith('0.')) {
+            let decimalPart = val.substring(2);
+            let carCount = parseInt(decimalPart, 10);
+            if (isNaN(carCount)) carCount = 0;
+            if (carCount === 0) return '全滿';
+            return `${carCount}台車`;
+        }
+        
+        // 一般成數 (整數數字)
+        let numberValue = parseInt(val, 10);
+        if (!isNaN(numberValue)) {
+            return `${numberValue}成`;
+        }
+        return val;
+    }
+    
+    // 產生中控回報文字 (原版規則，保持不變)
+    function generateReportText(tokens, nowTime) {
+        const hh = String(nowTime.getHours()).padStart(2, '0');
+        const mm = String(nowTime.getMinutes()).padStart(2, '0');
+        let resultText = `中控回報:\n${hh}${mm} 保全回報停車情況：\n`;
+        
+        for (let i = 0; i < labels.length; i++) {
+            const rawToken = tokens[i] !== undefined ? tokens[i] : 'x';
+            const val = rawToken.toString().toLowerCase().trim();
+            
+            if (i === 0 || i === 1) {  // 車格數區
+                if (val === 'x') {
+                    resultText += `${labels[i]} 沒停車\n`;
+                } else if (val === '0') {
+                    resultText += `${labels[i]} 全滿\n`;
+                } else {
+                    resultText += `${labels[i]}${val}車位\n`;
+                }
+            } else {  // 成數/台車區
+                if (val === 'x') {
+                    resultText += `${labels[i]} 沒停車\n`;
+                } else if (val === '0') {
+                    resultText += `${labels[i]} 全滿\n`;
+                } else if (val.startsWith('0.')) {
+                    const digit = val.substring(2);
+                    const ch = zhNum[digit] || digit;
+                    resultText += `${labels[i]} 尚有${ch}台車\n`;
+                } else {
+                    resultText += `${labels[i]} 尚有${val}成車位\n`;
+                }
+            }
+        }
+        return resultText.trim();
+    }
+    
+    // ----- 新增跳項解析 (鍵值對模式) -----
+    // 將鍵值對字串解析成長度為10的陣列，未指定的索引補 'x'
+    // 輸入範例: "一樓以上=120 P1=0.3 紡C=x 柏油路=0"
+    function parseKeyValueMode(inputStr) {
+        // 初始化結果陣列，全部預設為 'x'
+        let result = new Array(labels.length).fill('x');
+        
+        // 用正則分割，保留 key=value 片段，忽略多餘空白
+        const pairs = inputStr.match(/(\S+)=(\S+)/g);
+        if (!pairs) return result;  // 沒有有效鍵值對，返回全 x
+        
+        // 建立標籤對索引的映射 (精確匹配)
+        const labelToIndex = {};
+        labels.forEach((label, idx) => {
+            labelToIndex[label] = idx;
+        });
+        
+        let anyValid = false;
+        for (let pair of pairs) {
+            const equalPos = pair.indexOf('=');
+            if (equalPos === -1) continue;
+            let key = pair.substring(0, equalPos).trim();
+            let value = pair.substring(equalPos + 1).trim();
+            
+            // 允許大小寫容錯? 保留原標籤中文對比，不做大小寫但可支援前後空格
+            if (labelToIndex.hasOwnProperty(key)) {
+                const idx = labelToIndex[key];
+                result[idx] = value;
+                anyValid = true;
+            } else {
+                // 輕微容錯：如果 key 是 "一樓以上" 的常見別名（可擴充但不強制），為了體驗，只給警告（控制台）
+                console.warn(`[跳項模式] 無效的區域名稱: "${key}"，請使用標準名稱: ${labels.join(', ')}`);
+            }
+        }
+        
+        // 如果沒有任何有效的鍵值對，返回 null 表示應該切換到順序模式（或保持全x但也可）
+        return anyValid ? result : null;
+    }
+    
+    // ----- 順序模式解析 (空格分割) -----
+    function parseSequenceMode(inputStr) {
+        const tokens = inputStr.split(/\s+/).filter(t => t !== '');
+        // 補足10個欄位，超過的截斷
+        const finalTokens = [];
+        for (let i = 0; i < labels.length; i++) {
+            if (i < tokens.length) {
+                finalTokens.push(tokens[i]);
+            } else {
+                finalTokens.push('x');
+            }
+        }
+        return finalTokens;
+    }
+    
+    // ----- 主更新邏輯: 自動識別模式 (保留快速 + 新增跳項) -----
+    function updateAll() {
+        const inputVal = dataInput.value.trim();
+        
+        if (!inputVal) {
+            outputArea.innerText = '';
+            excelOutput.innerText = '';
+            modeIndicator.innerText = '⚡ 等待輸入';
+            modeIndicator.style.background = "#e9ecef";
+            return;
+        }
+        
+        let tokens = null;
+        let usedMode = "順序模式 (空格順序)";
+        let isKeyValueMode = false;
+        
+        // 策略: 如果輸入中包含 '=' 且符合鍵值對基本特徵(至少一組 key=value)，優先採用跳項模式
+        // 為了避免用戶在順序模式中誤輸入等號(例如數值含有=極少見)，故當等號存在且成功解析到有效鍵值對時，使用跳項模式。
+        const hasEqualSign = inputVal.includes('=');
+        let kvResult = null;
+        
+        if (hasEqualSign) {
+            kvResult = parseKeyValueMode(inputVal);
+            if (kvResult !== null && kvResult.some(v => v !== 'x')) {
+                // 成功解析到至少一個非預設值欄位，使用跳項模式
+                tokens = kvResult;
+                isKeyValueMode = true;
+                usedMode = "✨ 跳項模式 (鍵值對) — 未指定區域自動補 x";
+            } else {
+                // 有等號但無法解析出有效區域，可能是誤輸入或語法錯誤 -> 降級順序模式
+                tokens = parseSequenceMode(inputVal);
+                usedMode = "⚠️ 偵測到等號但無法解析跳項，改用順序模式 (空格分隔)";
+            }
+        } else {
+            // 沒有等號，使用傳統順序模式
+            tokens = parseSequenceMode(inputVal);
+            usedMode = "🔁 順序模式 (空格分隔) — 快速輸入10欄位";
+        }
+        
+        // 確保 tokens 長度等於 labels.length (理論上 parseSequenceMode 已保證，kv模式也保證)
+        if (!tokens || tokens.length !== labels.length) {
+            // 防禦性處理
+            tokens = new Array(labels.length).fill('x');
+        }
+        
+        // 顯示目前模式
+        modeIndicator.innerText = `📌 目前解析模式: ${usedMode}`;
+        modeIndicator.style.background = isKeyValueMode ? "#e0f2fe" : "#e9ecef";
+        
+        // 時間戳記 (中控回報用)
+        const now = new Date();
+        
+        // 產生中控文字
+        const reportText = generateReportText(tokens, now);
+        outputArea.innerText = reportText;
+        
+        // 產生 Excel 欄位陣列 (使用新規則轉換)
+        const excelCells = [];
+        for (let i = 0; i < labels.length; i++) {
+            const rawVal = tokens[i];
+            const excelText = convertToExcelText(i, rawVal);
+            excelCells.push(excelText);
+        }
+        excelOutput.innerText = excelCells.join('\t');
+    }
+    
+    // 複製 Excel 數值 (製表符分隔)
+    function copyExcel() {
+        const textToCopy = excelOutput.innerText;
+        if (!textToCopy || textToCopy.trim() === '' || textToCopy === '請輸入有效數據') {
+            alert('尚無有效數據可複製，請先輸入停車資訊');
+            return;
+        }
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            const btn = document.querySelector('button');
+            const originalText = btn.innerText;
+            btn.innerText = '✅ 已複製！';
+            setTimeout(() => {
+                btn.innerText = originalText;
+            }, 1200);
+        }).catch(() => {
+            alert('複製失敗，可手動選取上方數值');
+        });
+    }
+    
+    // 綁定即時輸入事件
+    dataInput.addEventListener('input', updateAll);
+    
+    // 初始化: 載入預設範例 (順序模式展示)
+    window.addEventListener('DOMContentLoaded', () => {
+        updateAll();
+    });
+    
+    // 額外增加示範按鈕? 不影響主功能，但提供一個便利重置範例 (順序/跳項兩種示範)
+    // 為了增強體驗，可以加一個小彩蛋或提示 (非必要，但提升直覺)
+    // 建立簡易的提示浮層不用，改在note說明已夠。但為了讓用戶快速嘗試跳項，增加一個點擊填入範例的輔助文字？
+    // 用更友善的方式：在note區增加兩個可點擊的範例連結 (非強制)
+    const addSampleLinks = () => {
+        const noteDiv = document.querySelector('.note');
+        if (!noteDiv) return;
+        const sampleWrapper = document.createElement('div');
+        sampleWrapper.style.marginTop = '12px';
+        sampleWrapper.style.display = 'flex';
+        sampleWrapper.style.gap = '12px';
+        sampleWrapper.style.flexWrap = 'wrap';
+        sampleWrapper.style.justifyContent = 'center';
+        
+        const seqSample = document.createElement('span');
+        seqSample.innerText = '📋 填入順序範例';
+        seqSample.style.cssText = 'background:#eef2fa; padding:4px 12px; border-radius:30px; cursor:pointer; font-size:12px; font-weight:500;';
+        seqSample.onclick = () => {
+            dataInput.value = "465 285 8 8 0 0.1 x x x x";
+            updateAll();
+        };
+        
+        const kvSample = document.createElement('span');
+        kvSample.innerText = '🚀 填入跳項範例';
+        kvSample.style.cssText = 'background:#e0f2fe; padding:4px 12px; border-radius:30px; cursor:pointer; font-size:12px; font-weight:500;';
+        kvSample.onclick = () => {
+            dataInput.value = "一樓以上=320 一樓以下=180 P1=0.3 紡B=7 柏油路=0";
+            updateAll();
+        };
+        
+        const mixSample = document.createElement('span');
+        mixSample.innerText = '✨ 混合跳項示範';
+        mixSample.style.cssText = 'background:#e6f7e6; padding:4px 12px; border-radius:30px; cursor:pointer; font-size:12px; font-weight:500;';
+        mixSample.onclick = () => {
+            dataInput.value = "P3=0.5 紡A=x 紡C=4 一樓以上=88 一樓以下=0";
+            updateAll();
+        };
+        
+        sampleWrapper.appendChild(seqSample);
+        sampleWrapper.appendChild(kvSample);
+        sampleWrapper.appendChild(mixSample);
+        noteDiv.appendChild(sampleWrapper);
+    };
+    
+    // 確保 DOM 載入後添加快速填充按鈕 (不影響原有結構)
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', addSampleLinks);
+    } else {
+        addSampleLinks();
+    }
+    
+    // 小優化: 在 excelOutput 和 outputArea 邊框增加視覺提示，無需額外動作
+</script>
+</body>
+</html>
