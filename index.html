@@ -26,7 +26,7 @@
   --r-sm:     8px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;overflow-x:hidden}
 
 body{
   font-family:var(--sans);
@@ -34,40 +34,43 @@ body{
   color:var(--text);
   min-height:100vh;
   font-size:14px;
+  overflow-x:hidden;
 }
 
 /* ─── header ─── */
 .topbar{
   background:var(--blue);
   color:#fff;
-  padding:14px 24px;
+  padding:12px 16px;
   display:flex;
   align-items:center;
-  gap:14px;
+  gap:10px;
   box-shadow:0 2px 8px rgba(0,0,0,0.15);
   position:sticky;top:0;z-index:20;
+  min-width:0;
 }
-.topbar-title{font-size:1.05rem;font-weight:700;letter-spacing:.3px;white-space:nowrap}
-.topbar-sub{font-size:.72rem;opacity:.7;margin-top:1px}
+.topbar-title{font-size:1rem;font-weight:700;letter-spacing:.3px;white-space:nowrap;flex-shrink:0}
+.topbar-sub{font-size:.7rem;opacity:.7;margin-top:1px;white-space:nowrap}
 .topbar-time{
   margin-left:auto;
-  display:flex;align-items:center;gap:10px;
+  display:flex;align-items:center;gap:8px;
+  flex-shrink:0;
 }
 #clockDisplay{
-  font-size:1.3rem;font-weight:800;letter-spacing:1px;
+  font-size:1.15rem;font-weight:800;letter-spacing:1px;
   font-variant-numeric:tabular-nums;
-  opacity:.92;
+  opacity:.92;white-space:nowrap;
 }
 #refreshBtn{
-  display:flex;align-items:center;gap:5px;
+  display:flex;align-items:center;gap:4px;
   background:rgba(255,255,255,0.18);
   border:1px solid rgba(255,255,255,0.35);
   color:#fff;
   border-radius:30px;
-  padding:6px 14px;
-  font-size:.75rem;font-weight:600;
+  padding:6px 12px;
+  font-size:.72rem;font-weight:600;
   cursor:pointer;white-space:nowrap;
-  transition:background .15s;
+  transition:background .15s;flex-shrink:0;
 }
 #refreshBtn:hover{background:rgba(255,255,255,0.28)}
 #refreshBtn:active{background:rgba(255,255,255,0.38)}
@@ -157,24 +160,26 @@ body{
 .qf-grid{
   display:grid;
   grid-template-columns:repeat(5,1fr);
-  gap:6px;
+  gap:5px;
   margin-top:4px;
 }
-.qf-item{display:flex;flex-direction:column;gap:3px}
+.qf-item{display:flex;flex-direction:column;gap:3px;min-width:0}
 .qf-label{
-  font-size:.62rem;font-weight:700;
-  color:var(--sub);letter-spacing:.4px;text-align:center;
+  font-size:.58rem;font-weight:700;
+  color:var(--sub);letter-spacing:.2px;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .qf-input{
   width:100%;
-  padding:7px 6px;
-  font-size:14px;font-family:var(--mono);
+  padding:6px 3px;
+  font-size:13px;font-family:var(--mono);
   text-align:center;
   border:1.5px solid var(--border);
   border-radius:6px;
   background:#fafcff;
   color:var(--text);
   transition:border-color .15s;
+  min-width:0;
 }
 .qf-input:focus{
   outline:none;border-color:var(--blue);
@@ -233,7 +238,7 @@ body{
 /* ─── zone cards ─── */
 .zone-grid{
   display:grid;
-  grid-template-columns:repeat(5,1fr);
+  grid-template-columns:repeat(2,1fr);
   gap:7px;
 }
 .zone-card{
@@ -279,24 +284,42 @@ body{
   border-radius:var(--r-sm);
   padding:11px 14px;
   overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  max-width:100%;
 }
 .excel-table{
   border-collapse:collapse;
-  min-width:100%;
   font-size:.76rem;
+  white-space:nowrap;
 }
 .excel-table th{
   padding:4px 10px;background:#dce9ff;
   color:#0c2b6a;font-weight:700;
   border:1px solid #b6caee;
-  white-space:nowrap;font-size:.67rem;
+  font-size:.67rem;
 }
 .excel-table td{
   padding:5px 10px;text-align:center;
   border:1px solid #c8daef;
   font-family:var(--mono);font-size:.78rem;
   color:#0c2b4b;background:#f3f8ff;
-  white-space:nowrap;
+}
+/* Mobile vertical list for Excel */
+.excel-list{display:none;flex-direction:column;gap:0}
+.excel-list-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:7px 4px;
+  border-bottom:1px solid #c8daef;
+  gap:8px;
+}
+.excel-list-row:last-child{border-bottom:none}
+.excel-list-name{
+  font-size:.78rem;font-weight:700;color:#0c2b6a;
+  flex-shrink:0;
+}
+.excel-list-val{
+  font-family:var(--mono);color:#0c2b4b;font-weight:600;
+  font-size:.82rem;
 }
 #excelRaw{
   display:none; /* hidden; only copied */
@@ -330,11 +353,17 @@ body{
   }
   .col-left{grid-column:1;grid-row:1}
   .col-right{grid-column:1;grid-row:2}
-  .zone-grid{grid-template-columns:repeat(2,1fr)}
-  .qf-grid{grid-template-columns:repeat(5,1fr)}
+  /* zone: 2-col already set as default */
+  .qf-grid{grid-template-columns:repeat(5,1fr);gap:4px}
+  .qf-input{font-size:16px;padding:8px 3px} /* 16px prevents iOS zoom */
+  .qf-label{font-size:.55rem}
   .topbar-sub{display:none}
-  #clockDisplay{font-size:1.1rem}
+  #clockDisplay{font-size:1rem}
+  #refreshBtn{padding:5px 10px;font-size:.68rem}
   .legend-tbl{grid-template-columns:1fr 1fr}
+  /* Excel: hide table, show list on mobile */
+  .excel-table-wrap{display:none}
+  .excel-list{display:flex}
   /* floating copy buttons on mobile */
   .sticky-bar{
     display:flex;
@@ -353,6 +382,9 @@ body{
 @media(min-width:761px){
   .sticky-bar{display:none}
   .inline-btns{display:flex}
+  .zone-grid{grid-template-columns:repeat(5,1fr)}
+  .excel-table-wrap{display:block}
+  .excel-list{display:none !important}
 }
 
 /* ─── misc ─── */
@@ -480,12 +512,15 @@ body{
         <span class="card-head-label">📎 假日停車場 Excel 數值</span>
       </div>
       <div class="card-body">
-        <div class="excel-wrap">
-          <table class="excel-table" id="excelTable">
-            <thead><tr id="excelHead"></tr></thead>
-            <tbody><tr id="excelBody"></tr></tbody>
-          </table>
+        <div class="excel-table-wrap">
+          <div class="excel-wrap">
+            <table class="excel-table" id="excelTable">
+              <thead><tr id="excelHead"></tr></thead>
+              <tbody><tr id="excelBody"></tr></tbody>
+            </table>
+          </div>
         </div>
+        <div class="excel-wrap excel-list" id="excelList" style="padding:6px 14px"></div>
         <div id="excelRaw"></div>
         <div class="btn-row inline-btns" style="margin-top:10px">
           <button class="btn btn-blue" id="copyExcelBtnD">📎 複製 Excel 值（Tab 分隔）</button>
@@ -522,6 +557,7 @@ const zoneGrid        = $('zoneGrid');
 const reportText      = $('reportText');
 const excelHead       = $('excelHead');
 const excelBody       = $('excelBody');
+const excelList       = $('excelList');
 const excelRaw        = $('excelRaw');
 const clockDisplay    = $('clockDisplay');
 const refreshBtn      = $('refreshBtn');
@@ -667,6 +703,7 @@ function updateAll(source) {
     reportText.style.color = '#9aabb8';
     excelHead.innerHTML = '';
     excelBody.innerHTML = '';
+    excelList.innerHTML = '';
     excelRaw.textContent = '';
     modeIndicator.textContent = '⚡ 等待輸入';
     modeIndicator.style.cssText = 'background:#e9ecef;color:#637285';
@@ -698,6 +735,10 @@ function updateAll(source) {
   // excel table
   excelHead.innerHTML = LABELS.map(l => `<th>${l}</th>`).join('');
   excelBody.innerHTML = LABELS.map((_,i) => `<td>${toExcel(i,tokens[i])}</td>`).join('');
+  // excel list (mobile)
+  excelList.innerHTML = LABELS.map((lbl,i) =>
+    `<div class="excel-list-row"><span class="excel-list-name">${lbl}</span><span class="excel-list-val">${toExcel(i,tokens[i])}</span></div>`
+  ).join('');
   excelRaw.textContent = LABELS.map((_,i) => toExcel(i,tokens[i])).join('\t');
 }
 
