@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>停車回報產生器 - 混合輸入模式 (支援簡稱)</title>
+    <title>停車回報轉換</title>
     <style>
         * {
             box-sizing: border-box;
@@ -169,7 +169,7 @@
 <body>
 
 <div class="container">
-    <h2>🚗 停車回報轉換器 <span style="font-size: 0.8rem;">(簡稱輸入混合模式)</span></h2>
+    <h2>🚗 停車回報轉換</h2>
     <div class="input-group">
         <label>📋 輸入數據 (混合模式：空格分隔順序值 + 鍵值對，支援簡稱)</label>
         <input type="text" id="dataInput" 
@@ -194,7 +194,7 @@
         <button id="copyReportBtn" class="btn-secondary">📋 複製中控回報內容</button>
     </div>
 
-    <div class="label-text">📎 Excel 備註欄 (智能轉換: 數字/幾成/未停車/幾台車/滿)</div>
+    <div class="label-text">📎 假日停車場車用數輸出</div>
     <div class="card-output">
         <div id="excelOutput"></div>
     </div>
@@ -211,7 +211,7 @@
         &nbsp;&nbsp;→ 一樓以上=423, 一樓以下=256, P1=7, P3=7, 紡E=0.4 (尚有4台車)，其餘區域設為「x」(未停車)。<br>
         • 若只輸入順序值（無等號），即傳統順序模式；若只輸入鍵值對（無純數字），即純跳項模式；若混合，則先依序填入，再用鍵值對覆蓋。<br>
         ✅ 數字格式：車位區直接寫數字 (如 120)、成數區寫整數 (如 8)、台車寫 0.1~0.9、全滿寫 0、沒停車寫 x。<br>
-        📌 中控回報台車數字直接顯示阿拉伯數字 (例如「尚有4台車」)，不再轉換為中文。
+        📌 中控回報台車數字直接顯示阿拉伯數字 (例如「尚有4台車」)，時間格式為 HH:MM。
     </div>
 </div>
 
@@ -331,11 +331,11 @@
         return val;
     }
     
-    // 產生中控回報文字 (台車數字直接使用阿拉伯數字)
+    // 產生中控回報文字 (台車數字直接使用阿拉伯數字，時間格式 HH:MM)
     function generateReportText(tokens, nowTime) {
         const hh = String(nowTime.getHours()).padStart(2, '0');
         const mm = String(nowTime.getMinutes()).padStart(2, '0');
-        let resultText = `中控回報:\n${hh}${mm} 保全回報停車情況：\n`;
+        let resultText = `中控回報:\n${hh}:${mm} 保全回報停車情況：\n`;
         
         for (let i = 0; i < labels.length; i++) {
             const rawToken = tokens[i] !== undefined ? tokens[i] : 'x';
