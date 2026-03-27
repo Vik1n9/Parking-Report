@@ -273,6 +273,21 @@ button,input,textarea{
 .zone-card.full .zs{color:var(--red)}
 .zone-card.empty .zs{color:#8fa0b2}
 
+/* ─── tower pct card ─── */
+.zone-card.tower-pct{
+  background:linear-gradient(135deg,#e8f0ff 0%,#dceaff 100%);
+  border-color:#7aaaf0;
+  grid-column:1/-1;
+  flex-direction:column;
+  gap:6px;
+  padding:10px 14px;
+}
+.tower-pct-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.zone-card.tower-pct .zn{color:#1a4a8a;font-size:.62rem;letter-spacing:.6px}
+.tower-pct-bar-wrap{width:100%;height:10px;background:#c5d8f5;border-radius:99px;overflow:hidden}
+.tower-pct-bar{height:100%;border-radius:99px;transition:width .4s ease}
+.tower-pct-num{font-size:1.1rem;font-weight:900;white-space:nowrap}
+
 /* ─── report text ─── */
 #reportText{
   background:var(--green-lt);
@@ -787,11 +802,43 @@ function updateAll(source) {
   modeIndicator.textContent = hasEq&&hasNum ? '🧩 混合模式' : hasEq ? '✨ 簡稱模式' : '🔁 順序模式';
   modeIndicator.style.cssText = 'background:var(--blue-lt);color:var(--blue)';
 
+  // tower percentage card (一樓以上 + 一樓以下 / 1600)
+  function towerPctCard(tokens) {
+    const v0 = parseInt((tokens[0]??'x').toString(), 10);
+    const v1 = parseInt((tokens[1]??'x').toString(), 10);
+    const bothValid = !isNaN(v0) && tokens[0].toString().toLowerCase()!=='x'
+                   && !isNaN(v1) && tokens[1].toString().toLowerCase()!=='x';
+    if (!bothValid) {
+      return `<div class="zone-card tower-pct">
+        <div class="tower-pct-top">
+          <div class="zn">🏢 車塔使用率（一樓以上＋以下 / 1600）</div>
+          <div class="tower-pct-num" style="color:#9aabb8">—</div>
+        </div>
+        <div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:0%;background:#a0b8d8"></div></div>
+      </div>`;
+    }
+    const sum  = v0 + v1;
+    const pct  = Math.round(sum / 1600 * 100);
+    const barW = Math.min(pct, 100);
+    const barC = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--amber)' : '#2a82e4';
+    const numC = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--amber)' : '#1a4a8a';
+    return `<div class="zone-card tower-pct">
+      <div class="tower-pct-top">
+        <div class="zn">🏢 車塔使用率（一樓以上＋以下 / 1600）</div>
+        <div class="tower-pct-num" style="color:${numC}">${pct}%</div>
+      </div>
+      <div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:${barW}%;background:${barC}"></div></div>
+    </div>`;
+  }
+
   // zones
-  zoneGrid.innerHTML = LABELS.map((lbl,i) => {
+  const zoneCards = LABELS.map((lbl,i) => {
     const {cls,s} = zoneInfo(i, tokens[i]);
     return `<div class="zone-card ${cls}"><div class="zn">${lbl}</div><div class="zs">${s}</div></div>`;
-  }).join('');
+  });
+  // insert tower pct card after index 1 (一樓以下)
+  zoneCards.splice(2, 0, towerPctCard(tokens));
+  zoneGrid.innerHTML = zoneCards.join('');
 
   // report
   const rpt = buildReport(tokens, currentTime);
