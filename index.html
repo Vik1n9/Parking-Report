@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>停車回報轉換</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>停車回報轉換｜車塔使用率修正版</title>
 <style>
 /* ═══════════════════ TOKENS ═══════════════════ */
 :root {
@@ -273,7 +273,7 @@ button,input,textarea{
 .zone-card.full .zs{color:var(--red)}
 .zone-card.empty .zs{color:#8fa0b2}
 
-/* ─── tower pct card ─── */
+/* ─── tower pct card (修改样式不变) ─── */
 .zone-card.tower-pct{
   background:linear-gradient(135deg,#e8f0ff 0%,#dceaff 100%);
   border-color:#7aaaf0;
@@ -552,7 +552,8 @@ button,input,textarea{
         </div>
         <div class="legend-seq">
           <b>欄位順序：</b>一樓以上、一樓以下、P1、P3、紡A、紡B、紡C、紡D、紡E、柏油路<br>
-          <b>範例：</b><code>423 256 7 7 E=0.4</code> → 一樓以上=423，紡E=尚有4台車，其餘 x
+          <b>範例：</b><code>423 256 7 7 E=0.4</code> → 一樓以上=423，紡E=尚有4台車，其餘 x<br>
+          <b>車塔使用率算法：</b> 總車位1600，已停放比例 = (1600 - (一樓以上剩餘+一樓以下剩餘)) / 1600
         </div>
       </div>
     </div>
@@ -596,7 +597,7 @@ button,input,textarea{
         <div class="excel-table-wrap">
           <div class="excel-wrap">
             <table class="excel-table" id="excelTable">
-              <thead><tr id="excelHead"></tr></thead>
+              <thead><tr id="excelHead"><tr></thead>
               <tbody><tr id="excelBody"></tr></tbody>
             </table>
           </div>
@@ -624,6 +625,7 @@ button,input,textarea{
 const LABELS    = ["一樓以上","一樓以下","P1","P3","紡A","紡B","紡C","紡D","紡E","柏油路"];
 const ALIAS_MAP = {A:"紡A",B:"紡B",C:"紡C",D:"紡D",E:"紡E",R:"柏油路"};
 const IS_CAR    = [true,true,false,false,false,false,false,false,false,false];
+const TOWER_TOTAL = 1600;   // 車塔總車位固定1600
 
 /* ═══ STATE ═══ */
 let currentTime = new Date();
@@ -770,6 +772,54 @@ function buildReport(tokens, t) {
   return out.trim();
 }
 
+/* ═══ 車塔使用率卡片 (修正: 根據剩餘車位計算停放使用率) ═══ */
+function buildTowerPctCard(tokens) {
+  // 取出 一樓以上 / 一樓以下 的原始值 (剩餘車位數)
+  const rawUp = (tokens[0] ?? 'x').toString().toLowerCase().trim();
+  const rawDown = (tokens[1] ?? 'x').toString().toLowerCase().trim();
+  
+  const v0 = parseInt(rawUp, 10);
+  const v1 = parseInt(rawDown, 10);
+  const isValid = !isNaN(v0) && rawUp !== 'x' && !isNaN(v1) && rawDown !== 'x';
+  
+  if (!isValid) {
+    // 無法計算
+    return `<div class="zone-card tower-pct">
+      <div class="tower-pct-top">
+        <div class="zn">🏢 車塔停放使用率（已停放比例）</div>
+        <div class="tower-pct-num" style="color:#9aabb8">—</div>
+      </div>
+      <div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:0%;background:#a0b8d8"></div></div>
+    </div>`;
+  }
+  
+  // 剩餘車位總和 (不得為負)
+  let sumRemaining = v0 + v1;
+  if (sumRemaining < 0) sumRemaining = 0;
+  
+  // 已停放車輛數 = 總車位 - 剩餘車位 (若剩餘超過總車位則已停放視為0)
+  let occupied = TOWER_TOTAL - sumRemaining;
+  if (occupied < 0) occupied = 0;
+  if (occupied > TOWER_TOTAL) occupied = TOWER_TOTAL;
+  
+  let usagePct = (occupied / TOWER_TOTAL) * 100;
+  usagePct = Math.min(100, Math.max(0, usagePct));
+  const pctRounded = Math.round(usagePct);
+  
+  const barW = pctRounded;
+  // 使用率越高(越擁擠) 顏色越紅
+  const barC = pctRounded >= 90 ? 'var(--red)' : pctRounded >= 70 ? 'var(--amber)' : '#2a82e4';
+  const numC = pctRounded >= 90 ? 'var(--red)' : pctRounded >= 70 ? 'var(--amber)' : '#1a4a8a';
+  
+  return `<div class="zone-card tower-pct">
+    <div class="tower-pct-top">
+      <div class="zn">🏢 車塔停放使用率（已停放比例）</div>
+      <div class="tower-pct-num" style="color:${numC}">${pctRounded}%</div>
+    </div>
+    <div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:${barW}%;background:${barC}"></div></div>
+  </div>`;
+}
+
 /* ═══ MAIN UPDATE ═══ */
 let lastSource = 'text';
 
@@ -802,42 +852,14 @@ function updateAll(source) {
   modeIndicator.textContent = hasEq&&hasNum ? '🧩 混合模式' : hasEq ? '✨ 簡稱模式' : '🔁 順序模式';
   modeIndicator.style.cssText = 'background:var(--blue-lt);color:var(--blue)';
 
-  // tower percentage card (一樓以上 + 一樓以下 / 1600)
-  function towerPctCard(tokens) {
-    const v0 = parseInt((tokens[0]??'x').toString(), 10);
-    const v1 = parseInt((tokens[1]??'x').toString(), 10);
-    const bothValid = !isNaN(v0) && tokens[0].toString().toLowerCase()!=='x'
-                   && !isNaN(v1) && tokens[1].toString().toLowerCase()!=='x';
-    if (!bothValid) {
-      return `<div class="zone-card tower-pct">
-        <div class="tower-pct-top">
-          <div class="zn">🏢 車塔使用率（一樓以上＋以下 / 1600）</div>
-          <div class="tower-pct-num" style="color:#9aabb8">—</div>
-        </div>
-        <div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:0%;background:#a0b8d8"></div></div>
-      </div>`;
-    }
-    const sum  = v0 + v1;
-    const pct  = Math.round(sum / 1600 * 100);
-    const barW = Math.min(pct, 100);
-    const barC = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--amber)' : '#2a82e4';
-    const numC = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--amber)' : '#1a4a8a';
-    return `<div class="zone-card tower-pct">
-      <div class="tower-pct-top">
-        <div class="zn">🏢 車塔使用率（一樓以上＋以下 / 1600）</div>
-        <div class="tower-pct-num" style="color:${numC}">${pct}%</div>
-      </div>
-      <div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:${barW}%;background:${barC}"></div></div>
-    </div>`;
-  }
-
-  // zones
+  // 建立各區卡片 (不含車塔卡)
   const zoneCards = LABELS.map((lbl,i) => {
     const {cls,s} = zoneInfo(i, tokens[i]);
     return `<div class="zone-card ${cls}"><div class="zn">${lbl}</div><div class="zs">${s}</div></div>`;
   });
-  // insert tower pct card after index 1 (一樓以下)
-  zoneCards.splice(2, 0, towerPctCard(tokens));
+  // 插入車塔使用率卡片 (在一樓以下之後，P1之前)
+  const towerCard = buildTowerPctCard(tokens);
+  zoneCards.splice(2, 0, towerCard);
   zoneGrid.innerHTML = zoneCards.join('');
 
   // report
