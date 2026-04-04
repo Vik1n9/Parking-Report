@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-<title>停車回報轉換｜車塔使用率修正版</title>
+<title>停車回報轉換｜歷史記錄版｜車塔使用率修正</title>
 <style>
 /* ═══════════════════ TOKENS ═══════════════════ */
 :root {
@@ -273,7 +273,7 @@ button,input,textarea{
 .zone-card.full .zs{color:var(--red)}
 .zone-card.empty .zs{color:#8fa0b2}
 
-/* ─── tower pct card (修改样式不变) ─── */
+/* ─── tower pct card ─── */
 .zone-card.tower-pct{
   background:linear-gradient(135deg,#e8f0ff 0%,#dceaff 100%);
   border-color:#7aaaf0;
@@ -346,7 +346,7 @@ button,input,textarea{
   font-size:.82rem;
 }
 #excelRaw{
-  display:none; /* hidden; only copied */
+  display:none;
 }
 
 /* ─── copy buttons ─── */
@@ -366,74 +366,121 @@ button,input,textarea{
   padding:6px 12px;font-size:.73rem;border-radius:7px;
   flex:none;
 }
+.btn-outline{
+  background:transparent;border:1.5px solid var(--blue);color:var(--blue);
+}
+.btn-outline:hover{background:#eef2fc}
 
-/* ─── responsive: mobile ≤ 760 ─── */
+/* ─── 歷史記錄卡片樣式 ─── */
+.history-list{
+  max-height:280px;
+  overflow-y:auto;
+  margin-top:4px;
+}
+.history-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:10px 8px;
+  border-bottom:1px solid var(--border);
+  transition:background .1s;
+}
+.history-item:hover{background:#f8fafd}
+.history-info{
+  flex:1;
+  min-width:0;
+}
+.history-time{
+  font-size:.65rem;
+  font-weight:600;
+  color:var(--blue);
+  font-family:var(--mono);
+  margin-bottom:4px;
+}
+.history-preview{
+  font-size:.72rem;
+  color:var(--text);
+  font-family:var(--mono);
+  background:#f0f4f9;
+  display:inline-block;
+  padding:2px 8px;
+  border-radius:14px;
+  word-break:break-all;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  max-width:180px;
+}
+.history-actions{
+  display:flex;
+  gap:6px;
+  flex-shrink:0;
+}
+.history-btn{
+  background:transparent;
+  border:none;
+  font-size:1rem;
+  cursor:pointer;
+  padding:5px 8px;
+  border-radius:20px;
+  transition:background .1s;
+  font-weight:600;
+}
+.history-load{
+  color:var(--blue);
+  background:#eef2fc;
+}
+.history-load:hover{background:#dce6f5}
+.history-del{
+  color:var(--red);
+  background:#fef0ee;
+}
+.history-del:hover{background:#fce2df}
+.clear-history-btn{
+  background:#f1f3f6;
+  border:none;
+  padding:6px 12px;
+  border-radius:30px;
+  font-size:.7rem;
+  font-weight:600;
+  color:var(--sub);
+  cursor:pointer;
+  transition:background .15s;
+}
+.clear-history-btn:hover{background:#e2e8f0;color:#b32a1e}
+.empty-history{
+  padding:20px 0;
+  text-align:center;
+  color:var(--sub);
+  font-size:.75rem;
+}
+
+/* ─── responsive ─── */
 @media(max-width:760px){
-  body{
-    font-size:15px;
-  }
-  .topbar{
-    flex-wrap:wrap;
-    align-items:flex-start;
-    gap:8px;
-    padding:10px 12px;
-  }
-  .topbar > div:first-child{
-    min-width:0;
-    flex:1 1 100%;
-  }
-  .topbar-title{
-    white-space:normal;
-    line-height:1.3;
-    font-size:.95rem;
-  }
-  .topbar-time{
-    width:100%;
-    margin-left:0;
-    justify-content:space-between;
-  }
-  .page{
-    grid-template-columns:1fr;
-    grid-template-rows:auto;
-    padding:12px 12px 100px;
-    gap:12px;
-  }
+  body{font-size:15px;}
+  .topbar{flex-wrap:wrap;align-items:flex-start;gap:8px;padding:10px 12px;}
+  .topbar > div:first-child{min-width:0;flex:1 1 100%;}
+  .topbar-title{white-space:normal;line-height:1.3;font-size:.95rem;}
+  .topbar-time{width:100%;margin-left:0;justify-content:space-between;}
+  .page{grid-template-columns:1fr;padding:12px 12px 100px;gap:12px;}
   .col-left{grid-column:1;grid-row:1}
   .col-right{grid-column:1;grid-row:2}
-  /* zone: 2-col already set as default */
   .qf-grid{grid-template-columns:repeat(5,1fr);gap:4px}
-  .qf-input{font-size:16px;padding:8px 3px} /* 16px prevents iOS zoom */
+  .qf-input{font-size:16px;padding:8px 3px}
   .qf-label{font-size:.55rem}
   .card-head{padding:10px 12px}
   .card-body{padding:12px}
-  .chip{
-    min-height:36px;
-    padding:8px 12px;
-  }
-  .clear-btn{
-    width:34px;
-    height:34px;
-    font-size:14px;
-    top:8px;
-    right:8px;
-  }
-  .btn{
-    min-height:44px;
-  }
-  #refreshBtn{
-    min-height:36px;
-  }
-  textarea,input,button{
-    font-size:16px;
-  }
+  .chip{min-height:36px;padding:8px 12px;}
+  .clear-btn{width:34px;height:34px;font-size:14px;top:8px;right:8px;}
+  .btn{min-height:44px;}
+  #refreshBtn{min-height:36px;}
+  textarea,input,button{font-size:16px;}
   .topbar-sub{display:none}
   #clockDisplay{font-size:1rem}
-  #refreshBtn{padding:5px 10px;font-size:.68rem}
   .legend-tbl{grid-template-columns:1fr 1fr}
-  /* Excel: hide table, show list on mobile */
   .excel-table-wrap{display:none}
   .excel-list{display:flex}
-  /* floating copy buttons on mobile */
   .sticky-bar{
     display:flex;
     position:fixed;bottom:0;left:0;right:0;
@@ -447,6 +494,8 @@ button,input,textarea{
   }
   .sticky-bar .btn{padding:13px;font-size:.85rem}
   .inline-btns{display:none}
+  .history-preview{max-width:140px;white-space:normal;word-break:break-all;line-height:1.3;}
+  .history-item{align-items:flex-start;}
 }
 @media(max-width:420px){
   .qf-grid{grid-template-columns:repeat(2,1fr);gap:8px}
@@ -454,11 +503,7 @@ button,input,textarea{
   .qf-label{font-size:.66rem}
   .qf-input{padding:9px 6px}
   .chips-row{gap:6px}
-  .chip{
-    flex:1 1 calc(50% - 6px);
-    justify-content:center;
-    text-align:center;
-  }
+  .chip{flex:1 1 calc(50% - 6px);justify-content:center;text-align:center;}
 }
 @media(min-width:761px){
   .sticky-bar{display:none}
@@ -467,17 +512,8 @@ button,input,textarea{
   .excel-table-wrap{display:block}
   .excel-list{display:none !important}
 }
-
-/* ─── misc ─── */
-.empty-state{
-  text-align:center;color:#b0bec8;
-  font-size:.8rem;padding:18px 0 10px;
-  grid-column:1/-1;
-}
-.section-label{
-  font-size:.73rem;font-weight:700;
-  color:var(--sub);margin-bottom:4px;letter-spacing:.3px;
-}
+.empty-state{text-align:center;color:#b0bec8;font-size:.8rem;padding:18px 0 10px;grid-column:1/-1;}
+.section-label{font-size:.73rem;font-weight:700;color:var(--sub);margin-bottom:4px;letter-spacing:.3px;}
 </style>
 </head>
 <body>
@@ -486,7 +522,7 @@ button,input,textarea{
 <header class="topbar">
   <div>
     <div class="topbar-title">🚗 停車回報轉換</div>
-    <div class="topbar-sub">混合輸入 · 即時轉換 · 一鍵複製</div>
+    <div class="topbar-sub">歷史記錄 · 自由調閱 · 車塔使用率修正</div>
   </div>
   <div class="topbar-time">
     <span id="clockDisplay">--:--</span>
@@ -498,7 +534,6 @@ button,input,textarea{
 
   <!-- ══════ LEFT COL ══════ -->
   <div class="col-left">
-
     <!-- 文字輸入 -->
     <div class="card">
       <div class="card-head">
@@ -526,9 +561,7 @@ button,input,textarea{
         <span style="font-size:.65rem;color:var(--sub)">Tab 切換 · Enter 確認</span>
       </div>
       <div class="card-body">
-        <div class="qf-grid" id="qfGrid">
-          <!-- generated by JS -->
-        </div>
+        <div class="qf-grid" id="qfGrid"></div>
         <div class="qf-hint" style="margin-top:8px">
           整數=車位/成數 &nbsp;·&nbsp; 0.1~0.9=台車 &nbsp;·&nbsp; 0=全滿 &nbsp;·&nbsp; x=未停車
         </div>
@@ -558,11 +591,12 @@ button,input,textarea{
       </div>
     </div>
 
+    <!-- 歷史記錄卡片容器 (動態生成) -->
+    <div id="historyCardContainer"></div>
   </div><!-- /col-left -->
 
   <!-- ══════ RIGHT COL ══════ -->
   <div class="col-right">
-
     <!-- 各區狀況 -->
     <div class="card">
       <div class="card-head">
@@ -597,7 +631,7 @@ button,input,textarea{
         <div class="excel-table-wrap">
           <div class="excel-wrap">
             <table class="excel-table" id="excelTable">
-              <thead><tr id="excelHead"><tr></thead>
+              <thead><tr id="excelHead"></tr></thead>
               <tbody><tr id="excelBody"></tr></tbody>
             </table>
           </div>
@@ -609,9 +643,7 @@ button,input,textarea{
         </div>
       </div>
     </div>
-
   </div><!-- /col-right -->
-
 </div><!-- /page -->
 
 <!-- Mobile sticky bar -->
@@ -625,14 +657,17 @@ button,input,textarea{
 const LABELS    = ["一樓以上","一樓以下","P1","P3","紡A","紡B","紡C","紡D","紡E","柏油路"];
 const ALIAS_MAP = {A:"紡A",B:"紡B",C:"紡C",D:"紡D",E:"紡E",R:"柏油路"};
 const IS_CAR    = [true,true,false,false,false,false,false,false,false,false];
-const TOWER_TOTAL = 1600;   // 車塔總車位固定1600
+const TOWER_TOTAL = 1600;
+const STORAGE_KEY = "parking_history_v2";
+const MAX_HISTORY = 40;
 
 /* ═══ STATE ═══ */
 let currentTime = new Date();
-let qfValues    = new Array(LABELS.length).fill('x'); // mirrors each QF input
+let qfValues    = new Array(LABELS.length).fill('x');
+let historyEntries = [];    // {id, timestamp, inputString, preview}
 
 /* ═══ DOM ═══ */
-const $  = id => document.getElementById(id);
+const $ = id => document.getElementById(id);
 const dataInput       = $('dataInput');
 const clearBtn        = $('clearBtn');
 const modeIndicator   = $('modeIndicator');
@@ -646,6 +681,110 @@ const clockDisplay    = $('clockDisplay');
 const refreshBtn      = $('refreshBtn');
 const legendTrigger   = $('legendTrigger');
 const legendPanel     = $('legendPanel');
+const historyContainer = $('historyCardContainer');
+
+/* ═══ 歷史記錄函數 ═══ */
+function loadHistoryFromStorage() {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if(stored) {
+    try {
+      historyEntries = JSON.parse(stored);
+      if(!Array.isArray(historyEntries)) historyEntries = [];
+    } catch(e){ historyEntries = []; }
+  } else {
+    historyEntries = [];
+  }
+}
+function saveHistoryToStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(historyEntries.slice(-MAX_HISTORY)));
+}
+function addHistoryEntry(inputStr) {
+  if(!inputStr && inputStr !== "") return; // 空字串也允許但避免undefined
+  const trimmed = inputStr.trim();
+  // 與最新一筆比較內容是否相同 (忽略細微空格差異)
+  if(historyEntries.length > 0) {
+    const last = historyEntries[historyEntries.length-1];
+    if(last.inputString.trim() === trimmed) return;
+  }
+  const now = new Date();
+  const timestamp = now.getTime();
+  const timeStr = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  let preview = trimmed.length > 28 ? trimmed.slice(0,28)+'…' : trimmed;
+  if(preview === "") preview = "(空白)";
+  const entry = {
+    id: timestamp + '-' + Math.random().toString(36).substr(2,6),
+    timestamp: timestamp,
+    timeLabel: timeStr,
+    inputString: inputStr,
+    preview: preview
+  };
+  historyEntries.push(entry);
+  if(historyEntries.length > MAX_HISTORY) historyEntries = historyEntries.slice(-MAX_HISTORY);
+  saveHistoryToStorage();
+  renderHistoryList();
+}
+function deleteHistoryEntry(id) {
+  historyEntries = historyEntries.filter(e => e.id !== id);
+  saveHistoryToStorage();
+  renderHistoryList();
+}
+function clearAllHistory() {
+  if(confirm('確定要清空所有歷史記錄嗎？')) {
+    historyEntries = [];
+    saveHistoryToStorage();
+    renderHistoryList();
+  }
+}
+function loadHistoryToCurrent(entry) {
+  dataInput.value = entry.inputString;
+  updateAll('text');
+  // 可選: 滾動到頂部
+  dataInput.focus();
+}
+function renderHistoryList() {
+  if(!historyContainer) return;
+  if(historyEntries.length === 0) {
+    historyContainer.innerHTML = `<div class="card"><div class="card-head"><span class="card-head-label">📜 歷史調閱</span><button class="clear-history-btn" id="clearAllHistoryBtn">🗑 清空記錄</button></div><div class="card-body"><div class="empty-history">尚無歷史記錄，輸入資料後會自動儲存</div></div></div>`;
+    const clearBtnElem = document.getElementById('clearAllHistoryBtn');
+    if(clearBtnElem) clearBtnElem.addEventListener('click', clearAllHistory);
+    return;
+  }
+  // 按時間由新到舊排序顯示
+  const reversed = [...historyEntries].reverse();
+  const itemsHtml = reversed.map(entry => `
+    <div class="history-item" data-id="${entry.id}">
+      <div class="history-info">
+        <div class="history-time">🕒 ${entry.timeLabel}</div>
+        <div class="history-preview" title="${escapeHtml(entry.inputString)}">${escapeHtml(entry.preview)}</div>
+      </div>
+      <div class="history-actions">
+        <button class="history-btn history-load" data-action="load" data-id="${entry.id}">↺ 載入</button>
+        <button class="history-btn history-del" data-action="del" data-id="${entry.id}">✕</button>
+      </div>
+    </div>
+  `).join('');
+  const historyHtml = `<div class="card"><div class="card-head"><span class="card-head-label">📜 歷史調閱 (依輸入順序)</span><button class="clear-history-btn" id="clearAllHistoryBtn">🗑 全部清除</button></div><div class="card-body" style="padding:0 8px 8px 8px"><div class="history-list">${itemsHtml}</div></div></div>`;
+  historyContainer.innerHTML = historyHtml;
+  // 綁定事件委託
+  const listDiv = historyContainer.querySelector('.history-list');
+  if(listDiv) {
+    listDiv.addEventListener('click', (e) => {
+      const btn = e.target.closest('.history-btn');
+      if(!btn) return;
+      const action = btn.getAttribute('data-action');
+      const id = btn.getAttribute('data-id');
+      if(action === 'load') {
+        const targetEntry = historyEntries.find(e => e.id === id);
+        if(targetEntry) loadHistoryToCurrent(targetEntry);
+      } else if(action === 'del') {
+        if(confirm('刪除此筆記錄？')) deleteHistoryEntry(id);
+      }
+    });
+  }
+  const clearAllBtn = document.getElementById('clearAllHistoryBtn');
+  if(clearAllBtn) clearAllBtn.addEventListener('click', clearAllHistory);
+}
+function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
 
 /* ═══ BUILD QUICK-FIELD INPUTS ═══ */
 const qfGrid = $('qfGrid');
@@ -656,7 +795,6 @@ LABELS.forEach((lbl, i) => {
     <input class="qf-input" type="text" id="qf${i}" value="x" maxlength="8"
       autocomplete="off" autocorrect="off" spellcheck="false">`;
   qfGrid.appendChild(wrap);
-
   const inp = wrap.querySelector('input');
   inp.addEventListener('input', () => {
     syncQfToText();
@@ -683,7 +821,6 @@ function normalizeKey(k) {
   if (LABELS.includes(k)) return k;
   return ALIAS_MAP[k] || null;
 }
-
 function parseText(str) {
   const result = new Array(LABELS.length).fill('x');
   const tokens = str.trim().split(/\s+/).filter(Boolean);
@@ -702,16 +839,12 @@ function parseText(str) {
   });
   return result;
 }
-
-/* ═══ SYNC: text → QF inputs ═══ */
 function syncTextToQf(tokens) {
   tokens.forEach((v, i) => {
     const el = document.getElementById(`qf${i}`);
     if (el && el !== document.activeElement) el.value = v;
   });
 }
-
-/* ═══ SYNC: QF → text ═══ */
 function syncQfToText() {
   const vals = LABELS.map((_, i) => {
     const el = document.getElementById(`qf${i}`);
@@ -719,8 +852,6 @@ function syncQfToText() {
   });
   dataInput.value = vals.join(' ');
 }
-
-/* ═══ ZONE INFO ═══ */
 function zoneInfo(i, raw) {
   const v = (raw ?? 'x').toString().toLowerCase().trim() || 'x';
   if (v === 'x')  return {cls:'empty', s:'未停車'};
@@ -737,8 +868,6 @@ function zoneInfo(i, raw) {
   }
   return {cls:'empty', s:v};
 }
-
-/* ═══ EXCEL TEXT ═══ */
 function toExcel(i, raw) {
   const v = (raw ?? 'x').toString().toLowerCase().trim() || 'x';
   if (v === 'x')  return '未停車';
@@ -751,8 +880,6 @@ function toExcel(i, raw) {
   const n = parseInt(v,10);
   return isNaN(n) ? v : `${n}成`;
 }
-
-/* ═══ REPORT ═══ */
 function buildReport(tokens, t) {
   const hm = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
   let out = `中控回報:\n${hm} 保全回報停車情況：\n`;
@@ -771,145 +898,84 @@ function buildReport(tokens, t) {
   });
   return out.trim();
 }
-
-/* ═══ 車塔使用率卡片 (修正: 根據剩餘車位計算停放使用率) ═══ */
 function buildTowerPctCard(tokens) {
-  // 取出 一樓以上 / 一樓以下 的原始值 (剩餘車位數)
   const rawUp = (tokens[0] ?? 'x').toString().toLowerCase().trim();
   const rawDown = (tokens[1] ?? 'x').toString().toLowerCase().trim();
-  
   const v0 = parseInt(rawUp, 10);
   const v1 = parseInt(rawDown, 10);
   const isValid = !isNaN(v0) && rawUp !== 'x' && !isNaN(v1) && rawDown !== 'x';
-  
   if (!isValid) {
-    // 無法計算
-    return `<div class="zone-card tower-pct">
-      <div class="tower-pct-top">
-        <div class="zn">🏢 車塔停放使用率（已停放比例）</div>
-        <div class="tower-pct-num" style="color:#9aabb8">—</div>
-      </div>
-      <div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:0%;background:#a0b8d8"></div></div>
-    </div>`;
+    return `<div class="zone-card tower-pct"><div class="tower-pct-top"><div class="zn">🏢 車塔停放使用率（已停放比例）</div><div class="tower-pct-num" style="color:#9aabb8">—</div></div><div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:0%;background:#a0b8d8"></div></div></div>`;
   }
-  
-  // 剩餘車位總和 (不得為負)
   let sumRemaining = v0 + v1;
   if (sumRemaining < 0) sumRemaining = 0;
-  
-  // 已停放車輛數 = 總車位 - 剩餘車位 (若剩餘超過總車位則已停放視為0)
   let occupied = TOWER_TOTAL - sumRemaining;
   if (occupied < 0) occupied = 0;
   if (occupied > TOWER_TOTAL) occupied = TOWER_TOTAL;
-  
   let usagePct = (occupied / TOWER_TOTAL) * 100;
   usagePct = Math.min(100, Math.max(0, usagePct));
   const pctRounded = Math.round(usagePct);
-  
   const barW = pctRounded;
-  // 使用率越高(越擁擠) 顏色越紅
   const barC = pctRounded >= 90 ? 'var(--red)' : pctRounded >= 70 ? 'var(--amber)' : '#2a82e4';
   const numC = pctRounded >= 90 ? 'var(--red)' : pctRounded >= 70 ? 'var(--amber)' : '#1a4a8a';
-  
-  return `<div class="zone-card tower-pct">
-    <div class="tower-pct-top">
-      <div class="zn">🏢 車塔停放使用率（已停放比例）</div>
-      <div class="tower-pct-num" style="color:${numC}">${pctRounded}%</div>
-    </div>
-    <div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:${barW}%;background:${barC}"></div></div>
-  </div>`;
+  return `<div class="zone-card tower-pct"><div class="tower-pct-top"><div class="zn">🏢 車塔停放使用率（已停放比例）</div><div class="tower-pct-num" style="color:${numC}">${pctRounded}%</div></div><div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:${barW}%;background:${barC}"></div></div></div>`;
 }
-
-/* ═══ MAIN UPDATE ═══ */
 let lastSource = 'text';
-
 function updateAll(source) {
   if (source) lastSource = source;
   const input = dataInput.value.trim();
   clockDisplay.textContent = `${String(currentTime.getHours()).padStart(2,'0')}:${String(currentTime.getMinutes()).padStart(2,'0')}`;
-
-  if (!input) {
+  if (!input && dataInput.value !== "") {
     zoneGrid.innerHTML = '<div class="empty-state">請輸入數據</div>';
     reportText.textContent = '請輸入數據後自動產生…';
     reportText.style.color = '#9aabb8';
-    excelHead.innerHTML = '';
-    excelBody.innerHTML = '';
-    excelList.innerHTML = '';
-    excelRaw.textContent = '';
+    excelHead.innerHTML = ''; excelBody.innerHTML = ''; excelList.innerHTML = ''; excelRaw.textContent = '';
     modeIndicator.textContent = '⚡ 等待輸入';
-    modeIndicator.style.cssText = 'background:#e9ecef;color:#637285';
     return;
   }
-
-  const tokens = parseText(input);
-
-  // sync to QF only when text input was the source
+  const tokens = parseText(dataInput.value);
   if (lastSource === 'text') syncTextToQf(tokens);
-
-  // mode badge
-  const hasEq  = input.includes('=');
-  const hasNum = /\d/.test(input) && !/^\s*([^\s=]+=\S+\s*)+$/.test(input);
+  const hasEq = dataInput.value.includes('=');
+  const hasNum = /\d/.test(dataInput.value);
   modeIndicator.textContent = hasEq&&hasNum ? '🧩 混合模式' : hasEq ? '✨ 簡稱模式' : '🔁 順序模式';
   modeIndicator.style.cssText = 'background:var(--blue-lt);color:var(--blue)';
-
-  // 建立各區卡片 (不含車塔卡)
   const zoneCards = LABELS.map((lbl,i) => {
     const {cls,s} = zoneInfo(i, tokens[i]);
     return `<div class="zone-card ${cls}"><div class="zn">${lbl}</div><div class="zs">${s}</div></div>`;
   });
-  // 插入車塔使用率卡片 (在一樓以下之後，P1之前)
   const towerCard = buildTowerPctCard(tokens);
   zoneCards.splice(2, 0, towerCard);
   zoneGrid.innerHTML = zoneCards.join('');
-
-  // report
   const rpt = buildReport(tokens, currentTime);
   reportText.textContent = rpt;
   reportText.style.color = '';
-
-  // excel table
   excelHead.innerHTML = LABELS.map(l => `<th>${l}</th>`).join('');
   excelBody.innerHTML = LABELS.map((_,i) => `<td>${toExcel(i,tokens[i])}</td>`).join('');
-  // excel list (mobile)
-  excelList.innerHTML = LABELS.map((lbl,i) =>
-    `<div class="excel-list-row"><span class="excel-list-name">${lbl}</span><span class="excel-list-val">${toExcel(i,tokens[i])}</span></div>`
-  ).join('');
+  excelList.innerHTML = LABELS.map((lbl,i) => `<div class="excel-list-row"><span class="excel-list-name">${lbl}</span><span class="excel-list-val">${toExcel(i,tokens[i])}</span></div>`).join('');
   excelRaw.textContent = LABELS.map((_,i) => toExcel(i,tokens[i])).join('\t');
+  // 儲存歷史記錄（僅當內容非重複）
+  addHistoryEntry(dataInput.value);
 }
-
-/* ═══ COPY ═══ */
 async function copyStr(str, btn) {
-  if (!str || str.startsWith('請輸入')) { alert('尚無可複製的內容'); return; }
+  if (!str || str === '請輸入數據後自動產生…') { alert('尚無可複製的內容'); return; }
   try {
     await navigator.clipboard.writeText(str);
     const orig = btn.textContent;
     btn.textContent = '✅ 已複製！';
     setTimeout(() => btn.textContent = orig, 1400);
-  } catch { alert('複製失敗，請手動選取文字'); }
+  } catch { alert('複製失敗'); }
 }
 function copyReport(btn) { copyStr(reportText.textContent, btn); }
 function copyExcel(btn)  { copyStr(excelRaw.textContent, btn); }
-
-['copyReportBtnD','copyReportBtnM'].forEach(id => {
-  $(id)?.addEventListener('click', e => copyReport(e.currentTarget));
-});
-['copyExcelBtnD','copyExcelBtnM'].forEach(id => {
-  $(id)?.addEventListener('click', e => copyExcel(e.currentTarget));
-});
-
-/* ═══ EVENTS ═══ */
+['copyReportBtnD','copyReportBtnM'].forEach(id => $(id)?.addEventListener('click', e => copyReport(e.currentTarget)));
+['copyExcelBtnD','copyExcelBtnM'].forEach(id => $(id)?.addEventListener('click', e => copyExcel(e.currentTarget)));
 dataInput.addEventListener('input', () => updateAll('text'));
-
 clearBtn.addEventListener('click', () => {
   dataInput.value = '';
-  LABELS.forEach((_,i) => {
-    const el = document.getElementById(`qf${i}`);
-    if (el) el.value = 'x';
-  });
+  LABELS.forEach((_,i) => { const el = document.getElementById(`qf${i}`); if(el) el.value = 'x'; });
   dataInput.focus();
   updateAll('text');
 });
-
 refreshBtn.addEventListener('click', () => {
   currentTime = new Date();
   updateAll();
@@ -917,15 +983,15 @@ refreshBtn.addEventListener('click', () => {
   refreshBtn.textContent = '✅ 已更新';
   setTimeout(() => refreshBtn.textContent = orig, 1300);
 });
-
 document.querySelectorAll('.chip').forEach(c => {
   c.addEventListener('click', () => {
     dataInput.value = c.dataset.val;
     updateAll('text');
   });
 });
-
-/* ═══ INIT ═══ */
+/* 初始化歷史與介面 */
+loadHistoryFromStorage();
+renderHistoryList();
 currentTime = new Date();
 dataInput.value = '423 256 7 7 E=0.4';
 updateAll('text');
