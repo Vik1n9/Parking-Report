@@ -953,13 +953,12 @@ function updateAll(source) {
   excelBody.innerHTML = LABELS.map((_,i) => `<td>${toExcel(i,tokens[i])}</td>`).join('');
   excelList.innerHTML = LABELS.map((lbl,i) => `<div class="excel-list-row"><span class="excel-list-name">${lbl}</span><span class="excel-list-val">${toExcel(i,tokens[i])}</span></div>`).join('');
   excelRaw.textContent = LABELS.map((_,i) => toExcel(i,tokens[i])).join('\t');
-  // 儲存歷史記錄（僅當內容非重複）
-  addHistoryEntry(dataInput.value);
 }
 async function copyStr(str, btn) {
   if (!str || str === '請輸入數據後自動產生…') { alert('尚無可複製的內容'); return; }
   try {
     await navigator.clipboard.writeText(str);
+    addHistoryEntry(dataInput.value);
     const orig = btn.textContent;
     btn.textContent = '✅ 已複製！';
     setTimeout(() => btn.textContent = orig, 1400);
