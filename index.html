@@ -3,27 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-<title>停車回報轉換｜歷史記錄版｜車塔使用率修正</title>
+<title>停車回報轉換</title>
 <style>
 /* ═══════════════════ TOKENS ═══════════════════ */
 :root {
-  --bg:       #f0f4f9;
-  --surface:  #ffffff;
-  --border:   #d8e3ee;
-  --blue:     #1a5fa8;
-  --blue-lt:  #e6effa;
-  --green:    #1a6e38;
-  --green-lt: #e4f5ec;
-  --red:      #b32a1e;
-  --red-lt:   #fce9e8;
-  --amber:    #9a6000;
-  --amber-lt: #fef5e0;
-  --text:     #18232f;
-  --sub:      #5a6e82;
-  --mono:     'SF Mono','Cascadia Code','Consolas',monospace;
-  --sans:     'Helvetica Neue','PingFang TC','Microsoft JhengHei',sans-serif;
-  --r:        12px;
-  --r-sm:     8px;
+  --bg:        #0d1720;
+  --surface:   #152030;
+  --surface2:  #1b2d40;
+  --border:    rgba(255,255,255,0.08);
+  --accent:    #4a9eff;
+  --accent-dk: rgba(74,158,255,0.15);
+  --green:     #34d07a;
+  --green-lt:  rgba(52,208,122,0.11);
+  --red:       #f05c5c;
+  --red-lt:    rgba(240,92,92,0.11);
+  --amber:     #f5a623;
+  --amber-lt:  rgba(245,166,35,0.11);
+  --text:      #dce8f2;
+  --sub:       #6b8aa5;
+  --mono:      'SF Mono','Cascadia Code','Consolas',monospace;
+  --sans:      'Helvetica Neue','PingFang TC','Microsoft JhengHei',sans-serif;
+  --r:         10px;
+  --r-sm:      7px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;overflow-x:hidden}
@@ -36,9 +37,7 @@ body{
   font-size:14px;
   overflow-x:hidden;
 }
-button,input,textarea{
-  font:inherit;
-}
+button,input,textarea{font:inherit}
 .btn,.chip,#refreshBtn,.clear-btn{
   touch-action:manipulation;
   -webkit-tap-highlight-color:transparent;
@@ -46,41 +45,47 @@ button,input,textarea{
 
 /* ─── header ─── */
 .topbar{
-  background:var(--blue);
-  color:#fff;
-  padding:12px 16px;
+  background:var(--surface);
+  color:var(--text);
+  padding:14px 20px;
   display:flex;
   align-items:center;
-  gap:10px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.15);
+  gap:12px;
+  border-bottom:1px solid var(--border);
   position:sticky;top:0;z-index:20;
   min-width:0;
 }
-.topbar-title{font-size:1rem;font-weight:700;letter-spacing:.3px;white-space:nowrap;flex-shrink:0}
-.topbar-sub{font-size:.7rem;opacity:.7;margin-top:1px;white-space:nowrap}
+.topbar-title{
+  font-size:.82rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;
+  white-space:nowrap;flex-shrink:0;
+}
+.topbar-sub{font-size:.63rem;color:var(--sub);margin-top:2px;white-space:nowrap;letter-spacing:.04em}
 .topbar-time{
   margin-left:auto;
-  display:flex;align-items:center;gap:8px;
+  display:flex;align-items:center;gap:10px;
   flex-shrink:0;
 }
 #clockDisplay{
-  font-size:1.15rem;font-weight:800;letter-spacing:1px;
+  font-size:1.05rem;font-weight:700;letter-spacing:.1em;
   font-variant-numeric:tabular-nums;
-  opacity:.92;white-space:nowrap;
+  color:var(--text);white-space:nowrap;
 }
 #refreshBtn{
-  display:flex;align-items:center;gap:4px;
-  background:rgba(255,255,255,0.18);
-  border:1px solid rgba(255,255,255,0.35);
-  color:#fff;
-  border-radius:30px;
-  padding:6px 12px;
-  font-size:.72rem;font-weight:600;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  color:var(--sub);
+  border-radius:6px;
+  padding:7px 14px;
+  font-size:.68rem;font-weight:700;
   cursor:pointer;white-space:nowrap;
-  transition:background .15s;flex-shrink:0;
+  transition:background .15s,color .15s,border-color .15s;
+  flex-shrink:0;
+  letter-spacing:.06em;
+  text-transform:uppercase;
 }
-#refreshBtn:hover{background:rgba(255,255,255,0.28)}
-#refreshBtn:active{background:rgba(255,255,255,0.38)}
+#refreshBtn:hover{background:#243447;color:var(--text);border-color:rgba(255,255,255,0.15)}
+#refreshBtn:active{background:#2a3d50}
 
 /* ─── layout ─── */
 .page{
@@ -93,35 +98,25 @@ button,input,textarea{
   gap:16px;
   align-items:start;
 }
-/* ─ left col ─ */
-.col-left{
-  display:flex;flex-direction:column;gap:14px;
-  grid-row:1;grid-column:1;
-}
-/* ─ right col ─ */
-.col-right{
-  display:flex;flex-direction:column;gap:14px;
-  grid-row:1;grid-column:2;
-}
+.col-left{display:flex;flex-direction:column;gap:14px;grid-row:1;grid-column:1}
+.col-right{display:flex;flex-direction:column;gap:14px;grid-row:1;grid-column:2}
 
 /* ─── card ─── */
 .card{
   background:var(--surface);
   border-radius:var(--r);
   border:1px solid var(--border);
-  box-shadow:0 1px 4px rgba(0,0,0,0.06);
   overflow:hidden;
 }
 .card-head{
   display:flex;align-items:center;justify-content:space-between;
   padding:11px 16px;
   border-bottom:1px solid var(--border);
-  background:#fafcff;
 }
 .card-head-label{
-  font-size:.78rem;font-weight:700;
-  color:var(--blue);letter-spacing:.3px;
-  display:flex;align-items:center;gap:6px;
+  font-size:.68rem;font-weight:700;
+  color:var(--sub);letter-spacing:.08em;
+  text-transform:uppercase;
 }
 .card-body{padding:14px 16px}
 
@@ -133,115 +128,131 @@ button,input,textarea{
   font-size:15px;
   font-family:var(--mono);
   line-height:1.55;
-  border:2px solid var(--border);
+  border:1px solid var(--border);
   border-radius:var(--r-sm);
-  background:#fafcff;
+  background:var(--surface2);
   resize:vertical;
   min-height:80px;
   color:var(--text);
   transition:border-color .18s,box-shadow .18s;
 }
+#dataInput::placeholder{color:var(--sub);opacity:.55}
 #dataInput:focus{
   outline:none;
-  border-color:var(--blue);
-  box-shadow:0 0 0 3px rgba(26,95,168,0.13);
+  border-color:rgba(74,158,255,0.5);
+  box-shadow:0 0 0 3px rgba(74,158,255,0.08);
 }
 .clear-btn{
   position:absolute;top:9px;right:9px;
   width:26px;height:26px;
-  background:#e4ecf5;border:none;border-radius:50%;
-  font-size:13px;cursor:pointer;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:4px;
+  font-size:10px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  color:var(--sub);transition:background .15s;
+  color:var(--sub);
+  transition:background .15s,color .15s;
+  font-weight:800;
 }
-.clear-btn:hover{background:#c9d8e8}
+.clear-btn:hover{background:#243447;color:var(--text)}
 
 .mode-badge{
-  display:inline-flex;align-items:center;gap:4px;
-  background:var(--blue-lt);color:var(--blue);
-  border-radius:30px;padding:3px 10px;
-  font-size:.68rem;font-weight:600;margin-top:7px;
+  display:inline-flex;align-items:center;
+  background:var(--accent-dk);color:var(--accent);
+  border-radius:4px;padding:3px 9px;
+  font-size:.62rem;font-weight:700;margin-top:6px;
+  letter-spacing:.07em;text-transform:uppercase;
 }
 
 /* ─── quick-field inputs ─── */
 .qf-grid{
   display:grid;
   grid-template-columns:repeat(5,1fr);
-  gap:5px;
+  gap:6px;
   margin-top:4px;
 }
-.qf-item{display:flex;flex-direction:column;gap:3px;min-width:0}
+.qf-item{display:flex;flex-direction:column;gap:4px;min-width:0}
 .qf-label{
-  font-size:.58rem;font-weight:700;
-  color:var(--sub);letter-spacing:.2px;text-align:center;
+  font-size:.56rem;font-weight:700;
+  color:var(--sub);letter-spacing:.05em;text-align:center;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-transform:uppercase;
 }
 .qf-input{
   width:100%;
-  padding:6px 3px;
+  padding:7px 3px;
   font-size:13px;font-family:var(--mono);
   text-align:center;
-  border:1.5px solid var(--border);
-  border-radius:6px;
-  background:#fafcff;
+  border:1px solid var(--border);
+  border-radius:5px;
+  background:var(--surface2);
   color:var(--text);
-  transition:border-color .15s;
+  transition:border-color .15s,box-shadow .15s;
   min-width:0;
 }
 .qf-input:focus{
-  outline:none;border-color:var(--blue);
-  box-shadow:0 0 0 2px rgba(26,95,168,0.12);
+  outline:none;
+  border-color:rgba(74,158,255,0.45);
+  box-shadow:0 0 0 2px rgba(74,158,255,0.08);
 }
 .qf-hint{
-  font-size:.62rem;color:#9aabb8;text-align:center;
-  margin-top:2px;
+  font-size:.61rem;color:var(--sub);text-align:center;
+  margin-top:4px;opacity:.65;
 }
 
 /* ─── example chips ─── */
 .chips-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
 .chip{
-  display:inline-flex;
-  align-items:center;
-  padding:6px 13px;border-radius:30px;font-size:.72rem;font-weight:600;
-  cursor:pointer;border:1.5px solid transparent;
-  transition:opacity .15s,transform .1s;white-space:nowrap;
-  user-select:none;
+  display:inline-flex;align-items:center;
+  padding:7px 14px;border-radius:5px;
+  font-size:.7rem;font-weight:600;
+  cursor:pointer;
+  border:1px solid var(--border);
+  background:var(--surface2);
+  color:var(--sub);
+  transition:background .15s,color .15s,border-color .15s,transform .1s;
+  white-space:nowrap;user-select:none;
+  letter-spacing:.03em;
 }
-.chip:hover{opacity:.85}
-.chip:active{transform:scale(.96)}
-.chip-a{background:#eef2fb;border-color:#c4d3ef;color:#1f4a82}
-.chip-b{background:var(--green-lt);border-color:#a8d9bc;color:#155a2d}
-.chip-c{background:#fef3e0;border-color:#eec96b;color:#7a4900}
+.chip:hover{background:#243447;color:var(--text);border-color:rgba(255,255,255,0.15)}
+.chip:active{transform:scale(.97)}
 
 /* ─── legend accordion ─── */
 .legend-trigger{
   display:flex;align-items:center;justify-content:space-between;
-  padding:10px 16px;cursor:pointer;font-size:.75rem;
-  font-weight:600;color:var(--sub);user-select:none;
+  padding:12px 16px;cursor:pointer;
+  font-size:.68rem;font-weight:700;
+  color:var(--sub);user-select:none;
+  text-transform:uppercase;letter-spacing:.08em;
+  transition:color .15s;
 }
-.legend-arrow{transition:transform .2s;display:inline-block;font-style:normal}
+.legend-trigger:hover{color:var(--text)}
+.legend-arrow{transition:transform .2s;display:inline-block;font-style:normal;font-size:.65rem}
 .legend-trigger.open .legend-arrow{transform:rotate(180deg)}
 .legend-panel{
   display:none;border-top:1px solid var(--border);
-  padding:12px 16px 14px;
+  padding:14px 16px;
 }
 .legend-panel.open{display:block}
 .legend-tbl{
   display:grid;grid-template-columns:1fr 1fr 1fr;
-  gap:5px;
+  gap:6px;
 }
 .legend-cell{
-  background:var(--bg);border-radius:6px;
-  padding:6px 9px;font-size:.68rem;line-height:1.45;
+  background:var(--surface2);border-radius:5px;
+  padding:8px 10px;font-size:.67rem;line-height:1.5;
+  border:1px solid var(--border);color:var(--sub);
 }
-.legend-cell b{color:var(--blue)}
+.legend-cell b{color:var(--accent)}
 .legend-seq{
-  margin-top:8px;font-size:.68rem;color:var(--sub);
-  background:var(--bg);border-radius:6px;padding:7px 10px;line-height:1.6;
+  margin-top:8px;font-size:.67rem;color:var(--sub);
+  background:var(--surface2);border-radius:5px;
+  padding:9px 12px;line-height:1.75;
+  border:1px solid var(--border);
 }
 .legend-seq code{
-  background:#dce8f5;color:var(--blue);
-  padding:1px 4px;border-radius:3px;font-size:.68rem;
+  background:var(--accent-dk);color:var(--accent);
+  padding:1px 5px;border-radius:3px;font-size:.67rem;
 }
 
 /* ─── zone cards ─── */
@@ -251,60 +262,60 @@ button,input,textarea{
   gap:7px;
 }
 .zone-card{
-  border-radius:var(--r-sm);padding:9px 8px 8px;
-  display:flex;flex-direction:column;gap:2px;
-  border:1.5px solid transparent;
+  border-radius:var(--r-sm);padding:10px 10px 9px;
+  display:flex;flex-direction:column;gap:3px;
+  border:1px solid transparent;
   transition:transform .12s;
 }
 .zone-card:hover{transform:translateY(-1px)}
-.zone-card.ok   {background:var(--green-lt);border-color:#9fd8b4}
-.zone-card.few  {background:var(--amber-lt);border-color:#ecc97a}
-.zone-card.full {background:var(--red-lt);  border-color:#f0b0aa}
-.zone-card.empty{background:#f2f5f9;        border-color:#d5e0ea}
+.zone-card.ok   {background:var(--green-lt);border-color:rgba(52,208,122,0.22)}
+.zone-card.few  {background:var(--amber-lt);border-color:rgba(245,166,35,0.22)}
+.zone-card.full {background:var(--red-lt);  border-color:rgba(240,92,92,0.22)}
+.zone-card.empty{background:var(--surface2);border-color:var(--border)}
 .zn{
-  font-size:.6rem;font-weight:700;color:var(--sub);
-  letter-spacing:.5px;text-transform:uppercase;
+  font-size:.56rem;font-weight:700;color:var(--sub);
+  letter-spacing:.07em;text-transform:uppercase;
 }
 .zs{
-  font-size:.88rem;font-weight:800;line-height:1.2;margin-top:1px;
+  font-size:.88rem;font-weight:800;line-height:1.2;margin-top:2px;
 }
 .zone-card.ok   .zs{color:var(--green)}
 .zone-card.few  .zs{color:var(--amber)}
 .zone-card.full .zs{color:var(--red)}
-.zone-card.empty .zs{color:#8fa0b2}
+.zone-card.empty .zs{color:var(--sub)}
 
 /* ─── tower pct card ─── */
 .zone-card.tower-pct{
-  background:linear-gradient(135deg,#e8f0ff 0%,#dceaff 100%);
-  border-color:#7aaaf0;
+  background:rgba(74,158,255,0.07);
+  border-color:rgba(74,158,255,0.18);
   grid-column:1/-1;
   flex-direction:column;
-  gap:6px;
-  padding:10px 14px;
+  gap:8px;
+  padding:12px 14px;
 }
 .tower-pct-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-.zone-card.tower-pct .zn{color:#1a4a8a;font-size:.62rem;letter-spacing:.6px}
-.tower-pct-bar-wrap{width:100%;height:10px;background:#c5d8f5;border-radius:99px;overflow:hidden}
+.zone-card.tower-pct .zn{color:var(--sub)}
+.tower-pct-bar-wrap{width:100%;height:5px;background:rgba(74,158,255,0.13);border-radius:99px;overflow:hidden}
 .tower-pct-bar{height:100%;border-radius:99px;transition:width .4s ease}
 .tower-pct-num{font-size:1.1rem;font-weight:900;white-space:nowrap}
 
 /* ─── report text ─── */
 #reportText{
   background:var(--green-lt);
-  border-left:4px solid var(--green);
+  border-left:3px solid var(--green);
   border-radius:var(--r-sm);
   padding:13px 15px;
   font-size:.88rem;line-height:1.9;
   white-space:pre-wrap;
-  color:#173323;
+  color:var(--text);
   font-family:var(--sans);
   word-break:break-all;
 }
 
 /* ─── excel output ─── */
 .excel-wrap{
-  background:#eef4ff;
-  border:1.5px solid #bdd4ff;
+  background:var(--surface2);
+  border:1px solid var(--border);
   border-radius:var(--r-sm);
   padding:11px 14px;
   overflow-x:auto;
@@ -317,193 +328,170 @@ button,input,textarea{
   white-space:nowrap;
 }
 .excel-table th{
-  padding:4px 10px;background:#dce9ff;
-  color:#0c2b6a;font-weight:700;
-  border:1px solid #b6caee;
-  font-size:.67rem;
+  padding:5px 10px;
+  background:rgba(74,158,255,0.1);
+  color:var(--accent);font-weight:700;
+  border:1px solid var(--border);
+  font-size:.66rem;letter-spacing:.05em;
 }
 .excel-table td{
   padding:5px 10px;text-align:center;
-  border:1px solid #c8daef;
+  border:1px solid var(--border);
   font-family:var(--mono);font-size:.78rem;
-  color:#0c2b4b;background:#f3f8ff;
+  color:var(--text);background:transparent;
 }
-/* Mobile vertical list for Excel */
 .excel-list{display:none;flex-direction:column;gap:0}
 .excel-list-row{
   display:flex;align-items:center;justify-content:space-between;
-  padding:7px 4px;
-  border-bottom:1px solid #c8daef;
+  padding:8px 4px;
+  border-bottom:1px solid var(--border);
   gap:8px;
 }
 .excel-list-row:last-child{border-bottom:none}
 .excel-list-name{
-  font-size:.78rem;font-weight:700;color:#0c2b6a;
-  flex-shrink:0;
+  font-size:.78rem;font-weight:700;
+  color:var(--sub);
+  flex-shrink:0;letter-spacing:.03em;
 }
 .excel-list-val{
-  font-family:var(--mono);color:#0c2b4b;font-weight:600;
+  font-family:var(--mono);color:var(--text);font-weight:600;
   font-size:.82rem;
 }
-#excelRaw{
-  display:none;
-}
+#excelRaw{display:none}
 
 /* ─── copy buttons ─── */
 .btn-row{display:flex;gap:8px;margin-top:10px}
 .btn{
   flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
-  padding:10px 14px;border:none;border-radius:9px;
-  font-size:.82rem;font-weight:700;cursor:pointer;
-  transition:background .15s,transform .1s,opacity .15s;
-  white-space:nowrap;
+  padding:11px 14px;border:none;border-radius:7px;
+  font-size:.78rem;font-weight:700;cursor:pointer;
+  transition:filter .15s,transform .1s,opacity .15s;
+  white-space:nowrap;letter-spacing:.05em;text-transform:uppercase;
 }
-.btn:hover{filter:brightness(1.08)}
+.btn:hover{filter:brightness(1.1)}
 .btn:active{transform:scale(.97);opacity:.88}
-.btn-green{background:var(--green);color:#fff}
-.btn-blue {background:var(--blue); color:#fff}
-.btn-sm{
-  padding:6px 12px;font-size:.73rem;border-radius:7px;
-  flex:none;
-}
+.btn-green{background:var(--green);color:#061a0e}
+.btn-blue {background:var(--accent);color:#06142b}
+.btn-sm{padding:7px 12px;font-size:.7rem;border-radius:6px;flex:none}
 .btn-outline{
-  background:transparent;border:1.5px solid var(--blue);color:var(--blue);
+  background:transparent;border:1px solid var(--border);color:var(--sub);
 }
-.btn-outline:hover{background:#eef2fc}
+.btn-outline:hover{background:var(--surface2);color:var(--text)}
 
-/* ─── 歷史記錄卡片樣式 ─── */
+/* ─── history ─── */
 .history-list{
   max-height:280px;
   overflow-y:auto;
   margin-top:4px;
 }
 .history-item{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:8px;
-  padding:10px 8px;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:8px;padding:10px 8px;
   border-bottom:1px solid var(--border);
   transition:background .1s;
 }
-.history-item:hover{background:#f8fafd}
-.history-info{
-  flex:1;
-  min-width:0;
-}
+.history-item:hover{background:var(--surface2)}
+.history-info{flex:1;min-width:0}
 .history-time{
-  font-size:.65rem;
-  font-weight:600;
-  color:var(--blue);
-  font-family:var(--mono);
-  margin-bottom:4px;
+  font-size:.62rem;font-weight:700;
+  color:var(--accent);
+  font-family:var(--mono);margin-bottom:4px;letter-spacing:.06em;
 }
 .history-preview{
-  font-size:.72rem;
-  color:var(--text);
-  font-family:var(--mono);
-  background:#f0f4f9;
-  display:inline-block;
-  padding:2px 8px;
-  border-radius:14px;
-  word-break:break-all;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  max-width:180px;
+  font-size:.72rem;color:var(--text);font-family:var(--mono);
+  background:var(--surface2);
+  display:inline-block;padding:2px 8px;
+  border-radius:4px;word-break:break-all;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:180px;border:1px solid var(--border);
 }
-.history-actions{
-  display:flex;
-  gap:6px;
-  flex-shrink:0;
-}
+.history-actions{display:flex;gap:6px;flex-shrink:0}
 .history-btn{
-  background:transparent;
-  border:none;
-  font-size:1rem;
-  cursor:pointer;
-  padding:5px 8px;
-  border-radius:20px;
-  transition:background .1s;
-  font-weight:600;
+  background:transparent;border:none;
+  font-size:.68rem;font-weight:700;
+  cursor:pointer;padding:5px 10px;
+  border-radius:5px;transition:background .1s,color .1s;
+  letter-spacing:.04em;text-transform:uppercase;
 }
 .history-load{
-  color:var(--blue);
-  background:#eef2fc;
+  color:var(--accent);
+  background:rgba(74,158,255,0.1);
+  border:1px solid rgba(74,158,255,0.18);
 }
-.history-load:hover{background:#dce6f5}
+.history-load:hover{background:rgba(74,158,255,0.2)}
 .history-del{
   color:var(--red);
-  background:#fef0ee;
+  background:rgba(240,92,92,0.1);
+  border:1px solid rgba(240,92,92,0.15);
 }
-.history-del:hover{background:#fce2df}
+.history-del:hover{background:rgba(240,92,92,0.2)}
 .clear-history-btn{
-  background:#f1f3f6;
-  border:none;
-  padding:6px 12px;
-  border-radius:30px;
-  font-size:.7rem;
-  font-weight:600;
-  color:var(--sub);
-  cursor:pointer;
-  transition:background .15s;
+  background:transparent;
+  border:1px solid var(--border);
+  padding:5px 11px;border-radius:5px;
+  font-size:.63rem;font-weight:700;
+  color:var(--sub);cursor:pointer;
+  transition:background .15s,color .15s,border-color .15s;
+  letter-spacing:.05em;text-transform:uppercase;
 }
-.clear-history-btn:hover{background:#e2e8f0;color:#b32a1e}
+.clear-history-btn:hover{
+  background:var(--red-lt);
+  color:var(--red);
+  border-color:rgba(240,92,92,0.25);
+}
 .empty-history{
-  padding:20px 0;
-  text-align:center;
-  color:var(--sub);
-  font-size:.75rem;
+  padding:22px 0;text-align:center;
+  color:var(--sub);font-size:.75rem;
 }
 
 /* ─── responsive ─── */
 @media(max-width:760px){
-  body{font-size:15px;}
-  .topbar{flex-wrap:wrap;align-items:flex-start;gap:8px;padding:10px 12px;}
-  .topbar > div:first-child{min-width:0;flex:1 1 100%;}
-  .topbar-title{white-space:normal;line-height:1.3;font-size:.95rem;}
-  .topbar-time{width:100%;margin-left:0;justify-content:space-between;}
-  .page{grid-template-columns:1fr;padding:12px 12px 100px;gap:12px;}
+  body{font-size:15px}
+  .topbar{flex-wrap:wrap;align-items:flex-start;gap:8px;padding:12px 14px}
+  .topbar > div:first-child{min-width:0;flex:1 1 100%}
+  .topbar-title{white-space:normal;line-height:1.3;font-size:.78rem}
+  .topbar-time{width:100%;margin-left:0;justify-content:space-between}
+  .page{grid-template-columns:1fr;padding:12px 12px 100px;gap:12px}
   .col-left{grid-column:1;grid-row:1}
   .col-right{grid-column:1;grid-row:2}
   .qf-grid{grid-template-columns:repeat(5,1fr);gap:4px}
-  .qf-input{font-size:16px;padding:8px 3px}
-  .qf-label{font-size:.55rem}
-  .card-head{padding:10px 12px}
-  .card-body{padding:12px}
-  .chip{min-height:36px;padding:8px 12px;}
-  .clear-btn{width:34px;height:34px;font-size:14px;top:8px;right:8px;}
-  .btn{min-height:44px;}
-  #refreshBtn{min-height:36px;}
-  textarea,input,button{font-size:16px;}
+  .qf-input{font-size:16px;padding:9px 3px}
+  .qf-label{font-size:.5rem}
+  .card-head{padding:10px 14px}
+  .card-body{padding:12px 14px}
+  .chip{min-height:40px;padding:9px 13px}
+  .clear-btn{width:34px;height:34px;font-size:11px;top:8px;right:8px}
+  .btn{min-height:46px}
+  #refreshBtn{min-height:38px}
+  textarea,input,button{font-size:16px}
   .topbar-sub{display:none}
-  #clockDisplay{font-size:1rem}
+  #clockDisplay{font-size:.98rem}
   .legend-tbl{grid-template-columns:1fr 1fr}
   .excel-table-wrap{display:none}
   .excel-list{display:flex}
   .sticky-bar{
     display:flex;
     position:fixed;bottom:0;left:0;right:0;
-    background:rgba(240,244,249,.95);
-    backdrop-filter:blur(12px);
-    -webkit-backdrop-filter:blur(12px);
+    background:rgba(13,23,32,0.96);
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
     padding:10px 14px calc(10px + env(safe-area-inset-bottom));
     gap:10px;
-    box-shadow:0 -1px 10px rgba(0,0,0,.1);
+    border-top:1px solid var(--border);
     z-index:15;
   }
-  .sticky-bar .btn{padding:13px;font-size:.85rem}
+  .sticky-bar .btn{padding:14px;font-size:.82rem}
   .inline-btns{display:none}
-  .history-preview{max-width:140px;white-space:normal;word-break:break-all;line-height:1.3;}
-  .history-item{align-items:flex-start;}
+  .history-preview{max-width:140px;white-space:normal;word-break:break-all;line-height:1.3}
+  .history-item{align-items:flex-start}
 }
 @media(max-width:420px){
   .qf-grid{grid-template-columns:repeat(2,1fr);gap:8px}
-  .qf-item{gap:4px}
-  .qf-label{font-size:.66rem}
-  .qf-input{padding:9px 6px}
+  .qf-item{gap:5px}
+  .qf-label{font-size:.62rem}
+  .qf-input{padding:10px 6px}
   .chips-row{gap:6px}
-  .chip{flex:1 1 calc(50% - 6px);justify-content:center;text-align:center;}
+  .chip{flex:1 1 calc(50% - 6px);justify-content:center;text-align:center}
 }
 @media(min-width:761px){
   .sticky-bar{display:none}
@@ -512,8 +500,8 @@ button,input,textarea{
   .excel-table-wrap{display:block}
   .excel-list{display:none !important}
 }
-.empty-state{text-align:center;color:#b0bec8;font-size:.8rem;padding:18px 0 10px;grid-column:1/-1;}
-.section-label{font-size:.73rem;font-weight:700;color:var(--sub);margin-bottom:4px;letter-spacing:.3px;}
+.empty-state{text-align:center;color:var(--sub);font-size:.8rem;padding:20px 0 12px;grid-column:1/-1;opacity:.55}
+.section-label{font-size:.68rem;font-weight:700;color:var(--sub);margin-bottom:4px;letter-spacing:.07em;text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -521,12 +509,12 @@ button,input,textarea{
 <!-- ══ Top bar ══ -->
 <header class="topbar">
   <div>
-    <div class="topbar-title">🚗 停車回報轉換</div>
+    <div class="topbar-title">停車回報轉換</div>
     <div class="topbar-sub">歷史記錄 · 自由調閱 · 車塔使用率修正</div>
   </div>
   <div class="topbar-time">
     <span id="clockDisplay">--:--</span>
-    <button id="refreshBtn">🔄 更新時間</button>
+    <button id="refreshBtn">更新時間</button>
   </div>
 </header>
 
@@ -537,8 +525,8 @@ button,input,textarea{
     <!-- 文字輸入 -->
     <div class="card">
       <div class="card-head">
-        <span class="card-head-label">📋 文字輸入（空格分隔）</span>
-        <span class="mode-badge" id="modeIndicator">⚡ 等待輸入</span>
+        <span class="card-head-label">文字輸入（空格分隔）</span>
+        <span class="mode-badge" id="modeIndicator">等待輸入</span>
       </div>
       <div class="card-body">
         <div class="input-wrap">
@@ -547,9 +535,9 @@ button,input,textarea{
           <button class="clear-btn" id="clearBtn" title="清除">✕</button>
         </div>
         <div class="chips-row">
-          <span class="chip chip-a" data-val="465 285 8 8 0 0.1 x x x x">📋 純順序</span>
-          <span class="chip chip-b" data-val="一樓以上=320 一樓以下=180 P1=0.3 B=7 R=0">🔑 純簡稱</span>
-          <span class="chip chip-c" data-val="423 256 7 7 E=0.4">✨ 混合</span>
+          <span class="chip chip-a" data-val="465 285 8 8 0 0.1 x x x x">順序模式</span>
+          <span class="chip chip-b" data-val="一樓以上=320 一樓以下=180 P1=0.3 B=7 R=0">簡稱模式</span>
+          <span class="chip chip-c" data-val="423 256 7 7 E=0.4">混合模式</span>
         </div>
       </div>
     </div>
@@ -557,8 +545,8 @@ button,input,textarea{
     <!-- 快速欄位輸入 -->
     <div class="card">
       <div class="card-head">
-        <span class="card-head-label">⌨️ 快速欄位輸入</span>
-        <span style="font-size:.65rem;color:var(--sub)">Tab 切換 · Enter 確認</span>
+        <span class="card-head-label">快速欄位輸入</span>
+        <span style="font-size:.62rem;color:var(--sub);letter-spacing:.04em">Tab 切換 · Enter 確認</span>
       </div>
       <div class="card-body">
         <div class="qf-grid" id="qfGrid"></div>
@@ -571,17 +559,17 @@ button,input,textarea{
     <!-- 說明折疊 -->
     <div class="card">
       <div class="legend-trigger" id="legendTrigger">
-        <span>📖 輸入說明 &amp; 欄位對照</span>
+        <span>輸入說明 &amp; 欄位對照</span>
         <i class="legend-arrow">▼</i>
       </div>
       <div class="legend-panel" id="legendPanel">
         <div class="legend-tbl">
-          <div class="legend-cell">🔢 車格數區<br><b>整數</b> = 剩餘車位</div>
-          <div class="legend-cell">🅿️ 成數區<br><b>8</b> = 尚有 8 成</div>
-          <div class="legend-cell">🚗 台車<br><b>0.1~0.9</b> = X 台車</div>
-          <div class="legend-cell">🈵 全滿<br><b>0</b></div>
-          <div class="legend-cell">❌ 未停車<br><b>x</b></div>
-          <div class="legend-cell">🔤 簡稱<br><b>A~E</b>=紡 A~E &nbsp;<b>R</b>=柏油路</div>
+          <div class="legend-cell">車格數區<br><b>整數</b> = 剩餘車位</div>
+          <div class="legend-cell">成數區<br><b>8</b> = 尚有 8 成</div>
+          <div class="legend-cell">台車<br><b>0.1~0.9</b> = X 台車</div>
+          <div class="legend-cell">全滿<br><b>0</b></div>
+          <div class="legend-cell">未停車<br><b>x</b></div>
+          <div class="legend-cell">簡稱<br><b>A~E</b>=紡 A~E &nbsp;<b>R</b>=柏油路</div>
         </div>
         <div class="legend-seq">
           <b>欄位順序：</b>一樓以上、一樓以下、P1、P3、紡A、紡B、紡C、紡D、紡E、柏油路<br>
@@ -600,7 +588,7 @@ button,input,textarea{
     <!-- 各區狀況 -->
     <div class="card">
       <div class="card-head">
-        <span class="card-head-label">🗺️ 各區停車狀況</span>
+        <span class="card-head-label">各區停車狀況</span>
       </div>
       <div class="card-body">
         <div class="zone-grid" id="zoneGrid">
@@ -612,12 +600,12 @@ button,input,textarea{
     <!-- 中控回報 -->
     <div class="card">
       <div class="card-head">
-        <span class="card-head-label">📢 中控回報（口播）</span>
+        <span class="card-head-label">中控回報（口播）</span>
       </div>
       <div class="card-body">
-        <div id="reportText" style="color:#9aabb8;font-size:.85rem">請輸入數據後自動產生…</div>
+        <div id="reportText" style="color:var(--sub);font-size:.85rem">請輸入數據後自動產生…</div>
         <div class="btn-row inline-btns" style="margin-top:12px">
-          <button class="btn btn-green" id="copyReportBtnD">📋 複製中控回報</button>
+          <button class="btn btn-green" id="copyReportBtnD">複製中控回報</button>
         </div>
       </div>
     </div>
@@ -625,7 +613,7 @@ button,input,textarea{
     <!-- Excel 輸出 -->
     <div class="card">
       <div class="card-head">
-        <span class="card-head-label">📎 假日停車場 Excel 數值</span>
+        <span class="card-head-label">假日停車場 Excel 數值</span>
       </div>
       <div class="card-body">
         <div class="excel-table-wrap">
@@ -639,7 +627,7 @@ button,input,textarea{
         <div class="excel-wrap excel-list" id="excelList" style="padding:6px 14px"></div>
         <div id="excelRaw"></div>
         <div class="btn-row inline-btns" style="margin-top:10px">
-          <button class="btn btn-blue" id="copyExcelBtnD">📎 複製 Excel 值（Tab 分隔）</button>
+          <button class="btn btn-blue" id="copyExcelBtnD">複製 Excel 值（Tab 分隔）</button>
         </div>
       </div>
     </div>
@@ -648,8 +636,8 @@ button,input,textarea{
 
 <!-- Mobile sticky bar -->
 <div class="sticky-bar">
-  <button class="btn btn-green" id="copyReportBtnM">📋 複製中控回報</button>
-  <button class="btn btn-blue"  id="copyExcelBtnM">📎 複製 Excel 值</button>
+  <button class="btn btn-green" id="copyReportBtnM">複製中控回報</button>
+  <button class="btn btn-blue"  id="copyExcelBtnM">複製 Excel 值</button>
 </div>
 
 <script>
@@ -664,7 +652,7 @@ const MAX_HISTORY = 40;
 /* ═══ STATE ═══ */
 let currentTime = new Date();
 let qfValues    = new Array(LABELS.length).fill('x');
-let historyEntries = [];    // {id, timestamp, inputString, preview}
+let historyEntries = [];
 
 /* ═══ DOM ═══ */
 const $ = id => document.getElementById(id);
@@ -699,9 +687,8 @@ function saveHistoryToStorage() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(historyEntries.slice(-MAX_HISTORY)));
 }
 function addHistoryEntry(inputStr) {
-  if(!inputStr && inputStr !== "") return; // 空字串也允許但避免undefined
+  if(!inputStr && inputStr !== "") return;
   const trimmed = inputStr.trim();
-  // 與最新一筆比較內容是否相同 (忽略細微空格差異)
   if(historyEntries.length > 0) {
     const last = historyEntries[historyEntries.length-1];
     if(last.inputString.trim() === trimmed) return;
@@ -738,34 +725,31 @@ function clearAllHistory() {
 function loadHistoryToCurrent(entry) {
   dataInput.value = entry.inputString;
   updateAll('text');
-  // 可選: 滾動到頂部
   dataInput.focus();
 }
 function renderHistoryList() {
   if(!historyContainer) return;
   if(historyEntries.length === 0) {
-    historyContainer.innerHTML = `<div class="card"><div class="card-head"><span class="card-head-label">📜 歷史調閱</span><button class="clear-history-btn" id="clearAllHistoryBtn">🗑 清空記錄</button></div><div class="card-body"><div class="empty-history">尚無歷史記錄，輸入資料後會自動儲存</div></div></div>`;
+    historyContainer.innerHTML = `<div class="card"><div class="card-head"><span class="card-head-label">歷史調閱</span><button class="clear-history-btn" id="clearAllHistoryBtn">清空記錄</button></div><div class="card-body"><div class="empty-history">尚無歷史記錄，輸入資料後會自動儲存</div></div></div>`;
     const clearBtnElem = document.getElementById('clearAllHistoryBtn');
     if(clearBtnElem) clearBtnElem.addEventListener('click', clearAllHistory);
     return;
   }
-  // 按時間由新到舊排序顯示
   const reversed = [...historyEntries].reverse();
   const itemsHtml = reversed.map(entry => `
     <div class="history-item" data-id="${entry.id}">
       <div class="history-info">
-        <div class="history-time">🕒 ${entry.timeLabel}</div>
+        <div class="history-time">${entry.timeLabel}</div>
         <div class="history-preview" title="${escapeHtml(entry.inputString)}">${escapeHtml(entry.preview)}</div>
       </div>
       <div class="history-actions">
-        <button class="history-btn history-load" data-action="load" data-id="${entry.id}">↺ 載入</button>
-        <button class="history-btn history-del" data-action="del" data-id="${entry.id}">✕</button>
+        <button class="history-btn history-load" data-action="load" data-id="${entry.id}">載入</button>
+        <button class="history-btn history-del" data-action="del" data-id="${entry.id}">刪除</button>
       </div>
     </div>
   `).join('');
-  const historyHtml = `<div class="card"><div class="card-head"><span class="card-head-label">📜 歷史調閱 (依輸入順序)</span><button class="clear-history-btn" id="clearAllHistoryBtn">🗑 全部清除</button></div><div class="card-body" style="padding:0 8px 8px 8px"><div class="history-list">${itemsHtml}</div></div></div>`;
+  const historyHtml = `<div class="card"><div class="card-head"><span class="card-head-label">歷史調閱</span><button class="clear-history-btn" id="clearAllHistoryBtn">全部清除</button></div><div class="card-body" style="padding:0 8px 8px 8px"><div class="history-list">${itemsHtml}</div></div></div>`;
   historyContainer.innerHTML = historyHtml;
-  // 綁定事件委託
   const listDiv = historyContainer.querySelector('.history-list');
   if(listDiv) {
     listDiv.addEventListener('click', (e) => {
@@ -855,11 +839,11 @@ function syncQfToText() {
 function zoneInfo(i, raw) {
   const v = (raw ?? 'x').toString().toLowerCase().trim() || 'x';
   if (v === 'x')  return {cls:'empty', s:'未停車'};
-  if (v === '0')  return {cls:'full',  s:'全滿 🈵'};
+  if (v === '0')  return {cls:'full',  s:'全滿'};
   if (IS_CAR[i])  return {cls:'ok',    s:`${v} 車位`};
   if (v.startsWith('0.')) {
     const n = parseInt(v.slice(2),10) || 0;
-    if (!n) return {cls:'full', s:'全滿 🈵'};
+    if (!n) return {cls:'full', s:'全滿'};
     return {cls:'few', s:`尚有 ${n} 台`};
   }
   const n = parseInt(v,10);
@@ -905,7 +889,7 @@ function buildTowerPctCard(tokens) {
   const v1 = parseInt(rawDown, 10);
   const isValid = !isNaN(v0) && rawUp !== 'x' && !isNaN(v1) && rawDown !== 'x';
   if (!isValid) {
-    return `<div class="zone-card tower-pct"><div class="tower-pct-top"><div class="zn">🏢 車塔停放使用率（已停放比例）</div><div class="tower-pct-num" style="color:#9aabb8">—</div></div><div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:0%;background:#a0b8d8"></div></div></div>`;
+    return `<div class="zone-card tower-pct"><div class="tower-pct-top"><div class="zn">車塔停放使用率（已停放比例）</div><div class="tower-pct-num" style="color:var(--sub)">—</div></div><div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:0%;background:var(--sub)"></div></div></div>`;
   }
   let sumRemaining = v0 + v1;
   if (sumRemaining < 0) sumRemaining = 0;
@@ -916,9 +900,9 @@ function buildTowerPctCard(tokens) {
   usagePct = Math.min(100, Math.max(0, usagePct));
   const pctRounded = Math.round(usagePct);
   const barW = pctRounded;
-  const barC = pctRounded >= 90 ? 'var(--red)' : pctRounded >= 70 ? 'var(--amber)' : '#2a82e4';
-  const numC = pctRounded >= 90 ? 'var(--red)' : pctRounded >= 70 ? 'var(--amber)' : '#1a4a8a';
-  return `<div class="zone-card tower-pct"><div class="tower-pct-top"><div class="zn">🏢 車塔停放使用率（已停放比例）</div><div class="tower-pct-num" style="color:${numC}">${pctRounded}%</div></div><div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:${barW}%;background:${barC}"></div></div></div>`;
+  const barC = pctRounded >= 90 ? 'var(--red)' : pctRounded >= 70 ? 'var(--amber)' : 'var(--accent)';
+  const numC = pctRounded >= 90 ? 'var(--red)' : pctRounded >= 70 ? 'var(--amber)' : 'var(--accent)';
+  return `<div class="zone-card tower-pct"><div class="tower-pct-top"><div class="zn">車塔停放使用率（已停放比例）</div><div class="tower-pct-num" style="color:${numC}">${pctRounded}%</div></div><div class="tower-pct-bar-wrap"><div class="tower-pct-bar" style="width:${barW}%;background:${barC}"></div></div></div>`;
 }
 let lastSource = 'text';
 function updateAll(source) {
@@ -928,17 +912,17 @@ function updateAll(source) {
   if (!input && dataInput.value !== "") {
     zoneGrid.innerHTML = '<div class="empty-state">請輸入數據</div>';
     reportText.textContent = '請輸入數據後自動產生…';
-    reportText.style.color = '#9aabb8';
+    reportText.style.color = 'var(--sub)';
     excelHead.innerHTML = ''; excelBody.innerHTML = ''; excelList.innerHTML = ''; excelRaw.textContent = '';
-    modeIndicator.textContent = '⚡ 等待輸入';
+    modeIndicator.textContent = '等待輸入';
     return;
   }
   const tokens = parseText(dataInput.value);
   if (lastSource === 'text') syncTextToQf(tokens);
   const hasEq = dataInput.value.includes('=');
   const hasNum = /\d/.test(dataInput.value);
-  modeIndicator.textContent = hasEq&&hasNum ? '🧩 混合模式' : hasEq ? '✨ 簡稱模式' : '🔁 順序模式';
-  modeIndicator.style.cssText = 'background:var(--blue-lt);color:var(--blue)';
+  modeIndicator.textContent = hasEq&&hasNum ? '混合模式' : hasEq ? '簡稱模式' : '順序模式';
+  modeIndicator.style.cssText = '';
   const zoneCards = LABELS.map((lbl,i) => {
     const {cls,s} = zoneInfo(i, tokens[i]);
     return `<div class="zone-card ${cls}"><div class="zn">${lbl}</div><div class="zs">${s}</div></div>`;
@@ -960,7 +944,7 @@ async function copyStr(str, btn) {
     await navigator.clipboard.writeText(str);
     addHistoryEntry(dataInput.value);
     const orig = btn.textContent;
-    btn.textContent = '✅ 已複製！';
+    btn.textContent = '已複製';
     setTimeout(() => btn.textContent = orig, 1400);
   } catch { alert('複製失敗'); }
 }
@@ -979,7 +963,7 @@ refreshBtn.addEventListener('click', () => {
   currentTime = new Date();
   updateAll();
   const orig = refreshBtn.textContent;
-  refreshBtn.textContent = '✅ 已更新';
+  refreshBtn.textContent = '已更新';
   setTimeout(() => refreshBtn.textContent = orig, 1300);
 });
 document.querySelectorAll('.chip').forEach(c => {
