@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>保全停車回報</title>
+<style>
+:root{
+  --bg:#0d1720;
+  --surface:#152030;
+  --surface2:#1b2d40;
+  --surface3:#243447;
+  --border:rgba(255,255,255,.09);
+  --text:#dce8f2;
+  --sub:#7f9bb4;
+  --accent:#4a9eff;
+  --green:#34d07a;
+  --amber:#f5a623;
+  --red:#f05c5c;
+  --shadow:0 18px 44px rgba(0,0,0,.28);
+  --sans:'Helvetica Neue','PingFang TC','Microsoft JhengHei',sans-serif;
+  --mono:'SF Mono','Cascadia Code','Consolas',monospace;
+}
+*{box-sizing:border-box}
+html{overflow-x:hidden;background:var(--bg)}
+body{
+  margin:0;
+  min-height:100vh;
+  overflow-x:hidden;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  -webkit-text-size-adjust:100%;
+}
+button{
+  font:inherit;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+.app{
+  width:100%;
+  max-width:440px;
+  min-height:100vh;
+  margin:0 auto;
+  padding:12px 12px 130px;
+}
+.topbar{
+  position:sticky;
+  top:0;
+  z-index:10;
+  margin:-12px -12px 12px;
+  padding:12px;
+  background:rgba(13,23,32,.96);
+  backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--border);
+}
+.topline{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.title{
+  font-size:1rem;
+  font-weight:900;
+  letter-spacing:.05em;
+}
+.timebox{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.clock{
+  font-family:var(--mono);
+  font-size:1.08rem;
+  font-weight:900;
+  letter-spacing:.08em;
+}
+.mini-btn{
+  min-height:34px;
+  border:1px solid var(--border);
+  border-radius:7px;
+  background:var(--surface2);
+  color:var(--text);
+  padding:6px 10px;
+  font-size:.72rem;
+  font-weight:800;
+}
+.progress{
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.progress-label{
+  min-width:42px;
+  color:var(--sub);
+  font-size:.78rem;
+  font-weight:800;
+}
+.progress-track{
+  flex:1;
+  height:7px;
+  border-radius:999px;
+  background:var(--surface2);
+  overflow:hidden;
+}
+.progress-fill{
+  height:100%;
+  width:10%;
+  border-radius:999px;
+  background:linear-gradient(90deg,var(--accent),var(--green));
+  transition:width .18s ease;
+}
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:10px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  margin-bottom:12px;
+}
+.card-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:11px 13px;
+  border-bottom:1px solid var(--border);
+}
+.label{
+  color:var(--sub);
+  font-size:.72rem;
+  font-weight:900;
+  letter-spacing:.08em;
+}
+.current-zone{
+  padding:16px;
+}
+.zone-name{
+  color:var(--accent);
+  font-size:1.35rem;
+  font-weight:950;
+  letter-spacing:.04em;
+}
+.zone-type{
+  margin-top:4px;
+  color:var(--sub);
+  font-size:.82rem;
+  font-weight:800;
+}
+.value-display{
+  margin-top:14px;
+  min-height:72px;
+  border-radius:10px;
+  border:1px solid rgba(74,158,255,.28);
+  background:rgba(74,158,255,.1);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:14px;
+}
+.raw-value{
+  font-family:var(--mono);
+  font-size:1.6rem;
+  font-weight:950;
+}
+.status-pill{
+  border-radius:999px;
+  padding:8px 10px;
+  background:var(--surface2);
+  color:var(--text);
+  font-size:.86rem;
+  font-weight:900;
+  white-space:nowrap;
+}
+.status-ok{color:var(--green)}
+.status-few{color:var(--amber)}
+.status-full{color:var(--red)}
+.status-empty{color:var(--sub)}
+.zones{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:6px;
+  padding:12px;
+}
+.zone-chip{
+  min-height:54px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface2);
+  color:var(--sub);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  padding:6px 3px;
+}
+.zone-chip.active{
+  border-color:rgba(74,158,255,.68);
+  background:rgba(74,158,255,.14);
+  color:var(--text);
+}
+.zone-chip.done{border-color:rgba(52,208,122,.25)}
+.zone-chip-name{
+  font-size:.62rem;
+  font-weight:900;
+  letter-spacing:.03em;
+  white-space:nowrap;
+}
+.zone-chip-value{
+  font-size:.7rem;
+  font-weight:900;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.mode-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  padding:12px 12px 0;
+}
+.mode-btn{
+  min-height:46px;
+  border:1px solid var(--border);
+  border-radius:9px;
+  background:var(--surface2);
+  color:var(--sub);
+  font-weight:950;
+}
+.mode-btn.active{
+  border-color:rgba(245,166,35,.55);
+  background:rgba(245,166,35,.12);
+  color:var(--amber);
+}
+.keypad{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+  padding:12px;
+}
+.key{
+  min-height:58px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--surface2);
+  color:var(--text);
+  font-family:var(--mono);
+  font-size:1.35rem;
+  font-weight:950;
+}
+.key:active,.fn-btn:active,.bottom-btn:active,.mode-btn:active,.mini-btn:active{transform:scale(.98)}
+.fn-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  padding:0 12px 12px;
+}
+.fn-btn{
+  min-height:48px;
+  border:1px solid var(--border);
+  border-radius:9px;
+  background:var(--surface3);
+  color:var(--text);
+  font-size:.9rem;
+  font-weight:900;
+}
+.fn-btn.warning{color:var(--red);background:rgba(240,92,92,.1);border-color:rgba(240,92,92,.22)}
+.fn-btn.accent{color:var(--accent);background:rgba(74,158,255,.1);border-color:rgba(74,158,255,.22)}
+.tower{
+  padding:12px 13px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.tower-title{
+  color:var(--sub);
+  font-size:.8rem;
+  font-weight:900;
+}
+.tower-num{
+  font-size:1.3rem;
+  font-weight:950;
+}
+.preview{
+  white-space:pre-wrap;
+  line-height:1.72;
+  padding:13px;
+  margin:0;
+  font-size:.92rem;
+  background:rgba(52,208,122,.09);
+  border-left:4px solid var(--green);
+}
+.history-list{
+  max-height:190px;
+  overflow:auto;
+  padding:4px 8px 8px;
+}
+.history-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  border-bottom:1px solid var(--border);
+  padding:10px 4px;
+}
+.history-time{
+  color:var(--accent);
+  font-family:var(--mono);
+  font-size:.72rem;
+  font-weight:900;
+}
+.history-preview{
+  margin-top:3px;
+  color:var(--text);
+  font-family:var(--mono);
+  font-size:.76rem;
+  max-width:230px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.history-load{
+  min-height:38px;
+  border:1px solid rgba(74,158,255,.22);
+  border-radius:8px;
+  background:rgba(74,158,255,.1);
+  color:var(--accent);
+  font-weight:900;
+  padding:7px 11px;
+}
+.empty{
+  color:var(--sub);
+  text-align:center;
+  padding:18px 0;
+  font-size:.82rem;
+}
+.bottom-bar{
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:20;
+  background:rgba(13,23,32,.97);
+  backdrop-filter:blur(18px);
+  border-top:1px solid var(--border);
+  padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+}
+.bottom-inner{
+  max-width:440px;
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+.bottom-btn{
+  min-height:52px;
+  border:0;
+  border-radius:10px;
+  font-weight:950;
+  letter-spacing:.04em;
+}
+.share{grid-column:1/-1;background:var(--green);color:#07120c;font-size:1rem}
+.copy{background:var(--accent);color:#06111f}
+.reset{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.toast{
+  position:fixed;
+  left:50%;
+  bottom:124px;
+  z-index:30;
+  transform:translateX(-50%) translateY(18px);
+  opacity:0;
+  pointer-events:none;
+  background:#edf7ff;
+  color:#071520;
+  border-radius:999px;
+  padding:10px 14px;
+  font-size:.86rem;
+  font-weight:900;
+  box-shadow:var(--shadow);
+  transition:opacity .16s ease,transform .16s ease;
+  white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(min-width:441px){
+  body{background:linear-gradient(90deg,#091018 0,#0d1720 28%,#0d1720 72%,#091018 100%)}
+}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="topbar">
+    <div class="topline">
+      <div class="title">保全停車回報</div>
+      <div class="timebox">
+        <span class="clock" id="clockDisplay">--:--</span>
+        <button class="mini-btn" id="refreshBtn">更新</button>
+      </div>
+    </div>
+    <div class="progress">
+      <span class="progress-label" id="progressLabel">1/10</span>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="label">目前區域</span>
+      <span class="label" id="entryModeLabel">一般輸入</span>
+    </div>
+    <div class="current-zone">
+      <div class="zone-name" id="currentZoneName">一樓以上</div>
+      <div class="zone-type" id="currentZoneType">剩餘車位數，連續點數字輸入</div>
+      <div class="value-display">
+        <div class="raw-value" id="rawValue">x</div>
+        <div class="status-pill" id="statusValue">未停車</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><span class="label">填寫順序</span></div>
+    <div class="zones" id="zoneList"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><span class="label">頁面數字鍵盤</span></div>
+    <div class="mode-row">
+      <button class="mode-btn active" id="normalModeBtn">成數/車位</button>
+      <button class="mode-btn" id="cartModeBtn">台車模式</button>
+    </div>
+    <div class="keypad" id="keypad"></div>
+    <div class="fn-grid">
+      <button class="fn-btn warning" id="clearCellBtn">清除本格</button>
+      <button class="fn-btn" id="emptyBtn">未停車 x</button>
+      <button class="fn-btn" id="prevBtn">上一格</button>
+      <button class="fn-btn accent" id="nextBtn">下一格</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="tower">
+      <div class="tower-title">車塔停放使用率</div>
+      <div class="tower-num" id="towerUsage">—</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><span class="label">LINE 回報預覽</span></div>
+    <pre class="preview" id="linePreview"></pre>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><span class="label">保全回報歷史</span></div>
+    <div class="history-list" id="historyList"></div>
+  </section>
+</main>
+
+<div class="bottom-bar">
+  <div class="bottom-inner">
+    <button class="bottom-btn share" id="shareLineBtn">分享到 LINE</button>
+    <button class="bottom-btn copy" id="copyLineBtn">複製 LINE 回報</button>
+    <button class="bottom-btn reset" id="resetBtn">清除重填</button>
+  </div>
+</div>
+<div class="toast" id="toast">已複製</div>
+
+<script src="parking-core.js"></script>
+<script>
+const {
+  LABELS,
+  IS_CAR,
+  zoneInfo,
+  buildLineReport,
+  buildTowerUsage,
+} = window.ParkingCore;
+
+const STORAGE_KEY = 'parking_guard_history_v1';
+const MAX_HISTORY = 30;
+
+let currentTime = new Date();
+let currentIndex = 0;
+let entryMode = 'normal';
+let tokens = new Array(LABELS.length).fill('x');
+let historyEntries = [];
+
+const $ = (id) => document.getElementById(id);
+const clockDisplay = $('clockDisplay');
+const refreshBtn = $('refreshBtn');
+const progressLabel = $('progressLabel');
+const progressFill = $('progressFill');
+const entryModeLabel = $('entryModeLabel');
+const currentZoneName = $('currentZoneName');
+const currentZoneType = $('currentZoneType');
+const rawValue = $('rawValue');
+const statusValue = $('statusValue');
+const zoneList = $('zoneList');
+const keypad = $('keypad');
+const normalModeBtn = $('normalModeBtn');
+const cartModeBtn = $('cartModeBtn');
+const clearCellBtn = $('clearCellBtn');
+const emptyBtn = $('emptyBtn');
+const prevBtn = $('prevBtn');
+const nextBtn = $('nextBtn');
+const towerUsage = $('towerUsage');
+const linePreview = $('linePreview');
+const historyList = $('historyList');
+const shareLineBtn = $('shareLineBtn');
+const copyLineBtn = $('copyLineBtn');
+const resetBtn = $('resetBtn');
+const toast = $('toast');
+
+function formatClock(date) {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function showToast(message) {
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+function moveTo(index) {
+  currentIndex = Math.max(0, Math.min(LABELS.length - 1, index));
+  entryMode = 'normal';
+  render();
+}
+
+function moveNext() {
+  moveTo(currentIndex + 1);
+}
+
+function movePrev() {
+  moveTo(currentIndex - 1);
+}
+
+function inputDigit(digit) {
+  if (entryMode === 'cart' && !IS_CAR[currentIndex]) {
+    tokens[currentIndex] = digit === '0' ? '0' : `0.${digit}`;
+    moveNext();
+    return;
+  }
+
+  if (IS_CAR[currentIndex]) {
+    const current = tokens[currentIndex] === 'x' || tokens[currentIndex] === '0' ? '' : tokens[currentIndex];
+    tokens[currentIndex] = `${current}${digit}`.replace(/^0+(?=\d)/, '') || '0';
+    render();
+    return;
+  }
+
+  tokens[currentIndex] = digit;
+  moveNext();
+}
+
+function clearCurrent() {
+  tokens[currentIndex] = 'x';
+  render();
+}
+
+function markEmpty() {
+  tokens[currentIndex] = 'x';
+  moveNext();
+}
+
+function resetAll() {
+  if (!confirm('確定要清除目前回報並重新輸入嗎？')) return;
+  tokens = new Array(LABELS.length).fill('x');
+  currentTime = new Date();
+  moveTo(0);
+}
+
+function setMode(mode) {
+  entryMode = mode;
+  render();
+}
+
+function renderKeypad() {
+  keypad.innerHTML = '';
+  ['1','2','3','4','5','6','7','8','9','0'].forEach((digit) => {
+    const button = document.createElement('button');
+    button.className = 'key';
+    button.type = 'button';
+    button.textContent = digit;
+    button.setAttribute('aria-label', `輸入 ${digit}`);
+    button.addEventListener('click', () => inputDigit(digit));
+    keypad.appendChild(button);
+  });
+}
+
+function renderZones() {
+  zoneList.innerHTML = '';
+  LABELS.forEach((label, index) => {
+    const info = zoneInfo(index, tokens[index]);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `zone-chip ${index === currentIndex ? 'active' : ''} ${tokens[index] !== 'x' ? 'done' : ''}`;
+    button.innerHTML = `<span class="zone-chip-name">${label}</span><span class="zone-chip-value">${info.s}</span>`;
+    button.addEventListener('click', () => moveTo(index));
+    zoneList.appendChild(button);
+  });
+}
+
+function renderHistory() {
+  if (!historyEntries.length) {
+    historyList.innerHTML = '<div class="empty">尚無保全回報歷史</div>';
+    return;
+  }
+  historyList.innerHTML = historyEntries.slice().reverse().map((entry) => `
+    <div class="history-item">
+      <div>
+        <div class="history-time">${entry.timeLabel}</div>
+        <div class="history-preview">${entry.preview}</div>
+      </div>
+      <button class="history-load" data-id="${entry.id}">載入</button>
+    </div>
+  `).join('');
+  historyList.querySelectorAll('.history-load').forEach((button) => {
+    button.addEventListener('click', () => {
+      const entry = historyEntries.find((item) => item.id === button.dataset.id);
+      if (!entry) return;
+      tokens = entry.tokens.slice();
+      currentTime = new Date(entry.timestamp);
+      moveTo(0);
+    });
+  });
+}
+
+function render() {
+  const info = zoneInfo(currentIndex, tokens[currentIndex]);
+  const tower = buildTowerUsage(tokens);
+  const completed = tokens.filter((token) => token !== 'x').length;
+
+  clockDisplay.textContent = formatClock(currentTime);
+  progressLabel.textContent = `${currentIndex + 1}/10`;
+  progressFill.style.width = `${((currentIndex + 1) / LABELS.length) * 100}%`;
+  entryModeLabel.textContent = entryMode === 'cart' ? '台車模式' : '一般輸入';
+  currentZoneName.textContent = LABELS[currentIndex];
+  currentZoneType.textContent = IS_CAR[currentIndex] ? '剩餘車位數，連續點數字輸入' : '成數區：點 1~9 為成數，台車請先切換模式';
+  rawValue.textContent = tokens[currentIndex];
+  statusValue.textContent = info.s;
+  statusValue.className = `status-pill status-${info.cls}`;
+  normalModeBtn.classList.toggle('active', entryMode === 'normal');
+  cartModeBtn.classList.toggle('active', entryMode === 'cart');
+  cartModeBtn.disabled = IS_CAR[currentIndex];
+  cartModeBtn.textContent = IS_CAR[currentIndex] ? '台車模式不可用' : '台車模式';
+  towerUsage.textContent = tower.valid ? `${tower.percent}%` : '—';
+  towerUsage.style.color = !tower.valid ? 'var(--sub)' : tower.percent >= 90 ? 'var(--red)' : tower.percent >= 70 ? 'var(--amber)' : 'var(--green)';
+  linePreview.textContent = buildLineReport(tokens, currentTime);
+  document.title = `保全停車回報 ${completed}/10`;
+  renderZones();
+}
+
+function loadHistory() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    historyEntries = Array.isArray(stored) ? stored : [];
+  } catch {
+    historyEntries = [];
+  }
+}
+
+function saveHistory() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(historyEntries.slice(-MAX_HISTORY)));
+}
+
+function addHistory() {
+  const now = new Date();
+  const id = `${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`;
+  const timeLabel = `${now.getMonth() + 1}/${now.getDate()} ${formatClock(now)}`;
+  const preview = tokens.join(' ');
+  const last = historyEntries[historyEntries.length - 1];
+  if (last && last.preview === preview) return;
+  historyEntries.push({ id, timestamp: currentTime.getTime(), timeLabel, tokens: tokens.slice(), preview });
+  historyEntries = historyEntries.slice(-MAX_HISTORY);
+  saveHistory();
+  renderHistory();
+}
+
+async function copyReport(message) {
+  const text = message || buildLineReport(tokens, currentTime);
+  try {
+    await navigator.clipboard.writeText(text);
+    addHistory();
+    showToast('已複製 LINE 回報');
+    return true;
+  } catch {
+    if (fallbackCopyText(text)) {
+      addHistory();
+      showToast('已複製 LINE 回報');
+      return true;
+    }
+    showToast('複製失敗，請手動選取預覽文字');
+    return false;
+  }
+}
+
+function fallbackCopyText(text) {
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed';
+  area.style.left = '-9999px';
+  area.style.top = '0';
+  document.body.appendChild(area);
+  area.focus();
+  area.select();
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } catch {
+    ok = false;
+  }
+  document.body.removeChild(area);
+  return ok;
+}
+
+async function shareToLine() {
+  const text = buildLineReport(tokens, currentTime);
+  await copyReport(text);
+  const lineUrl = `https://line.me/R/share?text=${encodeURIComponent(text)}`;
+  try {
+    window.location.href = lineUrl;
+  } catch {
+    showToast('已改為複製，請貼到 LINE 群組');
+  }
+}
+
+refreshBtn.addEventListener('click', () => {
+  currentTime = new Date();
+  render();
+  showToast('時間已更新');
+});
+normalModeBtn.addEventListener('click', () => setMode('normal'));
+cartModeBtn.addEventListener('click', () => {
+  if (!IS_CAR[currentIndex]) setMode('cart');
+});
+clearCellBtn.addEventListener('click', clearCurrent);
+emptyBtn.addEventListener('click', markEmpty);
+prevBtn.addEventListener('click', movePrev);
+nextBtn.addEventListener('click', moveNext);
+shareLineBtn.addEventListener('click', shareToLine);
+copyLineBtn.addEventListener('click', () => copyReport());
+resetBtn.addEventListener('click', resetAll);
+
+renderKeypad();
+loadHistory();
+renderHistory();
+render();
+</script>
+</body>
+</html>
