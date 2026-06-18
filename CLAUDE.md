@@ -18,10 +18,11 @@ There is no build system, no package manager, and no external dependencies. Open
 
 Open `index.html` or `guard.html` directly in a browser — no server needed. All changes are immediately testable by refreshing the page.
 
-Core logic tests can be run with:
+Tests can be run with:
 
 ```bash
 node parking-core.test.js
+node guard-ui.test.js
 ```
 
 ## Architecture

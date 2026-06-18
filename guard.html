@@ -134,51 +134,6 @@ button{
   font-weight:900;
   letter-spacing:.08em;
 }
-.current-zone{
-  padding:16px;
-}
-.zone-name{
-  color:var(--accent);
-  font-size:1.35rem;
-  font-weight:950;
-  letter-spacing:.04em;
-}
-.zone-type{
-  margin-top:4px;
-  color:var(--sub);
-  font-size:.82rem;
-  font-weight:800;
-}
-.value-display{
-  margin-top:14px;
-  min-height:72px;
-  border-radius:10px;
-  border:1px solid rgba(74,158,255,.28);
-  background:rgba(74,158,255,.1);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  padding:14px;
-}
-.raw-value{
-  font-family:var(--mono);
-  font-size:1.6rem;
-  font-weight:950;
-}
-.status-pill{
-  border-radius:999px;
-  padding:8px 10px;
-  background:var(--surface2);
-  color:var(--text);
-  font-size:.86rem;
-  font-weight:900;
-  white-space:nowrap;
-}
-.status-ok{color:var(--green)}
-.status-few{color:var(--amber)}
-.status-full{color:var(--red)}
-.status-empty{color:var(--sub)}
 .zones{
   display:grid;
   grid-template-columns:repeat(5,1fr);
@@ -409,21 +364,6 @@ button{
   </header>
 
   <section class="card">
-    <div class="card-head">
-      <span class="label">目前區域</span>
-      <span class="label" id="entryModeLabel">一般輸入</span>
-    </div>
-    <div class="current-zone">
-      <div class="zone-name" id="currentZoneName">一樓以上</div>
-      <div class="zone-type" id="currentZoneType">剩餘車位數，連續點數字輸入</div>
-      <div class="value-display">
-        <div class="raw-value" id="rawValue">x</div>
-        <div class="status-pill" id="statusValue">未停車</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="card">
     <div class="card-head"><span class="label">填寫順序</span></div>
     <div class="zones" id="zoneList"></div>
   </section>
@@ -494,11 +434,6 @@ const clockDisplay = $('clockDisplay');
 const refreshBtn = $('refreshBtn');
 const progressLabel = $('progressLabel');
 const progressFill = $('progressFill');
-const entryModeLabel = $('entryModeLabel');
-const currentZoneName = $('currentZoneName');
-const currentZoneType = $('currentZoneType');
-const rawValue = $('rawValue');
-const statusValue = $('statusValue');
 const zoneList = $('zoneList');
 const keypad = $('keypad');
 const normalModeBtn = $('normalModeBtn');
@@ -632,19 +567,12 @@ function renderHistory() {
 }
 
 function render() {
-  const info = zoneInfo(currentIndex, tokens[currentIndex]);
   const tower = buildTowerUsage(tokens);
   const completed = tokens.filter((token) => token !== 'x').length;
 
   clockDisplay.textContent = formatClock(currentTime);
   progressLabel.textContent = `${currentIndex + 1}/10`;
   progressFill.style.width = `${((currentIndex + 1) / LABELS.length) * 100}%`;
-  entryModeLabel.textContent = entryMode === 'cart' ? '台車模式' : '一般輸入';
-  currentZoneName.textContent = LABELS[currentIndex];
-  currentZoneType.textContent = IS_CAR[currentIndex] ? '剩餘車位數，連續點數字輸入' : '成數區：點 1~9 為成數，台車請先切換模式';
-  rawValue.textContent = tokens[currentIndex];
-  statusValue.textContent = info.s;
-  statusValue.className = `status-pill status-${info.cls}`;
   normalModeBtn.classList.toggle('active', entryMode === 'normal');
   cartModeBtn.classList.toggle('active', entryMode === 'cart');
   cartModeBtn.disabled = IS_CAR[currentIndex];
