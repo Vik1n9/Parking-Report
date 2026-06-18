@@ -13,4 +13,12 @@ assert.equal(html.includes('id="statusValue"'), false);
 assert.equal(html.includes('class="current-zone"'), false);
 assert.equal(html.includes('class="value-display"'), false);
 
+assert.match(html, /class="card order-card"/);
+assert.match(html, /class="card input-card"/);
+assert.match(html, /class="card secondary-card"/);
+assert.match(html, /@media\(max-height:720px\) and \(max-width:440px\)/);
+assert.match(html, /\.fn-grid\{grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+assert.match(html, /\.share\{grid-column:auto/);
+assert.match(html, /\.secondary-card\{display:none\}/);
+
 console.log('guard UI tests passed');
