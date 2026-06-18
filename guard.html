@@ -345,6 +345,98 @@ button{
 @media(min-width:441px){
   body{background:linear-gradient(90deg,#091018 0,#0d1720 28%,#0d1720 72%,#091018 100%)}
 }
+@media(max-height:720px) and (max-width:440px){
+  .app{
+    min-height:100dvh;
+    padding:8px 10px 60px;
+  }
+  .topbar{
+    margin:-8px -10px 8px;
+    padding:8px 10px;
+  }
+  .title{font-size:.86rem}
+  .timebox{gap:6px}
+  .clock{font-size:.92rem}
+  .mini-btn{
+    min-height:28px;
+    padding:4px 8px;
+    font-size:.66rem;
+    border-radius:6px;
+  }
+  .progress{
+    margin-top:6px;
+    gap:6px;
+  }
+  .progress-label{
+    min-width:34px;
+    font-size:.68rem;
+  }
+  .progress-track{height:5px}
+  .card{
+    margin-bottom:8px;
+    border-radius:8px;
+    box-shadow:none;
+  }
+  .card-head{
+    padding:7px 10px;
+  }
+  .label{font-size:.64rem}
+  .zones{
+    gap:4px;
+    padding:8px;
+  }
+  .zone-chip{
+    min-height:36px;
+    border-radius:6px;
+    gap:1px;
+    padding:4px 2px;
+  }
+  .zone-chip-name{font-size:.55rem}
+  .zone-chip-value{font-size:.58rem}
+  .mode-row{
+    gap:6px;
+    padding:8px 10px 0;
+  }
+  .mode-btn{
+    min-height:36px;
+    border-radius:7px;
+    font-size:.8rem;
+  }
+  .keypad{
+    gap:6px;
+    padding:8px 10px;
+  }
+  .key{
+    min-height:42px;
+    border-radius:8px;
+    font-size:1.12rem;
+  }
+  .fn-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:0 10px 10px}
+  .fn-btn{
+    min-height:36px;
+    border-radius:7px;
+    font-size:.68rem;
+    line-height:1.15;
+    padding:4px 2px;
+  }
+  .bottom-bar{
+    padding:6px 10px calc(6px + env(safe-area-inset-bottom));
+  }
+  .bottom-inner{
+    grid-template-columns:1fr 1fr 1fr;
+    gap:6px;
+  }
+  .bottom-btn{
+    min-height:40px;
+    border-radius:8px;
+    font-size:.7rem;
+    letter-spacing:0;
+    padding:4px 2px;
+  }
+  .share{grid-column:auto;font-size:.75rem}
+  .toast{bottom:58px}
+  .secondary-card{display:none}
+}
 </style>
 </head>
 <body>
@@ -363,12 +455,12 @@ button{
     </div>
   </header>
 
-  <section class="card">
+  <section class="card order-card">
     <div class="card-head"><span class="label">填寫順序</span></div>
     <div class="zones" id="zoneList"></div>
   </section>
 
-  <section class="card">
+  <section class="card input-card">
     <div class="card-head"><span class="label">頁面數字鍵盤</span></div>
     <div class="mode-row">
       <button class="mode-btn active" id="normalModeBtn">成數/車位</button>
@@ -383,19 +475,19 @@ button{
     </div>
   </section>
 
-  <section class="card">
+  <section class="card secondary-card">
     <div class="tower">
       <div class="tower-title">車塔停放使用率</div>
       <div class="tower-num" id="towerUsage">—</div>
     </div>
   </section>
 
-  <section class="card">
+  <section class="card secondary-card">
     <div class="card-head"><span class="label">LINE 回報預覽</span></div>
     <pre class="preview" id="linePreview"></pre>
   </section>
 
-  <section class="card">
+  <section class="card secondary-card">
     <div class="card-head"><span class="label">保全回報歷史</span></div>
     <div class="history-list" id="historyList"></div>
   </section>
