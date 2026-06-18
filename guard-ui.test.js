@@ -24,5 +24,9 @@ assert.equal(html.includes('id="emptyBtn"'), false);
 assert.match(html, /function markFull\(\)/);
 assert.match(html, /text:'全滿'/);
 assert.match(html, /text:'未停車'/);
+assert.match(
+  html,
+  /text:'全滿'[\s\S]+text:'0'[\s\S]+text:'未停車'/
+);
 
 console.log('guard UI tests passed');

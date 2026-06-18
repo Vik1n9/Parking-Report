@@ -633,8 +633,8 @@ function renderKeypad() {
     { text:'7', aria:'輸入 7', className:'key', action:() => inputDigit('7') },
     { text:'8', aria:'輸入 8', className:'key', action:() => inputDigit('8') },
     { text:'9', aria:'輸入 9', className:'key', action:() => inputDigit('9') },
-    { text:'0', aria:'輸入 0', className:'key', action:() => inputDigit('0') },
     { text:'全滿', aria:'標記全滿', className:'key action-key full-key', action:markFull },
+    { text:'0', aria:'輸入 0', className:'key', action:() => inputDigit('0') },
     { text:'未停車', aria:'標記未停車', className:'key action-key empty-key', action:markEmpty },
   ];
   keypadItems.forEach((item) => {
