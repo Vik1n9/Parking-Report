@@ -4,28 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a single-file static web app (`index.html`) for converting parking lot status data into formatted reports. It targets security personnel at a specific facility in Taiwan and produces:
+This is a static web app for converting parking lot status data into formatted reports. It targets security personnel and control-room staff at a specific facility in Taiwan.
 
-1. Visual zone status cards
-2. Voice broadcast script (中控回報) for the control room
-3. Tab-separated values for pasting into an Excel report
+Primary entrypoints:
 
-There is no build system, no package manager, and no external dependencies. The entire app is self-contained in `index.html`.
+1. `index.html` — control-room collection page for voice broadcast script (中控回報) and Excel Tab-separated values
+2. `guard.html` — mobile-only guard reporting page with an on-page numeric keypad and LINE share/copy actions
+3. `parking-core.js` — shared parking labels, parsing, formatting, LINE report, control report, Excel values, and tower usage helpers
+
+There is no build system, no package manager, and no external dependencies. Open the HTML files directly in a browser.
 
 ## Development
 
-Open `index.html` directly in a browser — no server needed. All changes are immediately testable by refreshing the page. There are no tests, no linter, and no CI pipeline.
+Open `index.html` or `guard.html` directly in a browser — no server needed. All changes are immediately testable by refreshing the page.
+
+Core logic tests can be run with:
+
+```bash
+node parking-core.test.js
+```
 
 ## Architecture
 
-All logic lives inside the single `<script>` block at the bottom of `index.html`. The data flow is:
+Shared report-formatting logic lives in `parking-core.js`. The data flow is:
 
 ```
 User input (textarea OR quick-field inputs)
   → parseText(str) → tokens[]  (length 10, one per zone)
     → zoneInfo(i, raw)      → zone status cards
-    → buildReport(tokens, t) → voice broadcast text
-    → toExcel(i, raw)       → tab-separated Excel row
+    → buildControlReport(tokens, t) → voice broadcast text
+    → buildLineReport(tokens, t)    → LINE group text
+    → buildExcelValues(tokens)      → tab-separated Excel row values
 ```
 
 ### Core constants (hardcoded — changing these affects all output)
@@ -38,6 +47,8 @@ User input (textarea OR quick-field inputs)
 | `TOWER_TOTAL` | `1600` | Total tower capacity for utilization calculation |
 | `STORAGE_KEY` | `"parking_history_v2"` | `localStorage` key for history |
 | `MAX_HISTORY` | `40` | Maximum history entries retained |
+
+Guard page history uses a separate `localStorage` key: `"parking_guard_history_v1"`.
 
 ### Input value encoding
 
