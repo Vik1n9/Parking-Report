@@ -211,7 +211,7 @@ button{
 .key:active,.fn-btn:active,.bottom-btn:active,.mode-btn:active,.mini-btn:active{transform:scale(.98)}
 .fn-grid{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:repeat(3,minmax(0,1fr));
   gap:8px;
   padding:0 12px 12px;
 }
@@ -226,6 +226,13 @@ button{
 }
 .fn-btn.warning{color:var(--red);background:rgba(240,92,92,.1);border-color:rgba(240,92,92,.22)}
 .fn-btn.accent{color:var(--accent);background:rgba(74,158,255,.1);border-color:rgba(74,158,255,.22)}
+.key.action-key{
+  font-family:var(--sans);
+  font-size:1rem;
+  letter-spacing:.02em;
+}
+.key.full-key{color:var(--red);background:rgba(240,92,92,.1);border-color:rgba(240,92,92,.22)}
+.key.empty-key{color:var(--sub);background:var(--surface3)}
 .tower{
   padding:12px 13px;
   display:flex;
@@ -411,7 +418,11 @@ button{
     border-radius:8px;
     font-size:1.12rem;
   }
-  .fn-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:0 10px 10px}
+  .key.action-key{
+    font-size:.76rem;
+    line-height:1.15;
+  }
+  .fn-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0 10px 10px}
   .fn-btn{
     min-height:36px;
     border-radius:7px;
@@ -469,7 +480,6 @@ button{
     <div class="keypad" id="keypad"></div>
     <div class="fn-grid">
       <button class="fn-btn warning" id="clearCellBtn">清除本格</button>
-      <button class="fn-btn" id="emptyBtn">未停車 x</button>
       <button class="fn-btn" id="prevBtn">上一格</button>
       <button class="fn-btn accent" id="nextBtn">下一格</button>
     </div>
@@ -531,7 +541,6 @@ const keypad = $('keypad');
 const normalModeBtn = $('normalModeBtn');
 const cartModeBtn = $('cartModeBtn');
 const clearCellBtn = $('clearCellBtn');
-const emptyBtn = $('emptyBtn');
 const prevBtn = $('prevBtn');
 const nextBtn = $('nextBtn');
 const towerUsage = $('towerUsage');
@@ -590,6 +599,11 @@ function clearCurrent() {
   render();
 }
 
+function markFull() {
+  tokens[currentIndex] = '0';
+  moveNext();
+}
+
 function markEmpty() {
   tokens[currentIndex] = 'x';
   moveNext();
@@ -609,13 +623,27 @@ function setMode(mode) {
 
 function renderKeypad() {
   keypad.innerHTML = '';
-  ['1','2','3','4','5','6','7','8','9','0'].forEach((digit) => {
+  const keypadItems = [
+    { text:'1', aria:'輸入 1', className:'key', action:() => inputDigit('1') },
+    { text:'2', aria:'輸入 2', className:'key', action:() => inputDigit('2') },
+    { text:'3', aria:'輸入 3', className:'key', action:() => inputDigit('3') },
+    { text:'4', aria:'輸入 4', className:'key', action:() => inputDigit('4') },
+    { text:'5', aria:'輸入 5', className:'key', action:() => inputDigit('5') },
+    { text:'6', aria:'輸入 6', className:'key', action:() => inputDigit('6') },
+    { text:'7', aria:'輸入 7', className:'key', action:() => inputDigit('7') },
+    { text:'8', aria:'輸入 8', className:'key', action:() => inputDigit('8') },
+    { text:'9', aria:'輸入 9', className:'key', action:() => inputDigit('9') },
+    { text:'0', aria:'輸入 0', className:'key', action:() => inputDigit('0') },
+    { text:'全滿', aria:'標記全滿', className:'key action-key full-key', action:markFull },
+    { text:'未停車', aria:'標記未停車', className:'key action-key empty-key', action:markEmpty },
+  ];
+  keypadItems.forEach((item) => {
     const button = document.createElement('button');
-    button.className = 'key';
+    button.className = item.className;
     button.type = 'button';
-    button.textContent = digit;
-    button.setAttribute('aria-label', `輸入 ${digit}`);
-    button.addEventListener('click', () => inputDigit(digit));
+    button.textContent = item.text;
+    button.setAttribute('aria-label', item.aria);
+    button.addEventListener('click', item.action);
     keypad.appendChild(button);
   });
 }
@@ -761,7 +789,6 @@ cartModeBtn.addEventListener('click', () => {
   if (!IS_CAR[currentIndex]) setMode('cart');
 });
 clearCellBtn.addEventListener('click', clearCurrent);
-emptyBtn.addEventListener('click', markEmpty);
 prevBtn.addEventListener('click', movePrev);
 nextBtn.addEventListener('click', moveNext);
 shareLineBtn.addEventListener('click', shareToLine);

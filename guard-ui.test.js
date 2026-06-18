@@ -17,8 +17,12 @@ assert.match(html, /class="card order-card"/);
 assert.match(html, /class="card input-card"/);
 assert.match(html, /class="card secondary-card"/);
 assert.match(html, /@media\(max-height:720px\) and \(max-width:440px\)/);
-assert.match(html, /\.fn-grid\{grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+assert.match(html, /\.fn-grid\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
 assert.match(html, /\.share\{grid-column:auto/);
 assert.match(html, /\.secondary-card\{display:none\}/);
+assert.equal(html.includes('id="emptyBtn"'), false);
+assert.match(html, /function markFull\(\)/);
+assert.match(html, /text:'全滿'/);
+assert.match(html, /text:'未停車'/);
 
 console.log('guard UI tests passed');
