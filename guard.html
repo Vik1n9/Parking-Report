@@ -146,7 +146,7 @@ button{
   padding:12px;
 }
 .zone-chip{
-  min-height:54px;
+  min-height:64px;
   border:2px solid var(--border);
   border-radius:8px;
   background:var(--surface);
@@ -170,18 +170,21 @@ button{
   color:var(--text);
 }
 .zone-chip-name{
-  font-size:.62rem;
+  font-size:.72rem;
   font-weight:900;
   letter-spacing:.03em;
   white-space:nowrap;
 }
 .zone-chip-value{
-  font-size:.7rem;
+  font-size:.82rem;
   font-weight:900;
   max-width:100%;
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
+}
+.input-card{
+  margin-top:18px;
 }
 .mode-row{
   display:grid;
@@ -223,7 +226,15 @@ button{
   font-weight:950;
   box-shadow:0 3px 0 var(--border);
 }
-.key:active,.fn-btn:active,.bottom-btn:active,.mode-btn:active,.mini-btn:active{transform:scale(.98)}
+.key:active,.fn-btn:active,.bottom-btn:active,.mode-btn:active,.mini-btn:active,.zone-chip:active,.history-load:active{transform:scale(.98)}
+@keyframes pressPulse{
+  0%{transform:scale(1);filter:brightness(1)}
+  42%{transform:scale(.94);filter:brightness(.9)}
+  100%{transform:scale(1);filter:brightness(1)}
+}
+button.press-flash{
+  animation:pressPulse .18s ease-out;
+}
 .key:focus-visible,
 .fn-btn:focus-visible,
 .bottom-btn:focus-visible,
@@ -399,6 +410,10 @@ button{
   }
   .card,.zone-chip,.mode-btn,.key,.fn-btn,.bottom-btn,.mini-btn{border-width:3px}
 }
+@media(prefers-reduced-motion:reduce){
+  button.press-flash{animation:none}
+  .key:active,.fn-btn:active,.bottom-btn:active,.mode-btn:active,.mini-btn:active,.zone-chip:active,.history-load:active{transform:none}
+}
 @media(max-height:880px) and (max-width:440px){
   .app{
     min-height:100dvh;
@@ -440,13 +455,16 @@ button{
     padding:8px;
   }
   .zone-chip{
-    min-height:36px;
+    min-height:44px;
     border-radius:6px;
     gap:1px;
     padding:4px 2px;
   }
-  .zone-chip-name{font-size:.55rem}
-  .zone-chip-value{font-size:.58rem}
+  .zone-chip-name{font-size:.62rem}
+  .zone-chip-value{font-size:.66rem}
+  .input-card{
+    margin-top:10px;
+  }
   .mode-row{
     gap:6px;
     padding:8px 10px 0;
@@ -571,6 +589,7 @@ const {
 
 const STORAGE_KEY = 'parking_guard_history_v1';
 const MAX_HISTORY = 30;
+const AUTO_ADVANCE_CAR_DIGITS = 3;
 
 let currentTime = new Date();
 let currentIndex = 0;
@@ -609,6 +628,15 @@ function showToast(message) {
   showToast.timer = setTimeout(() => toast.classList.remove('show'), 1800);
 }
 
+function flashButton(button) {
+  if (!button) return;
+  button.classList.remove('press-flash');
+  void button.offsetWidth;
+  button.classList.add('press-flash');
+  clearTimeout(button.pressFlashTimer);
+  button.pressFlashTimer = setTimeout(() => button.classList.remove('press-flash'), 220);
+}
+
 function moveTo(index) {
   currentIndex = Math.max(0, Math.min(LABELS.length - 1, index));
   entryMode = 'normal';
@@ -623,6 +651,10 @@ function movePrev() {
   moveTo(currentIndex - 1);
 }
 
+function shouldAutoAdvanceCarField() {
+  return currentIndex < 2 && IS_CAR[currentIndex] && tokens[currentIndex].length >= AUTO_ADVANCE_CAR_DIGITS;
+}
+
 function inputDigit(digit) {
   if (entryMode === 'cart' && !IS_CAR[currentIndex]) {
     tokens[currentIndex] = digit === '0' ? '0' : `0.${digit}`;
@@ -633,6 +665,10 @@ function inputDigit(digit) {
   if (IS_CAR[currentIndex]) {
     const current = tokens[currentIndex] === 'x' || tokens[currentIndex] === '0' ? '' : tokens[currentIndex];
     tokens[currentIndex] = `${current}${digit}`.replace(/^0+(?=\d)/, '') || '0';
+    if (shouldAutoAdvanceCarField()) {
+      moveNext();
+      return;
+    }
     render();
     return;
   }
@@ -841,6 +877,11 @@ nextBtn.addEventListener('click', moveNext);
 shareLineBtn.addEventListener('click', shareToLine);
 copyLineBtn.addEventListener('click', () => copyReport());
 resetBtn.addEventListener('click', resetAll);
+document.addEventListener('pointerdown', (event) => {
+  const button = event.target.closest('button');
+  if (!button) return;
+  flashButton(button);
+});
 
 renderKeypad();
 loadHistory();

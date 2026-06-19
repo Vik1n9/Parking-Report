@@ -49,5 +49,18 @@ assert.match(html, /\.key\.action-key\{[\s\S]*font-family:var\(--sans\);[\s\S]*f
 assert.match(html, /\.key\.full-key,\s*\.key\.empty-key\{[\s\S]*background:var\(--key-bg\);[\s\S]*color:var\(--key-ink\);[\s\S]*border-color:var\(--border\)/);
 assert.equal(html.includes('.key.full-key{color:#5a0c07'), false);
 assert.equal(html.includes('.key.empty-key{color:var(--text);background:var(--surface3)}'), false);
+assert.match(html, /\.input-card\{[\s\S]*margin-top:18px/);
+assert.match(html, /\.zone-chip\{[\s\S]*min-height:64px/);
+assert.match(html, /\.zone-chip-name\{[\s\S]*font-size:\.72rem/);
+assert.match(html, /\.zone-chip-value\{[\s\S]*font-size:\.82rem/);
+assert.match(html, /@keyframes pressPulse/);
+assert.match(html, /button\.press-flash/);
+assert.match(html, /function flashButton\(button\)/);
+assert.match(html, /document\.addEventListener\('pointerdown'/);
+assert.match(html, /const AUTO_ADVANCE_CAR_DIGITS = 3/);
+assert.match(html, /function shouldAutoAdvanceCarField\(\)/);
+assert.match(html, /currentIndex < 2/);
+assert.match(html, /tokens\[currentIndex\]\.length >= AUTO_ADVANCE_CAR_DIGITS/);
+assert.match(html, /nextBtn\.addEventListener\('click', moveNext\)/);
 
 console.log('guard UI tests passed');
