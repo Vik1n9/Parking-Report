@@ -3,22 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="icon" href="data:,">
 <title>保全停車回報</title>
 <style>
 :root{
-  --bg:#0d1720;
-  --surface:#152030;
-  --surface2:#1b2d40;
-  --surface3:#243447;
-  --border:rgba(255,255,255,.09);
-  --text:#dce8f2;
-  --sub:#7f9bb4;
-  --accent:#4a9eff;
-  --green:#34d07a;
-  --amber:#f5a623;
-  --red:#f05c5c;
-  --shadow:0 18px 44px rgba(0,0,0,.28);
+  --bg:#f3f7fb;
+  --surface:#ffffff;
+  --surface2:#e8eff7;
+  --surface3:#d8e4ef;
+  --border:#172033;
+  --text:#07111f;
+  --sub:#172033;
+  --accent:#005fcc;
+  --green:#087a2e;
+  --amber:#9a5200;
+  --red:#b42318;
+  --focus:#ffb000;
+  --key-bg:#ffffff;
+  --key-ink:#07111f;
+  --shadow:0 8px 20px rgba(7,17,31,.12);
   --sans:'Helvetica Neue','PingFang TC','Microsoft JhengHei',sans-serif;
+  --calc:'Avenir Next','Arial Rounded MT Bold','Helvetica Neue','PingFang TC','Microsoft JhengHei',sans-serif;
   --mono:'SF Mono','Cascadia Code','Consolas',monospace;
 }
 *{box-sizing:border-box}
@@ -50,9 +55,8 @@ button{
   z-index:10;
   margin:-12px -12px 12px;
   padding:12px;
-  background:rgba(13,23,32,.96);
-  backdrop-filter:blur(18px);
-  border-bottom:1px solid var(--border);
+  background:var(--bg);
+  border-bottom:2px solid var(--border);
 }
 .topline{
   display:flex;
@@ -78,9 +82,9 @@ button{
 }
 .mini-btn{
   min-height:34px;
-  border:1px solid var(--border);
+  border:2px solid var(--border);
   border-radius:7px;
-  background:var(--surface2);
+  background:var(--surface);
   color:var(--text);
   padding:6px 10px;
   font-size:.72rem;
@@ -100,21 +104,22 @@ button{
 }
 .progress-track{
   flex:1;
-  height:7px;
+  height:9px;
   border-radius:999px;
   background:var(--surface2);
+  border:1px solid var(--border);
   overflow:hidden;
 }
 .progress-fill{
   height:100%;
   width:10%;
   border-radius:999px;
-  background:linear-gradient(90deg,var(--accent),var(--green));
+  background:var(--accent);
   transition:width .18s ease;
 }
 .card{
   background:var(--surface);
-  border:1px solid var(--border);
+  border:2px solid var(--border);
   border-radius:10px;
   box-shadow:var(--shadow);
   overflow:hidden;
@@ -126,7 +131,7 @@ button{
   justify-content:space-between;
   gap:10px;
   padding:11px 13px;
-  border-bottom:1px solid var(--border);
+  border-bottom:2px solid var(--border);
 }
 .label{
   color:var(--sub);
@@ -142,9 +147,9 @@ button{
 }
 .zone-chip{
   min-height:54px;
-  border:1px solid var(--border);
+  border:2px solid var(--border);
   border-radius:8px;
-  background:var(--surface2);
+  background:var(--surface);
   color:var(--sub);
   display:flex;
   flex-direction:column;
@@ -154,11 +159,16 @@ button{
   padding:6px 3px;
 }
 .zone-chip.active{
-  border-color:rgba(74,158,255,.68);
-  background:rgba(74,158,255,.14);
+  border-color:var(--accent);
+  background:#dcecff;
+  color:var(--text);
+  box-shadow:0 0 0 3px var(--focus);
+}
+.zone-chip.done{
+  background:#e6f7eb;
+  border-color:var(--green);
   color:var(--text);
 }
-.zone-chip.done{border-color:rgba(52,208,122,.25)}
 .zone-chip-name{
   font-size:.62rem;
   font-weight:900;
@@ -181,16 +191,20 @@ button{
 }
 .mode-btn{
   min-height:46px;
-  border:1px solid var(--border);
+  border:2px solid var(--border);
   border-radius:9px;
-  background:var(--surface2);
-  color:var(--sub);
+  background:var(--surface);
+  color:var(--text);
   font-weight:950;
 }
 .mode-btn.active{
-  border-color:rgba(245,166,35,.55);
-  background:rgba(245,166,35,.12);
-  color:var(--amber);
+  border-color:var(--amber);
+  background:#fff0d4;
+  color:#442400;
+}
+.mode-btn:disabled{
+  background:#dce2e8;
+  color:#4c5866;
 }
 .keypad{
   display:grid;
@@ -200,15 +214,26 @@ button{
 }
 .key{
   min-height:58px;
-  border:1px solid var(--border);
+  border:2px solid var(--border);
   border-radius:10px;
-  background:var(--surface2);
-  color:var(--text);
-  font-family:var(--mono);
-  font-size:1.35rem;
+  background:var(--key-bg);
+  color:var(--key-ink);
+  font-family:var(--calc);
+  font-size:1.75rem;
   font-weight:950;
+  box-shadow:0 3px 0 var(--border);
 }
 .key:active,.fn-btn:active,.bottom-btn:active,.mode-btn:active,.mini-btn:active{transform:scale(.98)}
+.key:focus-visible,
+.fn-btn:focus-visible,
+.bottom-btn:focus-visible,
+.mode-btn:focus-visible,
+.mini-btn:focus-visible,
+.zone-chip:focus-visible,
+.history-load:focus-visible{
+  outline:4px solid var(--focus);
+  outline-offset:2px;
+}
 .fn-grid{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -217,22 +242,26 @@ button{
 }
 .fn-btn{
   min-height:48px;
-  border:1px solid var(--border);
+  border:2px solid var(--border);
   border-radius:9px;
-  background:var(--surface3);
+  background:var(--surface2);
   color:var(--text);
   font-size:.9rem;
   font-weight:900;
 }
-.fn-btn.warning{color:var(--red);background:rgba(240,92,92,.1);border-color:rgba(240,92,92,.22)}
-.fn-btn.accent{color:var(--accent);background:rgba(74,158,255,.1);border-color:rgba(74,158,255,.22)}
+.fn-btn.warning{color:#5a0c07;background:#ffe5e1;border-color:var(--red)}
+.fn-btn.accent{color:#062a5f;background:#dcecff;border-color:var(--accent)}
 .key.action-key{
   font-family:var(--sans);
   font-size:1rem;
   letter-spacing:.02em;
 }
-.key.full-key{color:var(--red);background:rgba(240,92,92,.1);border-color:rgba(240,92,92,.22)}
-.key.empty-key{color:var(--sub);background:var(--surface3)}
+.key.full-key,
+.key.empty-key{
+  background:var(--key-bg);
+  color:var(--key-ink);
+  border-color:var(--border);
+}
 .tower{
   padding:12px 13px;
   display:flex;
@@ -255,7 +284,7 @@ button{
   padding:13px;
   margin:0;
   font-size:.92rem;
-  background:rgba(52,208,122,.09);
+  background:#e6f7eb;
   border-left:4px solid var(--green);
 }
 .history-list{
@@ -268,7 +297,7 @@ button{
   align-items:center;
   justify-content:space-between;
   gap:8px;
-  border-bottom:1px solid var(--border);
+  border-bottom:1px solid #708090;
   padding:10px 4px;
 }
 .history-time{
@@ -289,10 +318,10 @@ button{
 }
 .history-load{
   min-height:38px;
-  border:1px solid rgba(74,158,255,.22);
+  border:2px solid var(--accent);
   border-radius:8px;
-  background:rgba(74,158,255,.1);
-  color:var(--accent);
+  background:#dcecff;
+  color:#062a5f;
   font-weight:900;
   padding:7px 11px;
 }
@@ -308,9 +337,8 @@ button{
   right:0;
   bottom:0;
   z-index:20;
-  background:rgba(13,23,32,.97);
-  backdrop-filter:blur(18px);
-  border-top:1px solid var(--border);
+  background:var(--surface);
+  border-top:3px solid var(--border);
   padding:10px 12px calc(10px + env(safe-area-inset-bottom));
 }
 .bottom-inner{
@@ -322,14 +350,14 @@ button{
 }
 .bottom-btn{
   min-height:52px;
-  border:0;
+  border:2px solid var(--border);
   border-radius:10px;
   font-weight:950;
   letter-spacing:.04em;
 }
-.share{grid-column:1/-1;background:var(--green);color:#07120c;font-size:1rem}
-.copy{background:var(--accent);color:#06111f}
-.reset{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.share{grid-column:1/-1;background:var(--green);color:#ffffff;font-size:1rem}
+.copy{background:var(--accent);color:#ffffff}
+.reset{background:var(--surface);color:var(--text);border:2px solid var(--border)}
 .toast{
   position:fixed;
   left:50%;
@@ -338,8 +366,8 @@ button{
   transform:translateX(-50%) translateY(18px);
   opacity:0;
   pointer-events:none;
-  background:#edf7ff;
-  color:#071520;
+  background:#07111f;
+  color:#ffffff;
   border-radius:999px;
   padding:10px 14px;
   font-size:.86rem;
@@ -350,9 +378,28 @@ button{
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 @media(min-width:441px){
-  body{background:linear-gradient(90deg,#091018 0,#0d1720 28%,#0d1720 72%,#091018 100%)}
+  body{background:#dfe8f1}
 }
-@media(max-height:720px) and (max-width:440px){
+@media(prefers-contrast:more){
+  :root{
+    --bg:#ffffff;
+    --surface:#ffffff;
+    --surface2:#f2f2f2;
+    --surface3:#e7e7e7;
+    --border:#000000;
+    --text:#000000;
+    --sub:#000000;
+    --accent:#0047a8;
+    --green:#006b27;
+    --amber:#7a3f00;
+    --red:#990b00;
+    --focus:#ffd400;
+    --key-bg:#ffffff;
+    --key-ink:#000000;
+  }
+  .card,.zone-chip,.mode-btn,.key,.fn-btn,.bottom-btn,.mini-btn{border-width:3px}
+}
+@media(max-height:880px) and (max-width:440px){
   .app{
     min-height:100dvh;
     padding:8px 10px 60px;
@@ -416,7 +463,7 @@ button{
   .key{
     min-height:42px;
     border-radius:8px;
-    font-size:1.12rem;
+    font-size:1.55rem;
   }
   .key.action-key{
     font-size:.76rem;
