@@ -70,9 +70,16 @@ assert.match(html, /button\.press-flash/);
 assert.match(html, /function flashButton\(button\)/);
 assert.match(html, /document\.addEventListener\('pointerdown'/);
 assert.match(html, /const AUTO_ADVANCE_CAR_DIGITS = 3/);
+assert.match(html, /const AUTO_ADVANCE_DELAY_MS = \d+/);
+assert.match(html, /function cancelAutoAdvance\(\)/);
+assert.match(html, /function scheduleAutoAdvance\(index, value\)/);
+assert.match(html, /setTimeout\(\(\) =>/);
 assert.match(html, /function shouldAutoAdvanceCarField\(\)/);
 assert.match(html, /currentIndex < 2/);
 assert.match(html, /tokens\[currentIndex\]\.length >= AUTO_ADVANCE_CAR_DIGITS/);
+assert.match(html, /scheduleAutoAdvance\(currentIndex, tokens\[currentIndex\]\)/);
+assert.match(html, /if \(current === 'x' && currentIndex > 0\)/);
+assert.match(html, /currentIndex -= 1/);
 assert.match(html, /nextBtn\.addEventListener\('click', moveNext\)/);
 assert.match(html, /deleteDigitBtn\.addEventListener\('click', deleteDigit\)/);
 

@@ -622,12 +622,14 @@ const {
 const STORAGE_KEY = 'parking_guard_history_v1';
 const MAX_HISTORY = 30;
 const AUTO_ADVANCE_CAR_DIGITS = 3;
+const AUTO_ADVANCE_DELAY_MS = 650;
 
 let currentTime = new Date();
 let currentIndex = 0;
 let entryMode = 'normal';
 let tokens = new Array(LABELS.length).fill('x');
 let historyEntries = [];
+let autoAdvanceTimer = null;
 
 const $ = (id) => document.getElementById(id);
 const clockDisplay = $('clockDisplay');
@@ -671,7 +673,21 @@ function flashButton(button) {
   button.pressFlashTimer = setTimeout(() => button.classList.remove('press-flash'), 220);
 }
 
+function cancelAutoAdvance() {
+  clearTimeout(autoAdvanceTimer);
+  autoAdvanceTimer = null;
+}
+
+function scheduleAutoAdvance(index, value) {
+  cancelAutoAdvance();
+  autoAdvanceTimer = setTimeout(() => {
+    autoAdvanceTimer = null;
+    if (currentIndex === index && tokens[index] === value) moveNext();
+  }, AUTO_ADVANCE_DELAY_MS);
+}
+
 function moveTo(index) {
+  cancelAutoAdvance();
   currentIndex = Math.max(0, Math.min(LABELS.length - 1, index));
   entryMode = 'normal';
   render();
@@ -690,6 +706,7 @@ function shouldAutoAdvanceCarField() {
 }
 
 function inputDigit(digit) {
+  cancelAutoAdvance();
   if (entryMode === 'cart' && !IS_CAR[currentIndex]) {
     tokens[currentIndex] = digit === '0' ? '0' : `0.${digit}`;
     moveNext();
@@ -700,7 +717,8 @@ function inputDigit(digit) {
     const current = tokens[currentIndex] === 'x' || tokens[currentIndex] === '0' ? '' : tokens[currentIndex];
     tokens[currentIndex] = `${current}${digit}`.replace(/^0+(?=\d)/, '') || '0';
     if (shouldAutoAdvanceCarField()) {
-      moveNext();
+      render();
+      scheduleAutoAdvance(currentIndex, tokens[currentIndex]);
       return;
     }
     render();
@@ -712,12 +730,19 @@ function inputDigit(digit) {
 }
 
 function clearCurrent() {
+  cancelAutoAdvance();
   tokens[currentIndex] = 'x';
   render();
 }
 
 function deleteDigit() {
-  const current = tokens[currentIndex];
+  cancelAutoAdvance();
+  let current = tokens[currentIndex];
+  if (current === 'x' && currentIndex > 0) {
+    currentIndex -= 1;
+    entryMode = 'normal';
+    current = tokens[currentIndex];
+  }
   if (current === 'x' || current === '0' || current.length <= 1 || current.startsWith('0.')) {
     tokens[currentIndex] = 'x';
     render();
@@ -745,6 +770,7 @@ function resetAll() {
 }
 
 function setMode(mode) {
+  cancelAutoAdvance();
   entryMode = mode;
   render();
 }
