@@ -13,17 +13,29 @@ assert.equal(html.includes('id="currentZoneType"'), false);
 assert.equal(html.includes('id="rawValue"'), false);
 assert.equal(html.includes('id="statusValue"'), false);
 assert.equal(html.includes('class="current-zone"'), false);
-assert.equal(html.includes('class="value-display"'), false);
+assert.match(html, /id="currentInputValue"/);
+assert.match(html, /class="value-display"/);
 
 assert.match(html, /class="card order-card"/);
 assert.match(html, /class="card input-card"/);
 assert.match(html, /class="card secondary-card"/);
 assert.match(html, /@media\(max-height:880px\) and \(max-width:440px\)/);
-assert.match(html, /\.fn-grid\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+assert.match(html, /\.fn-grid\{grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
 assert.match(html, /\.share\{grid-column:auto/);
 assert.match(html, /\.secondary-card\{display:none\}/);
 assert.equal(html.includes('id="emptyBtn"'), false);
+assert.match(html, /id="deleteDigitBtn"/);
+assert.match(
+  html,
+  /<div class="mode-row">[\s\S]+<div class="fn-grid">[\s\S]+id="deleteDigitBtn"[\s\S]+<div class="value-display"/
+);
+assert.match(
+  html,
+  /<div class="value-display"[\s\S]+id="currentInputValue"[\s\S]+<div class="keypad" id="keypad">/
+);
 assert.match(html, /function markFull\(\)/);
+assert.match(html, /function deleteDigit\(\)/);
+assert.match(html, /\.startsWith\('0\.'\)/);
 assert.match(html, /text:'全滿'/);
 assert.match(html, /text:'未停車'/);
 assert.match(
@@ -62,5 +74,6 @@ assert.match(html, /function shouldAutoAdvanceCarField\(\)/);
 assert.match(html, /currentIndex < 2/);
 assert.match(html, /tokens\[currentIndex\]\.length >= AUTO_ADVANCE_CAR_DIGITS/);
 assert.match(html, /nextBtn\.addEventListener\('click', moveNext\)/);
+assert.match(html, /deleteDigitBtn\.addEventListener\('click', deleteDigit\)/);
 
 console.log('guard UI tests passed');

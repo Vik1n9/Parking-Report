@@ -247,21 +247,42 @@ button.press-flash{
 }
 .fn-grid{
   display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:8px;
-  padding:0 12px 12px;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:6px;
+  padding:8px 12px 0;
 }
 .fn-btn{
-  min-height:48px;
+  min-height:40px;
   border:2px solid var(--border);
   border-radius:9px;
   background:var(--surface2);
   color:var(--text);
-  font-size:.9rem;
+  font-size:.76rem;
   font-weight:900;
+  line-height:1.15;
+  padding:4px 2px;
 }
 .fn-btn.warning{color:#5a0c07;background:#ffe5e1;border-color:var(--red)}
 .fn-btn.accent{color:#062a5f;background:#dcecff;border-color:var(--accent)}
+.value-display{
+  margin:8px 12px 0;
+  min-height:50px;
+  border:2px solid var(--border);
+  border-radius:10px;
+  background:#07111f;
+  color:#ffffff;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  padding:6px 14px;
+  font-family:var(--calc);
+  font-size:2rem;
+  font-weight:950;
+  letter-spacing:.04em;
+  line-height:1;
+  overflow:hidden;
+  white-space:nowrap;
+}
 .key.action-key{
   font-family:var(--sans);
   font-size:1rem;
@@ -474,9 +495,24 @@ button.press-flash{
     border-radius:7px;
     font-size:.8rem;
   }
+  .fn-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:6px 10px 0}
+  .fn-btn{
+    min-height:32px;
+    border-radius:7px;
+    font-size:.58rem;
+    line-height:1.1;
+    padding:3px 1px;
+  }
+  .value-display{
+    min-height:38px;
+    margin:6px 10px 0;
+    border-radius:8px;
+    padding:5px 10px;
+    font-size:1.55rem;
+  }
   .keypad{
     gap:6px;
-    padding:8px 10px;
+    padding:6px 10px 8px;
   }
   .key{
     min-height:42px;
@@ -486,14 +522,6 @@ button.press-flash{
   .key.action-key{
     font-size:.76rem;
     line-height:1.15;
-  }
-  .fn-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0 10px 10px}
-  .fn-btn{
-    min-height:36px;
-    border-radius:7px;
-    font-size:.68rem;
-    line-height:1.15;
-    padding:4px 2px;
   }
   .bottom-bar{
     padding:6px 10px calc(6px + env(safe-area-inset-bottom));
@@ -542,12 +570,16 @@ button.press-flash{
       <button class="mode-btn active" id="normalModeBtn">成數/車位</button>
       <button class="mode-btn" id="cartModeBtn">台車模式</button>
     </div>
-    <div class="keypad" id="keypad"></div>
     <div class="fn-grid">
       <button class="fn-btn warning" id="clearCellBtn">清除本格</button>
       <button class="fn-btn" id="prevBtn">上一格</button>
       <button class="fn-btn accent" id="nextBtn">下一格</button>
+      <button class="fn-btn" id="deleteDigitBtn">刪除</button>
     </div>
+    <div class="value-display" aria-live="polite">
+      <span id="currentInputValue">—</span>
+    </div>
+    <div class="keypad" id="keypad"></div>
   </section>
 
   <section class="card secondary-card">
@@ -609,6 +641,8 @@ const cartModeBtn = $('cartModeBtn');
 const clearCellBtn = $('clearCellBtn');
 const prevBtn = $('prevBtn');
 const nextBtn = $('nextBtn');
+const deleteDigitBtn = $('deleteDigitBtn');
+const currentInputValue = $('currentInputValue');
 const towerUsage = $('towerUsage');
 const linePreview = $('linePreview');
 const historyList = $('historyList');
@@ -679,6 +713,17 @@ function inputDigit(digit) {
 
 function clearCurrent() {
   tokens[currentIndex] = 'x';
+  render();
+}
+
+function deleteDigit() {
+  const current = tokens[currentIndex];
+  if (current === 'x' || current === '0' || current.length <= 1 || current.startsWith('0.')) {
+    tokens[currentIndex] = 'x';
+    render();
+    return;
+  }
+  tokens[currentIndex] = current.slice(0, -1);
   render();
 }
 
@@ -772,6 +817,7 @@ function renderHistory() {
 function render() {
   const tower = buildTowerUsage(tokens);
   const completed = tokens.filter((token) => token !== 'x').length;
+  const currentValue = tokens[currentIndex];
 
   clockDisplay.textContent = formatClock(currentTime);
   progressLabel.textContent = `${currentIndex + 1}/10`;
@@ -780,6 +826,7 @@ function render() {
   cartModeBtn.classList.toggle('active', entryMode === 'cart');
   cartModeBtn.disabled = IS_CAR[currentIndex];
   cartModeBtn.textContent = IS_CAR[currentIndex] ? '台車模式不可用' : '台車模式';
+  currentInputValue.textContent = currentValue === 'x' ? '—' : currentValue;
   towerUsage.textContent = tower.valid ? `${tower.percent}%` : '—';
   towerUsage.style.color = !tower.valid ? 'var(--sub)' : tower.percent >= 90 ? 'var(--red)' : tower.percent >= 70 ? 'var(--amber)' : 'var(--green)';
   linePreview.textContent = buildLineReport(tokens, currentTime);
@@ -874,6 +921,7 @@ cartModeBtn.addEventListener('click', () => {
 clearCellBtn.addEventListener('click', clearCurrent);
 prevBtn.addEventListener('click', movePrev);
 nextBtn.addEventListener('click', moveNext);
+deleteDigitBtn.addEventListener('click', deleteDigit);
 shareLineBtn.addEventListener('click', shareToLine);
 copyLineBtn.addEventListener('click', () => copyReport());
 resetBtn.addEventListener('click', resetAll);
