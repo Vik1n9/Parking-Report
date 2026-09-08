@@ -174,10 +174,12 @@ button{
   background:var(--surface2);
   min-width:0;
 }
-.zone-cell.ok{background:#e6f7eb;border-color:var(--green)}
-.zone-cell.few{background:#fff0d4;border-color:var(--amber)}
-.zone-cell.full{background:#ffe5e1;border-color:var(--red)}
-.zone-cell.empty{background:var(--surface2)}
+.zone-cell.kind-spaces{background:#e6f7eb;border-color:var(--green)}
+.zone-cell.kind-tenths{background:#fff0d4;border-color:var(--amber)}
+.zone-cell.kind-carts{background:#fff0d4;border-color:var(--amber)}
+.zone-cell.kind-guiding{background:#fff0d4;border-color:var(--amber)}
+.zone-cell.kind-full{background:#ffe5e1;border-color:var(--red)}
+.zone-cell.kind-none{background:var(--surface2)}
 .zone-name{
   display:block;
   font-size:.6rem;
@@ -400,7 +402,7 @@ button{
 <div class="toast" id="toast">已複製</div>
 
 <script type="module">
-import { zoneInfo, businessDate } from './js/parking-core.js';
+import { formatValue, businessDate } from './js/parking-core.js';
 
 const POLL_MS = 8000;
 const $ = (id) => document.getElementById(id);
@@ -451,11 +453,10 @@ async function fetchJson(url, options = {}) {
   return data;
 }
 
-function renderZones(tokens) {
-  return `<div class="zone-grid">${zones.map((zone, index) => {
-    const value = tokens?.[zone.code] ?? 'x';
-    const info = zoneInfo(index, value);
-    return `<div class="zone-cell ${info.cls}"><span class="zone-name">${zone.label}</span><span class="zone-value">${info.s}</span></div>`;
+function renderZones(values) {
+  return `<div class="zone-grid">${zones.map((zone) => {
+    const value = values?.[zone.code] ?? { kind: 'none' };
+    return `<div class="zone-cell kind-${value.kind}"><span class="zone-name">${escapeHtml(zone.label)}</span><span class="zone-value">${escapeHtml(formatValue(value))}</span></div>`;
   }).join('')}</div>`;
 }
 
@@ -493,7 +494,7 @@ async function loadQueue() {
         <span class="queue-time">${formatTaipeiTime(report.submittedAt)}</span>
         <span class="queue-meta">${escapeHtml(report.deviceLabel || '未知裝置')} · 營運日 ${escapeHtml(report.businessDate)}</span>
       </div>
-      ${renderZones(report.tokens)}
+      ${renderZones(report.values)}
       <div class="action-row">
         <button class="action-btn confirm" data-confirm="${report.id}">確認</button>
         <button class="action-btn reject" data-reject="${report.id}">退回</button>
@@ -519,9 +520,9 @@ async function loadRecords() {
       </div>
       <div class="record-head">
         <span class="record-by">填表人 ${escapeHtml(record.preparedBy)} · 確認於 ${formatTaipeiTime(record.confirmedAt)}</span>
-        <button class="mini-btn" data-copy="${record.id}">複製 LINE 文字</button>
+        <button class="mini-btn" data-copy="${record.id}">複製中控回報</button>
       </div>
-      <pre class="record-text">${escapeHtml(record.lineReport)}</pre>
+      <pre class="record-text">${escapeHtml(record.consoleReport)}</pre>
     </div>
   `).join('');
 }
@@ -529,10 +530,7 @@ async function loadRecords() {
 function openConfirmDialog(report) {
   pendingConfirm = report;
   confirmSub.textContent = `${formatTaipeiTime(report.submittedAt)} · ${report.deviceLabel || '未知裝置'} · #${report.id}`;
-  const activeZones = zones.filter((zone, index) => {
-    const value = report.tokens?.[zone.code] ?? 'x';
-    return zoneInfo(index, value).s !== '未停車';
-  });
+  const activeZones = zones.filter((zone) => (report.values?.[zone.code]?.kind ?? 'none') !== 'none');
   remarkRows.innerHTML = activeZones.length
     ? activeZones.map((zone) => `
       <div class="remark-row">
@@ -565,12 +563,12 @@ async function doConfirm() {
     });
     closeConfirmDialog();
     await refresh();
-    if (data.record?.lineReport) {
+    if (data.record?.consoleReport) {
       try {
-        await navigator.clipboard.writeText(data.record.lineReport);
-        showToast('已確認，LINE 文字已複製');
+        await navigator.clipboard.writeText(data.record.consoleReport);
+        showToast('已確認，中控回報已複製');
       } catch {
-        showToast('已確認，請從右側複製 LINE 文字');
+        showToast('已確認，請從右側複製中控回報');
       }
     } else {
       showToast('已確認');
@@ -603,7 +601,7 @@ async function copyRecord(reportId) {
   const text = recordItem?.querySelector('.record-text')?.textContent || '';
   try {
     await navigator.clipboard.writeText(text);
-    showToast('已複製 LINE 文字');
+    showToast('已複製中控回報');
   } catch {
     showToast('複製失敗，請手動選取');
   }
