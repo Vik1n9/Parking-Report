@@ -1,0 +1,20 @@
+{
+  "name": "parking-report",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/",
+    "test:core": "node --test test/parking-core.test.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply parking-report --local",
+    "db:migrate": "wrangler d1 migrations apply parking-report --remote",
+    "device:provision": "node scripts/provision-device.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.130.0"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  }
+}

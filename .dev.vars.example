@@ -1,0 +1,4 @@
+# 本機開發用（wrangler dev 自動載入），已 gitignore
+# DEV_MODE=1 時 Access 驗證停用，改用 header x-dev-user 模擬登入身分
+# 絕對不要在部署設定中開啟 DEV_MODE
+DEV_MODE=1
