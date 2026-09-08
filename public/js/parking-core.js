@@ -1,8 +1,5 @@
 export const TIME_ZONE = 'Asia/Taipei';
-export const LABELS = ['一樓以上', '一樓以下', 'P1', 'P3', '紡A', '紡B', '紡C', '紡D', '紡E', '柏油路'];
-export const ALIAS_MAP = { A: '紡A', B: '紡B', C: '紡C', D: '紡D', E: '紡E', R: '柏油路' };
-export const IS_CAR = [true, true, false, false, false, false, false, false, false, false];
-export const DEFAULT_TOWER_TOTAL = 1600;
+export const KINDS = ['spaces', 'tenths', 'carts', 'full', 'guiding', 'none'];
 
 const timeFormatters = new Map();
 const dateFormatters = new Map();
@@ -51,37 +48,65 @@ export function businessDate(input, timeZone = TIME_ZONE) {
   return dateFormatter(timeZone).format(toDate(input));
 }
 
-function normalizeKey(key) {
-  if (LABELS.includes(key)) return key;
-  return ALIAS_MAP[key] || null;
+const RANGES = { spaces: [0, 9999], tenths: [1, 9], carts: [1, 99] };
+const VALUELESS = new Set(['full', 'guiding', 'none']);
+
+const WORDS = [
+  [/^(滿|全滿)$/, () => ({ kind: 'full' })],
+  [/^(未停車|沒停車|無停車)$/, () => ({ kind: 'none' })],
+  [/^(引導中|車導中)$/, () => ({ kind: 'guiding' })],
+  [/^(\d{1,2})成空?$/, (m) => ({ kind: 'tenths', value: Number(m[1]) })],
+  [/^停(\d{1,2})台$/, (m) => ({ kind: 'carts', value: Number(m[1]) })],
+  [/^(\d{1,2})台車?$/, (m) => ({ kind: 'carts', value: Number(m[1]) })],
+];
+
+export function normalizeInput(raw, zone) {
+  if (raw && typeof raw === 'object' && typeof raw.kind === 'string') {
+    return raw.value === undefined ? { kind: raw.kind } : { kind: raw.kind, value: raw.value };
+  }
+  const text = String(raw ?? '').trim();
+  if (!text) return { kind: 'none' };
+
+  for (const [re, build] of WORDS) {
+    const match = text.match(re);
+    if (match) return build(match);
+  }
+  if (/^\d{1,4}$/.test(text)) {
+    const n = Number(text);
+    if (n === 0) return { kind: 'full' };
+    return zone.unit === 'spaces' ? { kind: 'spaces', value: n } : { kind: 'tenths', value: n };
+  }
+  throw new Error(`無法解析的值：${text}`);
 }
 
-export function parseText(str) {
-  const result = new Array(LABELS.length).fill('x');
-  const tokens = String(str || '').trim().split(/\s+/).filter(Boolean);
-  if (!tokens.length) return result;
+export function validateValue(value, zone) {
+  if (!value || typeof value !== 'object') return { ok: false, error: '值必須是物件' };
+  const { kind } = value;
+  if (!KINDS.includes(kind)) return { ok: false, error: `未知的 kind：${kind}` };
 
-  const plains = [];
-  const pairs = [];
-  tokens.forEach((token) => (token.includes('=') ? pairs : plains).push(token));
-  plains.forEach((value, index) => {
-    if (index < LABELS.length) result[index] = value;
-  });
+  if (VALUELESS.has(kind)) {
+    if (value.value !== undefined) return { ok: false, error: `${kind} 不得帶 value` };
+    return { ok: true };
+  }
+  if (kind === 'spaces' && zone.unit !== 'spaces') return { ok: false, error: `${zone.code} 不是車位數區` };
+  if (kind === 'tenths' && zone.unit !== 'tenths') return { ok: false, error: `${zone.code} 不是成數區` };
 
-  const labelIdx = Object.fromEntries(LABELS.map((label, index) => [label, index]));
-  pairs.forEach((pair) => {
-    const eq = pair.indexOf('=');
-    if (eq === -1) return;
-    const key = pair.slice(0, eq).trim();
-    const value = pair.slice(eq + 1).trim();
-    const full = normalizeKey(key);
-    if (full != null && labelIdx[full] !== undefined) result[labelIdx[full]] = value;
-  });
-  return result;
+  const [min, max] = RANGES[kind];
+  if (!Number.isInteger(value.value) || value.value < min || value.value > max) {
+    return { ok: false, error: `${kind} 的值必須是 ${min}-${max} 的整數` };
+  }
+  return { ok: true };
 }
 
-export function normalizeValue(raw) {
-  return (raw ?? 'x').toString().toLowerCase().trim() || 'x';
+export function formatValue(value) {
+  switch (value?.kind) {
+    case 'spaces': return `${value.value}車位`;
+    case 'tenths': return `${value.value}成空`;
+    case 'carts': return `停${value.value}台`;
+    case 'full': return '滿';
+    case 'guiding': return '引導中';
+    default: return '未停車';
+  }
 }
 
 export function zoneInfo(index, raw) {
