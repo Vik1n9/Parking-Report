@@ -1,12 +1,657 @@
-<!doctype html>
-<html lang="zh-Hant">
+<!DOCTYPE html>
+<html lang="zh-TW">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:,">
 <title>CenterConsole 中控台</title>
+<style>
+:root{
+  --bg:#f3f7fb;
+  --surface:#ffffff;
+  --surface2:#e8eff7;
+  --border:#172033;
+  --text:#07111f;
+  --sub:#172033;
+  --accent:#005fcc;
+  --green:#087a2e;
+  --amber:#9a5200;
+  --red:#b42318;
+  --focus:#ffb000;
+  --shadow:0 8px 20px rgba(7,17,31,.12);
+  --sans:'Helvetica Neue','PingFang TC','Microsoft JhengHei',sans-serif;
+  --mono:'SF Mono','Cascadia Code','Consolas',monospace;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  -webkit-text-size-adjust:100%;
+}
+button{
+  font:inherit;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  cursor:pointer;
+}
+.app{
+  max-width:1080px;
+  margin:0 auto;
+  padding:16px 16px 60px;
+}
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:14px 16px;
+  background:var(--surface);
+  border:2px solid var(--border);
+  border-radius:10px;
+  box-shadow:var(--shadow);
+  margin-bottom:14px;
+}
+.title{
+  font-size:1.1rem;
+  font-weight:900;
+  letter-spacing:.05em;
+}
+.title small{
+  display:block;
+  color:var(--sub);
+  font-size:.68rem;
+  font-weight:800;
+  letter-spacing:.08em;
+  margin-top:2px;
+}
+.top-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.chip{
+  display:inline-flex;
+  align-items:center;
+  min-height:26px;
+  border:2px solid var(--border);
+  border-radius:999px;
+  background:var(--surface2);
+  color:var(--sub);
+  padding:2px 12px;
+  font-size:.68rem;
+  font-weight:900;
+}
+.chip.good{background:#e6f7eb;border-color:var(--green)}
+.chip.bad{background:#ffe5e1;border-color:var(--red);color:#5a0c07}
+.mini-btn{
+  min-height:34px;
+  border:2px solid var(--border);
+  border-radius:7px;
+  background:var(--surface);
+  color:var(--text);
+  padding:6px 12px;
+  font-size:.74rem;
+  font-weight:800;
+}
+.mini-btn:focus-visible,.action-btn:focus-visible{
+  outline:3px solid var(--focus);
+  outline-offset:2px;
+}
+.layout{
+  display:grid;
+  grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);
+  gap:14px;
+  align-items:start;
+}
+@media(max-width:860px){
+  .layout{grid-template-columns:1fr}
+}
+.card{
+  background:var(--surface);
+  border:2px solid var(--border);
+  border-radius:10px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  margin-bottom:14px;
+}
+.card-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:11px 14px;
+  border-bottom:2px solid var(--border);
+}
+.label{
+  color:var(--sub);
+  font-size:.72rem;
+  font-weight:900;
+  letter-spacing:.08em;
+}
+.queue-list,.record-list{
+  padding:10px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.queue-item,.record-item{
+  border:2px solid var(--border);
+  border-radius:9px;
+  background:var(--surface);
+  padding:11px 12px;
+}
+.queue-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:8px;
+}
+.queue-time{
+  font-family:var(--mono);
+  font-weight:900;
+  font-size:.86rem;
+  color:var(--accent);
+}
+.queue-meta{
+  color:var(--sub);
+  font-size:.68rem;
+  font-weight:800;
+}
+.zone-grid{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:5px;
+  margin-bottom:10px;
+}
+.zone-cell{
+  border:2px solid var(--border);
+  border-radius:7px;
+  padding:6px 4px;
+  text-align:center;
+  background:var(--surface2);
+  min-width:0;
+}
+.zone-cell.ok{background:#e6f7eb;border-color:var(--green)}
+.zone-cell.few{background:#fff0d4;border-color:var(--amber)}
+.zone-cell.full{background:#ffe5e1;border-color:var(--red)}
+.zone-cell.empty{background:var(--surface2)}
+.zone-name{
+  display:block;
+  font-size:.6rem;
+  font-weight:900;
+  color:var(--sub);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.zone-value{
+  display:block;
+  font-size:.78rem;
+  font-weight:900;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.action-row{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.action-btn{
+  min-height:40px;
+  border:2px solid var(--border);
+  border-radius:8px;
+  font-weight:900;
+  padding:6px 14px;
+  font-size:.82rem;
+}
+.action-btn.confirm{background:var(--green);color:#ffffff;border-color:var(--green)}
+.action-btn.reject{background:var(--surface);color:#5a0c07;border-color:var(--red);background:#ffe5e1}
+.action-btn.copy{background:var(--accent);color:#ffffff;border-color:var(--accent)}
+.record-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:6px;
+}
+.record-time{
+  font-family:var(--mono);
+  font-size:.76rem;
+  font-weight:900;
+  color:var(--accent);
+}
+.record-by{
+  color:var(--sub);
+  font-size:.66rem;
+  font-weight:800;
+}
+.record-text{
+  white-space:pre-wrap;
+  font-size:.78rem;
+  line-height:1.6;
+  background:#e6f7eb;
+  border-left:4px solid var(--green);
+  padding:8px 10px;
+  margin:0;
+  border-radius:0 6px 6px 0;
+}
+.tower-badge{
+  display:inline-block;
+  border:2px solid var(--border);
+  border-radius:999px;
+  padding:2px 10px;
+  font-size:.68rem;
+  font-weight:900;
+  background:var(--surface2);
+}
+.tower-badge.hot{background:#ffe5e1;border-color:var(--red);color:#5a0c07}
+.tower-badge.warm{background:#fff0d4;border-color:var(--amber);color:#442400}
+.tower-badge.cool{background:#e6f7eb;border-color:var(--green)}
+.empty{
+  color:var(--sub);
+  text-align:center;
+  padding:22px 0;
+  font-size:.82rem;
+}
+.dialog-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(7,17,31,.5);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:50;
+  padding:16px;
+}
+.dialog-backdrop.show{display:flex}
+.dialog{
+  background:var(--surface);
+  border:2px solid var(--border);
+  border-radius:12px;
+  box-shadow:var(--shadow);
+  width:100%;
+  max-width:520px;
+  max-height:88vh;
+  overflow:auto;
+  padding:16px;
+}
+.dialog h2{
+  margin:0 0 6px;
+  font-size:1rem;
+  letter-spacing:.04em;
+}
+.dialog .sub{
+  color:var(--sub);
+  font-size:.7rem;
+  font-weight:800;
+  margin-bottom:12px;
+}
+.remark-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:8px;
+}
+.remark-row label{
+  min-width:64px;
+  font-size:.72rem;
+  font-weight:900;
+  color:var(--sub);
+}
+.remark-row input{
+  flex:1;
+  min-height:36px;
+  border:2px solid var(--border);
+  border-radius:7px;
+  padding:4px 10px;
+  font:inherit;
+  font-size:.8rem;
+  background:#ffffff;
+  color:var(--text);
+}
+.dialog-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:14px;
+}
+.toast{
+  position:fixed;
+  left:50%;
+  bottom:40px;
+  transform:translateX(-50%) translateY(18px);
+  opacity:0;
+  pointer-events:none;
+  background:#07111f;
+  color:#ffffff;
+  border-radius:999px;
+  padding:10px 16px;
+  font-size:.84rem;
+  font-weight:900;
+  box-shadow:var(--shadow);
+  transition:opacity .16s ease,transform .16s ease;
+  z-index:60;
+  white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.banner{
+  background:#fff0d4;
+  border:2px solid var(--amber);
+  color:#442400;
+  border-radius:9px;
+  padding:10px 14px;
+  font-size:.78rem;
+  font-weight:800;
+  margin-bottom:14px;
+  display:none;
+}
+.banner.show{display:block}
+</style>
 </head>
-<body style="font-family:system-ui;padding:24px">
-<h1>CenterConsole 中控台</h1>
-<p>建置中：待確認佇列、確認/退回、LINE 文字。</p>
+<body>
+<main class="app">
+  <header class="topbar">
+    <div class="title">CenterConsole<small>中控台</small></div>
+    <div class="top-actions">
+      <span class="chip" id="todayChip">—</span>
+      <span class="chip" id="queueChip">佇列 —</span>
+      <button class="mini-btn" id="refreshBtn">重新整理</button>
+    </div>
+  </header>
+
+  <div class="banner" id="authBanner">尚未透過 Cloudflare Access 登入。請重新整理頁面完成登入；若持續出現請聯絡管理員。</div>
+
+  <div class="layout">
+    <section>
+      <div class="card">
+        <div class="card-head">
+          <span class="label">待確認回報</span>
+          <span class="chip" id="pollChip">每 8 秒自動更新</span>
+        </div>
+        <div class="queue-list" id="queueList"><div class="empty">載入中…</div></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <div class="card-head"><span class="label">今日已確認紀錄</span></div>
+        <div class="record-list" id="recordList"><div class="empty">載入中…</div></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="dialog-backdrop" id="confirmDialog">
+  <div class="dialog">
+    <h2>確認回報</h2>
+    <div class="sub" id="confirmSub"></div>
+    <div id="remarkRows"></div>
+    <div class="dialog-actions">
+      <button class="mini-btn" id="cancelConfirmBtn">取消</button>
+      <button class="action-btn confirm" id="doConfirmBtn">確認並產生紀錄</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">已複製</div>
+
+<script type="module">
+import { zoneInfo, businessDate } from './js/parking-core.js';
+
+const POLL_MS = 8000;
+const $ = (id) => document.getElementById(id);
+const queueList = $('queueList');
+const recordList = $('recordList');
+const queueChip = $('queueChip');
+const todayChip = $('todayChip');
+const pollChip = $('pollChip');
+const refreshBtn = $('refreshBtn');
+const authBanner = $('authBanner');
+const confirmDialog = $('confirmDialog');
+const confirmSub = $('confirmSub');
+const remarkRows = $('remarkRows');
+const cancelConfirmBtn = $('cancelConfirmBtn');
+const doConfirmBtn = $('doConfirmBtn');
+const toast = $('toast');
+
+let zones = [];
+let pendingConfirm = null;
+let pendingReportsCache = [];
+
+function isLocalDev() {
+  return location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+}
+
+function devHeaders() {
+  return isLocalDev() ? { 'x-dev-user': 'console@dev' } : {};
+}
+
+function showToast(message) {
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+async function fetchJson(url, options = {}) {
+  const response = await fetch(url, options);
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    authBanner.classList.add('show');
+    throw new Error('unauthorized');
+  }
+  if (!response.ok) {
+    throw new Error(data.error || `HTTP ${response.status}`);
+  }
+  authBanner.classList.remove('show');
+  return data;
+}
+
+function renderZones(tokens) {
+  return `<div class="zone-grid">${zones.map((zone, index) => {
+    const value = tokens?.[zone.code] ?? 'x';
+    const info = zoneInfo(index, value);
+    return `<div class="zone-cell ${info.cls}"><span class="zone-name">${zone.label}</span><span class="zone-value">${info.s}</span></div>`;
+  }).join('')}</div>`;
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function formatTaipeiTime(iso) {
+  if (!iso) return '—';
+  return new Intl.DateTimeFormat('zh-TW', {
+    timeZone: 'Asia/Taipei',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(iso));
+}
+
+function towerBadgeClass(pct) {
+  if (pct == null) return '';
+  return pct >= 90 ? 'hot' : pct >= 70 ? 'warm' : 'cool';
+}
+
+async function loadQueue() {
+  const data = await fetchJson('/api/reports?status=pending');
+  pendingReportsCache = data.reports || [];
+  const reports = pendingReportsCache;
+  queueChip.textContent = `佇列 ${reports.length}`;
+  if (!reports.length) {
+    queueList.innerHTML = '<div class="empty">目前沒有待確認回報</div>';
+    return;
+  }
+  queueList.innerHTML = reports.map((report) => `
+    <div class="queue-item">
+      <div class="queue-top">
+        <span class="queue-time">${formatTaipeiTime(report.submittedAt)}</span>
+        <span class="queue-meta">${escapeHtml(report.deviceLabel || '未知裝置')} · 營運日 ${escapeHtml(report.businessDate)}</span>
+      </div>
+      ${renderZones(report.tokens)}
+      <div class="action-row">
+        <button class="action-btn confirm" data-confirm="${report.id}">確認</button>
+        <button class="action-btn reject" data-reject="${report.id}">退回</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadRecords() {
+  const today = businessDate(new Date());
+  const data = await fetchJson(`/api/records?from=${today}&to=${today}`);
+  const records = data.records || [];
+  todayChip.textContent = `今日 ${records.length} 筆`;
+  if (!records.length) {
+    recordList.innerHTML = '<div class="empty">今日尚無已確認紀錄</div>';
+    return;
+  }
+  recordList.innerHTML = records.map((record) => `
+    <div class="record-item">
+      <div class="record-head">
+        <span class="record-time">${escapeHtml(record.reportTime)}</span>
+        <span class="tower-badge ${towerBadgeClass(record.towerPct)}">車塔 ${record.towerPct == null ? '—' : record.towerPct + '%'}</span>
+      </div>
+      <div class="record-head">
+        <span class="record-by">填表人 ${escapeHtml(record.preparedBy)} · 確認於 ${formatTaipeiTime(record.confirmedAt)}</span>
+        <button class="mini-btn" data-copy="${record.id}">複製 LINE 文字</button>
+      </div>
+      <pre class="record-text">${escapeHtml(record.lineReport)}</pre>
+    </div>
+  `).join('');
+}
+
+function openConfirmDialog(report) {
+  pendingConfirm = report;
+  confirmSub.textContent = `${formatTaipeiTime(report.submittedAt)} · ${report.deviceLabel || '未知裝置'} · #${report.id}`;
+  const activeZones = zones.filter((zone, index) => {
+    const value = report.tokens?.[zone.code] ?? 'x';
+    return zoneInfo(index, value).s !== '未停車';
+  });
+  remarkRows.innerHTML = activeZones.length
+    ? activeZones.map((zone) => `
+      <div class="remark-row">
+        <label for="remark-${zone.code}">${escapeHtml(zone.label)}</label>
+        <input id="remark-${zone.code}" data-code="${zone.code}" maxlength="50" placeholder="備註（可留空）">
+      </div>
+    `).join('')
+    : '<div class="sub">所有區域皆未停車，無需備註。</div>';
+  confirmDialog.classList.add('show');
+}
+
+function closeConfirmDialog() {
+  confirmDialog.classList.remove('show');
+  pendingConfirm = null;
+}
+
+async function doConfirm() {
+  if (!pendingConfirm) return;
+  const remarks = {};
+  remarkRows.querySelectorAll('input[data-code]').forEach((input) => {
+    const value = input.value.trim();
+    if (value) remarks[input.dataset.code] = value;
+  });
+  doConfirmBtn.disabled = true;
+  try {
+    const data = await fetchJson(`/api/reports/${pendingConfirm.id}/confirm`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...devHeaders() },
+      body: JSON.stringify({ remarks }),
+    });
+    closeConfirmDialog();
+    await refresh();
+    if (data.record?.lineReport) {
+      try {
+        await navigator.clipboard.writeText(data.record.lineReport);
+        showToast('已確認，LINE 文字已複製');
+      } catch {
+        showToast('已確認，請從右側複製 LINE 文字');
+      }
+    } else {
+      showToast('已確認');
+    }
+  } catch (err) {
+    showToast(`確認失敗：${err.message}`);
+  } finally {
+    doConfirmBtn.disabled = false;
+  }
+}
+
+async function doReject(reportId) {
+  const reason = prompt('退回原因（會顯示給中控紀錄，可留空）') ?? '';
+  try {
+    await fetchJson(`/api/reports/${reportId}/reject`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...devHeaders() },
+      body: JSON.stringify({ reason }),
+    });
+    showToast('已退回');
+    await refresh();
+  } catch (err) {
+    showToast(`退回失敗：${err.message}`);
+  }
+}
+
+async function copyRecord(reportId) {
+  const item = recordList.querySelector(`[data-copy="${reportId}"]`);
+  const recordItem = item?.closest('.record-item');
+  const text = recordItem?.querySelector('.record-text')?.textContent || '';
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('已複製 LINE 文字');
+  } catch {
+    showToast('複製失敗，請手動選取');
+  }
+}
+
+async function refresh() {
+  try {
+    await Promise.all([loadQueue(), loadRecords()]);
+  } catch (err) {
+    if (err.message !== 'unauthorized') {
+      queueChip.textContent = '更新失敗';
+    }
+  }
+}
+
+async function boot() {
+  try {
+    const data = await fetchJson('/api/zones');
+    zones = data.zones || [];
+  } catch {
+    zones = [];
+  }
+  await refresh();
+}
+
+queueList.addEventListener('click', (event) => {
+  const confirmId = event.target.closest('[data-confirm]')?.dataset.confirm;
+  const rejectId = event.target.closest('[data-reject]')?.dataset.reject;
+  if (confirmId) {
+    const report = pendingReportsCache.find((r) => r.id === Number(confirmId));
+    if (report) openConfirmDialog(report);
+  } else if (rejectId) {
+    doReject(Number(rejectId));
+  }
+});
+recordList.addEventListener('click', (event) => {
+  const copyId = event.target.closest('[data-copy]')?.dataset.copy;
+  if (copyId) copyRecord(copyId);
+});
+refreshBtn.addEventListener('click', refresh);
+cancelConfirmBtn.addEventListener('click', closeConfirmDialog);
+doConfirmBtn.addEventListener('click', doConfirm);
+confirmDialog.addEventListener('click', (event) => {
+  if (event.target === confirmDialog) closeConfirmDialog();
+});
+
+boot();
+setInterval(refresh, POLL_MS);
+</script>
 </body>
 </html>
