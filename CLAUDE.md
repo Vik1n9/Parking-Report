@@ -15,7 +15,7 @@
 - `src/export/xlsx.js` — ExcelJS 生成主管模板格式（ROC 年、並排日期表、剩餘車位數/備註交錯列）
 - `public/guard.html` — 保全頁。**版型/互動不得改動**（強光、單手、首屏原則見 PRODUCT.md），行為由 `test/guard-ui.test.js` 字串斷言鎖定
 - `public/CenterConsole.html` — 中控台；`public/ManagerDashboard.html` — 主管唯讀儀表板；`public/secretary.html` — 秘書匯出
-- `migrations/` — D1 schema；`migrations/0002_seed.sql` — 10 區 seed（含 excel_label 模板欄位名）
+- `migrations/` — D1 schema；`0002_seed.sql` 10 區 seed，`0003_value_model.sql` 值模型遷移（`unit` 取代 `is_car`、`tokens_json`→`values_json`、舊值自動轉換）
 - `scripts/provision-device.mjs` — 產生保全裝置 token
 
 ## 關鍵約束
@@ -27,6 +27,16 @@
 5. 測試必須雙時區通過：`TZ=Asia/Taipei` 與 `TZ=UTC`。測試資料的填表人與裝置代號一律用假名
 6. **主管頁公開**：`/ManagerDashboard` 與 `/api/public/current` 免認證，該端點不得回傳 `prepared_by`、`remarks`、`report_id`、裝置代號
 7. **Access 設定走 secret**：`ACCESS_TEAM_DOMAIN`/`ACCESS_AUD` 用 `wrangler secret put`，不要寫進 `wrangler.jsonc` 的 vars（會被部署洗掉）
+
+## 上線待辦
+
+明細與逐步指令見 `TODO.md`。三件事全部沒做完，線上就不是可用狀態。
+
+1. **線上 D1 跑 migrations** — `npm run db:migrate`。⚠️ 目前卡住：現有 wrangler 憑證對該 D1 回 `code: 7403`（無權限），需換有權限的 Cloudflare 帳號。沒跑的話線上 schema 還是舊的 `tokens_json`/`is_car`，所有 API 會炸
+2. **Access 兩個 secret** — `npx wrangler secret put ACCESS_TEAM_DOMAIN` / `ACCESS_AUD`，並建三個 **path-scoped** application（`/CenterConsole*`、`/secretary*`、`/api/records*`）。**絕不要綁裸網域** — 那會把 `/guard` 與 `POST /api/reports` 一起擋掉，保全沒有 Access 身分就完全無法回報。主管頁不設 Access
+3. **正式保全裝置發 token** — `npm run device:provision -- <代號>`，代號會直接出現在中控回報的標題（`中控回報：12:37 A1回報`），所以用現場慣用的哨點代號。token 只顯示一次、只存 SHA-256，永遠不進版控
+
+未做、也不打算在這輪做的：退回流程回饋給保全（中控按退回後保全端收不到通知）、班次／`shifts` 與假日分類、稽核 log、LINE Messaging API 推播、zones 設定後台。
 
 ## 指令
 
