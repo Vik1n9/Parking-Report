@@ -1,12 +1,426 @@
-<!doctype html>
-<html lang="zh-Hant">
+<!DOCTYPE html>
+<html lang="zh-TW">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:,">
 <title>ManagerDashboard 主管儀表板</title>
+<style>
+:root{
+  --bg:#f3f7fb;
+  --surface:#ffffff;
+  --surface2:#e8eff7;
+  --border:#172033;
+  --text:#07111f;
+  --sub:#172033;
+  --accent:#005fcc;
+  --green:#087a2e;
+  --amber:#9a5200;
+  --red:#b42318;
+  --focus:#ffb000;
+  --shadow:0 8px 20px rgba(7,17,31,.12);
+  --sans:'Helvetica Neue','PingFang TC','Microsoft JhengHei',sans-serif;
+  --mono:'SF Mono','Cascadia Code','Consolas',monospace;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+}
+button{font:inherit;cursor:pointer}
+.app{
+  max-width:1180px;
+  margin:0 auto;
+  padding:16px 16px 60px;
+}
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:14px 16px;
+  background:var(--surface);
+  border:2px solid var(--border);
+  border-radius:10px;
+  box-shadow:var(--shadow);
+  margin-bottom:14px;
+}
+.title{font-size:1.1rem;font-weight:900;letter-spacing:.05em}
+.title small{
+  display:block;color:var(--sub);font-size:.68rem;font-weight:800;letter-spacing:.08em;margin-top:2px;
+}
+.top-actions{display:flex;align-items:center;gap:8px}
+.chip{
+  display:inline-flex;align-items:center;min-height:26px;
+  border:2px solid var(--border);border-radius:999px;background:var(--surface2);
+  color:var(--sub);padding:2px 12px;font-size:.68rem;font-weight:900;
+}
+.chip.good{background:#e6f7eb;border-color:var(--green)}
+.chip.bad{background:#ffe5e1;border-color:var(--red);color:#5a0c07}
+.mini-btn{
+  min-height:34px;border:2px solid var(--border);border-radius:7px;background:var(--surface);
+  color:var(--text);padding:6px 12px;font-size:.74rem;font-weight:800;
+}
+.mini-btn:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.banner{
+  background:#fff0d4;border:2px solid var(--amber);color:#442400;border-radius:9px;
+  padding:10px 14px;font-size:.78rem;font-weight:800;margin-bottom:14px;display:none;
+}
+.banner.show{display:block}
+.summary{
+  display:grid;
+  grid-template-columns:minmax(280px,360px) minmax(0,1fr);
+  gap:14px;
+  margin-bottom:14px;
+}
+@media(max-width:820px){.summary{grid-template-columns:1fr}}
+.card{
+  background:var(--surface);border:2px solid var(--border);border-radius:10px;
+  box-shadow:var(--shadow);overflow:hidden;margin-bottom:14px;
+}
+.card-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:11px 14px;border-bottom:2px solid var(--border);
+}
+.label{color:var(--sub);font-size:.72rem;font-weight:900;letter-spacing:.08em}
+.gauge-card{display:flex;flex-direction:column;align-items:center;padding:18px 16px 12px}
+.gauge-wrap{position:relative;width:220px;height:220px}
+.gauge-center{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.gauge-pct{font-size:2.6rem;font-weight:950;line-height:1;font-family:var(--mono)}
+.gauge-label{color:var(--sub);font-size:.72rem;font-weight:900;margin-top:6px;letter-spacing:.08em}
+.gauge-meta{
+  display:flex;gap:16px;margin-top:14px;flex-wrap:wrap;justify-content:center;
+}
+.gauge-meta div{text-align:center}
+.gauge-meta .num{font-size:1.15rem;font-weight:950;font-family:var(--mono)}
+.gauge-meta .cap{color:var(--sub);font-size:.62rem;font-weight:900;letter-spacing:.06em}
+.stat-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:12px;
+}
+.stat-cell{
+  border:2px solid var(--border);border-radius:9px;background:var(--surface2);padding:10px 12px;
+}
+.stat-cell .num{font-size:1.3rem;font-weight:950;font-family:var(--mono)}
+.stat-cell .cap{color:var(--sub);font-size:.64rem;font-weight:900;letter-spacing:.06em;margin-top:2px}
+.zone-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;padding:12px;
+}
+.zone-card{
+  border:2px solid var(--border);border-radius:9px;background:var(--surface);padding:10px 12px;
+}
+.zone-card .row{
+  display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:6px;
+}
+.zone-card .name{font-size:.8rem;font-weight:900}
+.zone-card .value{font-size:.98rem;font-weight:950;font-family:var(--mono);white-space:nowrap}
+.bar{
+  height:14px;border:2px solid var(--border);border-radius:999px;background:var(--surface2);overflow:hidden;
+}
+.bar-fill{height:100%;border-radius:999px;transition:width .3s ease}
+.bar-fill.cool{background:var(--green)}
+.bar-fill.warm{background:#d97b00}
+.bar-fill.hot{background:var(--red)}
+.bar-fill.na{background:#9aa7b4}
+.pct-note{color:var(--sub);font-size:.6rem;font-weight:900;margin-top:4px;letter-spacing:.04em}
+.chart-box{padding:12px}
+.chart-box svg{width:100%;height:auto;display:block}
+.legend{
+  display:flex;gap:14px;flex-wrap:wrap;padding:0 14px 12px;color:var(--sub);font-size:.64rem;font-weight:800;
+}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.dot{width:10px;height:10px;border-radius:999px;display:inline-block}
+.empty{
+  color:var(--sub);text-align:center;padding:26px 0;font-size:.84rem;
+}
+.toast{
+  position:fixed;left:50%;bottom:40px;transform:translateX(-50%) translateY(18px);opacity:0;pointer-events:none;
+  background:#07111f;color:#ffffff;border-radius:999px;padding:10px 16px;font-size:.84rem;font-weight:900;
+  box-shadow:var(--shadow);transition:opacity .16s ease,transform .16s ease;z-index:60;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
 </head>
-<body style="font-family:system-ui;padding:24px">
-<h1>ManagerDashboard</h1>
-<p>建置中：唯讀車塔使用率儀表板（百分比圖示、當日趨勢）。</p>
+<body>
+<main class="app">
+  <header class="topbar">
+    <div class="title">ManagerDashboard<small>主管儀表板 · 唯讀</small></div>
+    <div class="top-actions">
+      <span class="chip" id="dateChip">—</span>
+      <span class="chip" id="updatedChip">—</span>
+      <button class="mini-btn" id="refreshBtn">更新</button>
+    </div>
+  </header>
+
+  <div class="banner" id="authBanner">尚未透過 Cloudflare Access 登入。請重新整理頁面完成登入；若持續出現請聯絡管理員。</div>
+
+  <div class="summary">
+    <div class="card gauge-card" style="margin-bottom:0">
+      <div class="gauge-wrap">
+        <svg viewBox="0 0 220 220" role="img" aria-label="車塔使用率">
+          <circle cx="110" cy="110" r="92" fill="none" stroke="#e8eff7" stroke-width="22"/>
+          <circle id="gaugeArc" cx="110" cy="110" r="92" fill="none" stroke="#087a2e" stroke-width="22"
+            stroke-linecap="round" stroke-dasharray="578.1" stroke-dashoffset="578.1" transform="rotate(-90 110 110)"/>
+        </svg>
+        <div class="gauge-center">
+          <span class="gauge-pct" id="gaugePct">—</span>
+          <span class="gauge-label">車塔使用率</span>
+        </div>
+      </div>
+      <div class="gauge-meta">
+        <div><div class="num" id="remainingNum">—</div><div class="cap">剩餘車位</div></div>
+        <div><div class="num" id="occupiedNum">—</div><div class="cap">已停放</div></div>
+        <div><div class="num" id="capacityNum">1600</div><div class="cap">車塔總格</div></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:0">
+      <div class="card-head">
+        <span class="label">當前各區狀態（最近一筆確認紀錄）</span>
+        <span class="chip" id="latestChip">—</span>
+      </div>
+      <div class="zone-grid" id="zoneGrid"><div class="empty">載入中…</div></div>
+    </div>
+  </div>
+
+  <section class="card">
+    <div class="card-head"><span class="label">今日車塔使用率趨勢</span></div>
+    <div class="chart-box" id="chartBox"><div class="empty">今日尚無資料</div></div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--red)"></span>≥90% 注意</span>
+      <span><span class="dot" style="background:#d97b00"></span>70–89% 偏高</span>
+      <span><span class="dot" style="background:var(--green)"></span>&lt;70% 正常</span>
+      <span>資料為中控已確認紀錄，只讀</span>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast">已更新</div>
+
+<script type="module">
+const POLL_MS = 30000;
+const CIRCUMFERENCE = 2 * Math.PI * 92;
+
+const $ = (id) => document.getElementById(id);
+const gaugeArc = $('gaugeArc');
+const gaugePct = $('gaugePct');
+const remainingNum = $('remainingNum');
+const occupiedNum = $('occupiedNum');
+const capacityNum = $('capacityNum');
+const zoneGrid = $('zoneGrid');
+const chartBox = $('chartBox');
+const dateChip = $('dateChip');
+const updatedChip = $('updatedChip');
+const latestChip = $('latestChip');
+const refreshBtn = $('refreshBtn');
+const authBanner = $('authBanner');
+const toast = $('toast');
+
+let zones = [];
+let towerTotal = 1600;
+let lastPct = null;
+
+function usageColor(pct) {
+  if (pct == null) return '#9aa7b4';
+  return pct >= 90 ? 'var(--red)' : pct >= 70 ? '#d97b00' : 'var(--green)';
+}
+
+function barClass(pct) {
+  if (pct == null) return 'na';
+  return pct >= 90 ? 'hot' : pct >= 70 ? 'warm' : 'cool';
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url);
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    authBanner.classList.add('show');
+    throw new Error('unauthorized');
+  }
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  authBanner.classList.remove('show');
+  return data;
+}
+
+function renderGauge(pct, remaining, occupied) {
+  lastPct = pct;
+  const valid = pct != null;
+  gaugePct.textContent = valid ? `${pct}%` : '—';
+  gaugePct.style.color = usageColor(pct);
+  gaugeArc.style.stroke = usageColor(pct);
+  const offset = valid ? CIRCUMFERENCE * (1 - pct / 100) : CIRCUMFERENCE;
+  gaugeArc.style.strokeDashoffset = String(offset);
+  remainingNum.textContent = remaining == null ? '—' : remaining;
+  occupiedNum.textContent = occupied == null ? '—' : occupied;
+  capacityNum.textContent = towerTotal;
+}
+
+function occupancyOfZone(index, raw) {
+  if (raw === '0') return 100;
+  const value = String(raw ?? 'x').toLowerCase();
+  if (value === 'x') return 0;
+  if (!zones[index]?.isCar) {
+    if (value.startsWith('0.')) return null;
+    const n = parseInt(value, 10);
+    if (Number.isNaN(n)) return null;
+    return Math.max(0, Math.min(100, (10 - n) * 10));
+  }
+  return null;
+}
+
+function displayOfZone(index, raw) {
+  const value = String(raw ?? 'x').toLowerCase();
+  if (!zones[index]?.isCar && value.startsWith('0.')) {
+    const count = parseInt(value.slice(2), 10) || 0;
+    return count ? `尚有 ${count} 台` : '未停車';
+  }
+  return value === 'x' ? '未停車' : value === '0' ? '全滿' : String(raw);
+}
+
+function renderZones(tokens) {
+  zoneGrid.innerHTML = zones.map((zone, index) => {
+    const raw = tokens?.[zone.code] ?? 'x';
+    const pct = occupancyOfZone(index, raw);
+    const display = displayOfZone(index, raw);
+    let note;
+    if (pct != null) note = `使用率 ${pct}%`;
+    else if (!zone.isCar && String(raw).startsWith('0.')) note = '台車（不計車塔）';
+    else if (zone.isCar) note = '剩餘車位數';
+    else note = '—';
+    const pctDisplay = pct == null ? 0 : pct;
+    return `
+      <div class="zone-card">
+        <div class="row"><span class="name">${escapeHtml(zone.label)}</span><span class="value">${escapeHtml(display)}</span></div>
+        <div class="bar"><div class="bar-fill ${barClass(pct)}" style="width:${pctDisplay}%"></div></div>
+        <div class="pct-note">${note}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderChart(records) {
+  const points = records.filter((r) => r.towerPct != null);
+  if (points.length < 1) {
+    chartBox.innerHTML = '<div class="empty">今日尚無資料</div>';
+    return;
+  }
+  const W = 900;
+  const H = 260;
+  const PAD_L = 44;
+  const PAD_R = 16;
+  const PAD_T = 16;
+  const PAD_B = 34;
+  const innerW = W - PAD_L - PAD_R;
+  const innerH = H - PAD_T - PAD_B;
+  const x = (i) => PAD_L + (points.length === 1 ? innerW / 2 : (i / (points.length - 1)) * innerW);
+  const y = (pct) => PAD_T + innerH - (pct / 100) * innerH;
+
+  const line = points.map((p, i) => `${x(i).toFixed(1)},${y(p.towerPct).toFixed(1)}`).join(' ');
+  const area = `${PAD_L},${(PAD_T + innerH).toFixed(1)} ${line} ${(PAD_L + (points.length === 1 ? innerW / 2 : innerW)).toFixed(1)},${(PAD_T + innerH).toFixed(1)}`;
+  const gridLines = [0, 25, 50, 75, 100].map((pct) => `
+    <line x1="${PAD_L}" y1="${y(pct)}" x2="${W - PAD_R}" y2="${y(pct)}" stroke="#c9d6e3" stroke-width="1"/>
+    <text x="${PAD_L - 8}" y="${y(pct) + 4}" text-anchor="end" font-size="11" fill="#172033" font-weight="700">${pct}%</text>
+  `).join('');
+  const timeLabels = points.map((p, i) => {
+    const show = i === 0 || i === points.length - 1 || i === Math.floor((points.length - 1) / 2);
+    if (!show) return '';
+    return `<text x="${x(i)}" y="${H - 10}" text-anchor="middle" font-size="11" fill="#172033" font-weight="700">${escapeHtml(p.reportTime)}</text>`;
+  }).join('');
+  const dots = points.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.towerPct).toFixed(1)}" r="4" fill="${usageColor(p.towerPct)}"/>`).join('');
+
+  chartBox.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="今日車塔使用率趨勢">
+      ${gridLines}
+      <polygon points="${area}" fill="rgba(0,95,204,.08)"/>
+      <polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      ${dots}
+      ${timeLabels}
+    </svg>
+  `;
+}
+
+function showToast(message) {
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => toast.classList.remove('show'), 1600);
+}
+
+function nowTaipeiHHMM() {
+  return new Intl.DateTimeFormat('zh-TW', {
+    timeZone: 'Asia/Taipei',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date());
+}
+
+async function refresh() {
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  dateChip.textContent = today;
+  try {
+    const [recordsData] = await Promise.all([
+      fetchJson(`/api/records?from=${today}&to=${today}`),
+    ]);
+    const records = recordsData.records || [];
+    const latest = records[records.length - 1];
+    updatedChip.textContent = `更新於 ${nowTaipeiHHMM()}`;
+    if (!latest) {
+      renderGauge(null, null, null);
+      renderZones({});
+      renderChart(records);
+      latestChip.textContent = '今日尚無確認紀錄';
+      return;
+    }
+    latestChip.textContent = `最後回報 ${latest.reportTime}`;
+    const tokens = latest.tokens || {};
+    const upRaw = parseInt(tokens.floor_above ?? 'x', 10);
+    const downRaw = parseInt(tokens.floor_below ?? 'x', 10);
+    const hasUp = !Number.isNaN(upRaw);
+    const hasDown = !Number.isNaN(downRaw);
+    const remaining = hasUp || hasDown ? Math.max(0, (hasUp ? upRaw : 0) + (hasDown ? downRaw : 0)) : null;
+    const occupied = remaining == null ? null : Math.min(towerTotal, Math.max(0, towerTotal - remaining));
+    renderGauge(latest.towerPct, remaining, occupied);
+    renderZones(tokens);
+    renderChart(records);
+  } catch (err) {
+    if (err.message !== 'unauthorized') {
+      updatedChip.textContent = '更新失敗';
+      updatedChip.classList.add('bad');
+    }
+  }
+}
+
+async function boot() {
+  try {
+    const data = await fetchJson('/api/zones');
+    zones = data.zones || [];
+    towerTotal = data.towerTotal || 1600;
+  } catch {
+    zones = [];
+  }
+  await refresh();
+}
+
+refreshBtn.addEventListener('click', async () => {
+  await refresh();
+  showToast('已更新');
+});
+
+boot();
+setInterval(refresh, POLL_MS);
+</script>
 </body>
 </html>
