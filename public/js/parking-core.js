@@ -109,68 +109,40 @@ export function formatValue(value) {
   }
 }
 
-export function zoneInfo(index, raw) {
-  const value = normalizeValue(raw);
-  if (value === 'x') return { cls: 'empty', s: '未停車' };
-  if (value === '0') return { cls: 'full', s: '全滿' };
-  if (IS_CAR[index]) return { cls: 'ok', s: `${value} 車位` };
-  if (value.startsWith('0.')) {
-    const count = parseInt(value.slice(2), 10) || 0;
-    if (!count) return { cls: 'full', s: '全滿' };
-    return { cls: 'few', s: `尚有 ${count} 台` };
-  }
-  const count = parseInt(value, 10);
-  if (!Number.isNaN(count)) {
-    return { cls: count >= 7 ? 'ok' : count >= 4 ? 'few' : 'full', s: `${count} 成` };
-  }
-  return { cls: 'empty', s: value };
+function joinLabels(labels) {
+  if (labels.length === 1) return labels[0];
+  return `${labels.slice(0, -1).join('、')}及${labels.at(-1)}`;
 }
 
-export function toExcel(index, raw) {
-  const value = normalizeValue(raw);
-  if (value === 'x') return '未停車';
-  if (value === '0') return '滿';
-  if (IS_CAR[index]) return value;
-  if (value.startsWith('0.')) {
-    const count = parseInt(value.slice(2), 10) || 0;
-    return count ? `${count}台車` : '滿';
+export function buildReport(values, zones, opts = {}) {
+  const { style = 'guard', time, deviceLabel, timeZone } = opts;
+  const clock = formatTime(time, timeZone ?? TIME_ZONE);
+  const read = (zone) => normalizeInput(values?.[zone.code], zone);
+
+  if (style === 'guard') {
+    const lines = ['停車場回報', `${clock} 保全回報停車情況：`];
+    for (const zone of zones) lines.push(`${zone.label}：${formatValue(read(zone))}`);
+    return lines.join('\n');
   }
-  const count = parseInt(value, 10);
-  return Number.isNaN(count) ? value : `${count}成`;
-}
 
-export function buildExcelValues(tokens) {
-  return LABELS.map((_, index) => toExcel(index, tokens[index]));
-}
-
-export function buildControlReport(tokens, time) {
-  const date = toDate(time);
-  let output = `中控回報:\n${formatTime(date)} 保全回報停車情況：\n`;
-  LABELS.forEach((label, index) => {
-    const value = normalizeValue(tokens[index]);
-    if (IS_CAR[index]) {
-      if (value === 'x') output += `${label} 沒停車\n`;
-      else if (value === '0') output += `${label} 全滿\n`;
-      else output += `${label}${value}車位\n`;
-    } else if (value === 'x') {
-      output += `${label} 沒停車\n`;
-    } else if (value === '0') {
-      output += `${label} 全滿\n`;
-    } else if (value.startsWith('0.')) {
-      output += `${label} 尚有${value.slice(2)}台車\n`;
-    } else {
-      output += `${label} 尚有${value}成車位\n`;
+  const lines = [`中控回報：${clock} ${deviceLabel || '保全'}回報`];
+  let run = [];
+  const flush = () => {
+    if (!run.length) return;
+    if (run.length === 1) lines.push(`${run[0]} 未停車`);
+    else lines.push(`${joinLabels(run)}未停車。`);
+    run = [];
+  };
+  for (const zone of zones) {
+    const value = read(zone);
+    if (value.kind === 'none') {
+      run.push(zone.label);
+      continue;
     }
-  });
-  return output.trim();
-}
-
-export function buildLineReport(tokens, time) {
-  const date = toDate(time);
-  const lines = ['停車場回報', `${formatTime(date)} 保全回報停車情況：`];
-  LABELS.forEach((label, index) => {
-    lines.push(`${label}：${zoneInfo(index, tokens[index]).s}`);
-  });
+    flush();
+    lines.push(`${zone.label} ${formatValue(value)}`);
+  }
+  flush();
   return lines.join('\n');
 }
 

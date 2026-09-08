@@ -5,6 +5,7 @@ import {
   normalizeInput,
   validateValue,
   formatValue,
+  buildReport,
   formatTime,
   businessDate,
   TIME_ZONE,
@@ -90,4 +91,100 @@ test('time formatting is explicit Asia/Taipei, independent of host timezone', ()
   assert.equal(formatTime(new Date('2026-01-02T06:35:00Z')), '14:35');
   assert.equal(businessDate(new Date('2026-01-02T16:30:00Z')), '2026-01-03');
   assert.equal(TIME_ZONE, 'Asia/Taipei');
+});
+
+const ZONES = [
+  { code: 'floor_above', label: '車塔1上', excelLabel: '1F↑', position: 0, unit: 'spaces', inTower: true },
+  { code: 'floor_below', label: '車塔1下', excelLabel: '1F↓', position: 1, unit: 'spaces', inTower: true },
+  { code: 'p1', label: 'P1', excelLabel: 'P1', position: 2, unit: 'tenths', inTower: false },
+  { code: 'p3', label: 'P3', excelLabel: 'P3', position: 3, unit: 'tenths', inTower: false },
+  { code: 'spin_a', label: 'A區', excelLabel: '紡織-A', position: 4, unit: 'tenths', inTower: false },
+  { code: 'spin_b', label: 'B區', excelLabel: '紡織-B', position: 5, unit: 'tenths', inTower: false },
+  { code: 'spin_c', label: 'C區', excelLabel: '紡織-C', position: 6, unit: 'tenths', inTower: false },
+  { code: 'spin_d', label: 'D區', excelLabel: '紡織-D', position: 7, unit: 'tenths', inTower: false },
+  { code: 'spin_e', label: 'E區', excelLabel: '紡織-E', position: 8, unit: 'tenths', inTower: false },
+  { code: 'asphalt', label: '柏油路', excelLabel: '柏油路', position: 9, unit: 'tenths', inTower: false },
+];
+
+const SAMPLE = {
+  floor_above: { kind: 'full' },
+  floor_below: { kind: 'spaces', value: 232 },
+  p1: { kind: 'tenths', value: 3 },
+  p3: { kind: 'tenths', value: 4 },
+  spin_a: { kind: 'full' },
+  spin_b: { kind: 'carts', value: 2 },
+  spin_c: { kind: 'guiding' },
+  spin_d: { kind: 'none' },
+  spin_e: { kind: 'none' },
+  asphalt: { kind: 'none' },
+};
+
+const AT_1237 = new Date('2026-09-09T04:37:00Z'); // 台北 12:37
+
+test('guard style keeps one line per zone with a full-width colon', () => {
+  assert.equal(
+    buildReport(SAMPLE, ZONES, { style: 'guard', time: AT_1237 }),
+    [
+      '停車場回報',
+      '12:37 保全回報停車情況：',
+      '車塔1上：滿',
+      '車塔1下：232車位',
+      'P1：3成空',
+      'P3：4成空',
+      'A區：滿',
+      'B區：停2台',
+      'C區：引導中',
+      'D區：未停車',
+      'E區：未停車',
+      '柏油路：未停車',
+    ].join('\n')
+  );
+});
+
+test('console style carries the device code and merges the trailing none run', () => {
+  assert.equal(
+    buildReport(SAMPLE, ZONES, { style: 'console', time: AT_1237, deviceLabel: 'A1' }),
+    [
+      '中控回報：12:37 A1回報',
+      '車塔1上 滿',
+      '車塔1下 232車位',
+      'P1 3成空',
+      'P3 4成空',
+      'A區 滿',
+      'B區 停2台',
+      'C區 引導中',
+      'D區、E區及柏油路未停車。',
+    ].join('\n')
+  );
+});
+
+test('console style joins exactly two merged zones with 及', () => {
+  const values = { ...SAMPLE, asphalt: { kind: 'full' } };
+  const lines = buildReport(values, ZONES, { style: 'console', time: AT_1237, deviceLabel: 'A1' }).split('\n');
+  assert.equal(lines.at(-2), 'D區及E區未停車。');
+  assert.equal(lines.at(-1), '柏油路 滿');
+});
+
+test('console style leaves a lone none zone as a normal line', () => {
+  const values = { ...SAMPLE, spin_e: { kind: 'full' }, asphalt: { kind: 'full' } };
+  const lines = buildReport(values, ZONES, { style: 'console', time: AT_1237, deviceLabel: 'A1' });
+  assert.match(lines, /\nD區 未停車\n/);
+  assert.doesNotMatch(lines, /。/);
+});
+
+test('console style merges a non-trailing none run too', () => {
+  const values = { ...SAMPLE, spin_a: { kind: 'none' }, spin_b: { kind: 'none' }, spin_c: { kind: 'full' } };
+  const text = buildReport(values, ZONES, { style: 'console', time: AT_1237, deviceLabel: 'A1' });
+  assert.match(text, /\nA區及B區未停車。\n/);
+  assert.match(text, /\nC區 滿\n/);
+});
+
+test('console style omits the device code when there is none', () => {
+  const text = buildReport(SAMPLE, ZONES, { style: 'console', time: AT_1237 });
+  assert.equal(text.split('\n')[0], '中控回報：12:37 保全回報');
+});
+
+test('buildReport treats a missing zone code as not parked', () => {
+  const text = buildReport({}, ZONES, { style: 'guard', time: AT_1237 });
+  assert.match(text, /車塔1上：未停車/);
 });
