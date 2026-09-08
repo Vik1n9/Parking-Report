@@ -46,6 +46,15 @@ function mapRecord(row) {
   };
 }
 
+function resolveSubmittedAt(raw, now) {
+  if (typeof raw !== 'string') return now.toISOString();
+  const parsed = Date.parse(raw);
+  if (Number.isNaN(parsed)) return now.toISOString();
+  const min = now.getTime() - 24 * 60 * 60 * 1000;
+  const max = now.getTime() + 2 * 60 * 1000;
+  return new Date(Math.min(Math.max(parsed, min), max)).toISOString();
+}
+
 export async function createReport(env, request, device) {
   let body;
   try {
@@ -81,8 +90,8 @@ export async function createReport(env, request, device) {
   const rawInput = typeof body.raw_input === 'string' ? body.raw_input.slice(0, 2000) : null;
   const supersedes = Number.isInteger(body.supersedes_report_id) ? body.supersedes_report_id : null;
   const now = new Date();
-  const submittedAt = now.toISOString();
-  const bDate = businessDate(now);
+  const submittedAt = resolveSubmittedAt(body?.client_submitted_at, now);
+  const bDate = businessDate(new Date(submittedAt));
 
   const dup = await env.DB
     .prepare('SELECT * FROM reports WHERE site_id = 1 AND client_request_id = ?')
