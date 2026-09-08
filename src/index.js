@@ -3,6 +3,7 @@ import { verifyDeviceToken, verifyAccess } from './auth.js';
 import { getActiveZones, toApiZones } from './routes/zones.js';
 import { createReport, listReports, confirmReport, rejectReport } from './routes/reports.js';
 import { listRecords } from './routes/records.js';
+import { exportRecords } from './export/xlsx.js';
 
 export default {
   async fetch(request, env) {
@@ -49,6 +50,14 @@ export default {
         const identity = await verifyAccess(request, env);
         if (!identity) return json({ error: '需要登入' }, 401);
         return listRecords(env, url);
+      }
+
+      if (request.method === 'GET' && path === '/api/records/export') {
+        const identity = await verifyAccess(request, env);
+        if (!identity) return json({ error: '需要登入' }, 401);
+        const result = await exportRecords(env, url);
+        if (result.error) return json({ error: result.error }, result.status);
+        return new Response(result.body, { headers: result.headers });
       }
 
       return json({ error: '找不到 API 路徑' }, 404);
