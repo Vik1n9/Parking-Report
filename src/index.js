@@ -3,6 +3,7 @@ import { verifyDeviceToken, verifyAccess } from './auth.js';
 import { getActiveZones, toApiZones } from './routes/zones.js';
 import { createReport, listReports, confirmReport, rejectReport } from './routes/reports.js';
 import { listRecords } from './routes/records.js';
+import { publicCurrent } from './routes/public.js';
 import { exportRecords } from './export/xlsx.js';
 
 export default {
@@ -11,10 +12,20 @@ export default {
     const path = url.pathname;
 
     if (!path.startsWith('/api/')) {
-      return env.ASSETS.fetch(request);
+      const response = await env.ASSETS.fetch(request);
+      if (path === '/ManagerDashboard' || path === '/ManagerDashboard.html') {
+        const headers = new Headers(response.headers);
+        headers.set('x-robots-tag', 'noindex');
+        return new Response(response.body, { status: response.status, headers });
+      }
+      return response;
     }
 
     try {
+      if (request.method === 'GET' && path === '/api/public/current') {
+        return publicCurrent(env, url);
+      }
+
       if (request.method === 'GET' && path === '/api/zones') {
         return json({ zones: toApiZones(await getActiveZones(env.DB)) });
       }

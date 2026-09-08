@@ -4,6 +4,7 @@ import { createTestDb } from './helpers/d1.js';
 import { getActiveZones, toApiZones } from '../src/routes/zones.js';
 import { createReport, listReports, confirmReport, rejectReport } from '../src/routes/reports.js';
 import { listRecords } from '../src/routes/records.js';
+import { publicCurrent } from '../src/routes/public.js';
 
 const DEVICE = { deviceId: 1, deviceLabel: 'A1' };
 const IDENTITY = { email: 'console@example.test' };
@@ -156,5 +157,39 @@ test('listRecords returns values and both report texts', async () => {
   assert.deepEqual(body.records[0].values.p1, { kind: 'tenths', value: 3 });
   assert.ok(body.records[0].guardReport);
   assert.ok(body.records[0].consoleReport);
+  db.close();
+});
+
+test('the public endpoint returns today entries without any operator data', async () => {
+  const db = await seededDb();
+  const created = await (await createReport(envWith(db), post(validBody()), DEVICE)).json();
+  await confirmReport(envWith(db), created.report.id, new Request('https://example.test/confirm', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ remarks: { p1: '施工' } }),
+  }), IDENTITY);
+
+  const res = await publicCurrent(envWith(db), new URL(`https://example.test/api/public/current?date=${created.report.businessDate}`));
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('x-robots-tag'), 'noindex');
+  const body = await res.json();
+
+  assert.equal(body.entries.length, 1);
+  assert.deepEqual(body.entries[0].values.p1, { kind: 'tenths', value: 3 });
+  assert.equal(body.entries[0].towerPct, 86);
+  assert.equal(body.towerTotal, 1600);
+  assert.equal(body.zones[0].label, '車塔1上');
+
+  const serialized = JSON.stringify(body);
+  for (const leak of ['prepared_by', 'preparedBy', 'remarks', '施工', 'reportId', 'deviceLabel', 'A1', 'example.test']) {
+    assert.ok(!serialized.includes(leak), `public payload must not leak ${leak}`);
+  }
+  db.close();
+});
+
+test('the public endpoint rejects a malformed date', async () => {
+  const db = await seededDb();
+  const res = await publicCurrent(envWith(db), new URL('https://example.test/api/public/current?date=2026-9-9'));
+  assert.equal(res.status, 400);
   db.close();
 });
