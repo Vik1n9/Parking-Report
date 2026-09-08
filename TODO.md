@@ -1,18 +1,21 @@
 # TODO（上線前待辦）
 
-## 1. Cloudflare Access 設定（中控 / 秘書 / 主管登入）
+## 1. Cloudflare Access 設定（中控 / 秘書登入）
 
-> 狀態：待辦。目前 `/CenterConsole`、`/ManagerDashboard`、`/secretary` 與其 API 在 Access 設定前一律 401（fail-closed）。
+> 狀態：待辦。目前 `/CenterConsole`、`/secretary` 與其 API 在 Access 設定前一律 401（fail-closed）。主管頁 `/ManagerDashboard` 與 `/api/public/current` 為公開唯讀，不經 Access。
 
 - [ ] Zero Trust Dashboard → Access → Applications → Add → Self-hosted
-- [ ] Application domain：`parking-report.twstock-gacha.workers.dev`（涵蓋 `/CenterConsole`、`/ManagerDashboard`、`/secretary`；`/guard` 與 `/api/reports` 走裝置 token，不經 Access）
-- [ ] Policy：允許中控/秘書/主管的 email（One-time PIN 即可）
-- [ ] 取得 Team domain（`<團隊名>.cloudflareaccess.com`）與 Application AUD
-- [ ] 部署變數：
+- [ ] **建三個 path-scoped application**，不要綁裸 host（綁裸 host 會連 `/guard` 與 `POST /api/reports` 一起擋掉，保全沒有 Access 身分會完全無法回報）：
+  - `parking-report.twstock-gacha.workers.dev/CenterConsole*`
+  - `parking-report.twstock-gacha.workers.dev/secretary*`
+  - `parking-report.twstock-gacha.workers.dev/api/records*`
+- [ ] Policy：允許中控/秘書的 email（One-time PIN 即可）
+- [ ] 取得 Team domain（`<團隊名>.cloudflareaccess.com`）與 Application AUD，寫成 secret（用 `--var` 部署會在下次 `wrangler deploy` 被洗掉）：
   ```bash
-  npx wrangler deploy --var ACCESS_TEAM_DOMAIN:<團隊名>.cloudflareaccess.com --var ACCESS_AUD:<app aud>
+  npx wrangler secret put ACCESS_TEAM_DOMAIN
+  npx wrangler secret put ACCESS_AUD
   ```
-- [ ] 驗證：瀏覽器開 `/CenterConsole` 應導向 Access 登入頁；登入後佇列可見
+- [ ] 驗證：瀏覽器開 `/CenterConsole` 應導向 Access 登入頁；開 `/guard` 與 `/ManagerDashboard` 不應被擋
 
 ## 2. 保全裝置 token 綁定
 

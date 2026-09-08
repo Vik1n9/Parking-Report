@@ -16,10 +16,6 @@
       "database_id": "eda5e567-7dee-4884-ae19-a21b3d09a12b"
     }
   ],
-  "vars": {
-    "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_AUD": ""
-  },
   "observability": {
     "enabled": true
   }

@@ -10,16 +10,17 @@
 |---|---|---|
 | `/guard` | 保全 | 手機版數字鍵盤回報（強光/單手設計）。LINE 分享與複製完全本機可用；送出後台自動同步，離線也不影響完成工作 |
 | `/CenterConsole` | 中控 | 待確認佇列、確認/退回、LINE 回報文字一鍵複製、當日紀錄 |
-| `/ManagerDashboard` | 主管 | 唯讀儀表板：車塔使用率（大圖百分比）、各區狀態、當日趨勢 |
+| `/ManagerDashboard` | 主管（公開唯讀，免登入） | 唯讀儀表板：車塔使用率（大圖百分比）、各區狀態、當日趨勢。讀 `/api/public/current`，不含填表人與備註，並帶 `noindex` |
 | `/secretary` | 秘書 | 日期區間查詢、下載主管報表 Excel（與人工模板同格式） |
 
 線上網址：`https://parking-report.twstock-gacha.workers.dev`
 
 ## 上線設定（一次性）
 
-1. **Cloudflare Access（中控/秘書/主管）**：Zero Trust Dashboard → Access → Applications → 新增 Self-hosted app，網域 `parking-report.twstock-gacha.workers.dev/CenterConsole`、`/ManagerDashboard`、`/secretary`（或整個網域排除 `/guard` 與 `/api/reports`）。Email OTP 即可。完成後把 app 的 team domain 與 AUD 填入：
+1. **Cloudflare Access（中控 / 秘書）**：Zero Trust Dashboard → Access → Applications → 新增三個 **path-scoped** self-hosted app：`/CenterConsole*`、`/secretary*`、`/api/records*`。**不要綁裸網域** — 那會連 `/guard` 與 `POST /api/reports` 一起擋掉，保全沒有 Access 身分。主管頁不需設定。Email OTP 即可。完成後把 team domain 與 AUD 寫成 secret（用 `--var` 會在下次部署被洗掉）：
    ```bash
-   npx wrangler deploy --var ACCESS_TEAM_DOMAIN:<你的域>.cloudflareaccess.com --var ACCESS_AUD:<app aud>
+   npx wrangler secret put ACCESS_TEAM_DOMAIN
+   npx wrangler secret put ACCESS_AUD
    ```
 2. **保全裝置 token**：
    ```bash
@@ -49,6 +50,9 @@ CI（GitHub Actions）在每次 push 跑雙時區（`Asia/Taipei`/`UTC`）測試
 
 ## 資料語意
 
-- 每筆回報 = 10 個區域值：整數（車區=剩餘車位；其他=成數）、`0` 全滿、`x` 未停車、`0.N` 台車
+- 每筆回報 = 每個區一個值物件 `{kind, value}`，六種 kind：`spaces`（剩餘車位）、`tenths`（成數空）、`carts`（台車）、`full`（滿）、`guiding`（引導中）、`none`（未停車）
+- 數字一律代表「還能停多少」；`zones.unit` 決定裸數字在該區是車位數還是成數
+- 區域定義只在 D1 的 `zones` 表；新增／改名／停用一個區只需改一列，四個頁面自動跟上
+- LINE 文字兩種外框、一組措辭：保全分享用「停車場回報」、中控轉貼用「中控回報：HH:MM <代號>回報」（後者會把連續未停車的區合併成一句）
 - 「營運日」以台北時區計算；回報時間以保全送出時間為準（離線補送保留原時間）
 - Excel 匯出重現主管模板：ROC 年標題、並排日期表、`剩餘車位數`/`備註` 交錯列
