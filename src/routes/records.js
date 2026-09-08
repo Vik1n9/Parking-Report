@@ -1,20 +1,20 @@
 import { json } from '../lib/http.js';
 import { businessDate } from '../../public/js/parking-core.js';
 
-function mapRecord(row) {
+export function mapRecord(row) {
   return {
     id: row.id,
     reportId: row.report_id,
     businessDate: row.business_date,
-    lineReport: row.line_report,
-    controlReport: row.control_report,
+    guardReport: row.guard_report,
+    consoleReport: row.console_report,
     excelValues: row.excel_values,
     towerPct: row.tower_usage_pct,
     remarks: JSON.parse(row.remarks_json || '{}'),
     preparedBy: row.prepared_by,
     reportTime: row.report_time,
     confirmedAt: row.confirmed_at,
-    tokens: JSON.parse(row.tokens_json || '{}'),
+    values: JSON.parse(row.values_json || '{}'),
   };
 }
 

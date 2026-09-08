@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="data:,">
+<meta name="robots" content="noindex,nofollow">
 <title>ManagerDashboard 主管儀表板</title>
 <style>
 :root{
@@ -155,7 +156,7 @@ button{font:inherit;cursor:pointer}
     </div>
   </header>
 
-  <div class="banner" id="authBanner">尚未透過 Cloudflare Access 登入。請重新整理頁面完成登入；若持續出現請聯絡管理員。</div>
+  <div class="banner" id="authBanner">目前連線失敗，顯示的是最後一次成功取得的資料。</div>
 
   <div class="summary">
     <div class="card gauge-card" style="margin-bottom:0">
@@ -201,6 +202,7 @@ button{font:inherit;cursor:pointer}
 <div class="toast" id="toast">已更新</div>
 
 <script type="module">
+import { formatValue } from './js/parking-core.js';
 const POLL_MS = 30000;
 const CIRCUMFERENCE = 2 * Math.PI * 92;
 
@@ -228,6 +230,15 @@ function usageColor(pct) {
   return pct >= 90 ? 'var(--red)' : pct >= 70 ? '#d97b00' : 'var(--green)';
 }
 
+function occupancyOfZone(zone, value) {
+  switch (value?.kind) {
+    case 'full': return 100;
+    case 'none': return 0;
+    case 'tenths': return Math.max(0, Math.min(100, (10 - value.value) * 10));
+    default: return null;
+  }
+}
+
 function barClass(pct) {
   if (pct == null) return 'na';
   return pct >= 90 ? 'hot' : pct >= 70 ? 'warm' : 'cool';
@@ -240,12 +251,7 @@ function escapeHtml(text) {
 async function fetchJson(url) {
   const response = await fetch(url);
   const data = await response.json().catch(() => ({}));
-  if (response.status === 401) {
-    authBanner.classList.add('show');
-    throw new Error('unauthorized');
-  }
   if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-  authBanner.classList.remove('show');
   return data;
 }
 
@@ -262,37 +268,16 @@ function renderGauge(pct, remaining, occupied) {
   capacityNum.textContent = towerTotal;
 }
 
-function occupancyOfZone(index, raw) {
-  if (raw === '0') return 100;
-  const value = String(raw ?? 'x').toLowerCase();
-  if (value === 'x') return 0;
-  if (!zones[index]?.isCar) {
-    if (value.startsWith('0.')) return null;
-    const n = parseInt(value, 10);
-    if (Number.isNaN(n)) return null;
-    return Math.max(0, Math.min(100, (10 - n) * 10));
-  }
-  return null;
-}
-
-function displayOfZone(index, raw) {
-  const value = String(raw ?? 'x').toLowerCase();
-  if (!zones[index]?.isCar && value.startsWith('0.')) {
-    const count = parseInt(value.slice(2), 10) || 0;
-    return count ? `尚有 ${count} 台` : '未停車';
-  }
-  return value === 'x' ? '未停車' : value === '0' ? '全滿' : String(raw);
-}
-
-function renderZones(tokens) {
-  zoneGrid.innerHTML = zones.map((zone, index) => {
-    const raw = tokens?.[zone.code] ?? 'x';
-    const pct = occupancyOfZone(index, raw);
-    const display = displayOfZone(index, raw);
+function renderZones(values) {
+  zoneGrid.innerHTML = zones.map((zone) => {
+    const value = values?.[zone.code] ?? { kind: 'none' };
+    const pct = occupancyOfZone(zone, value);
+    const display = formatValue(value);
     let note;
     if (pct != null) note = `使用率 ${pct}%`;
-    else if (!zone.isCar && String(raw).startsWith('0.')) note = '台車（不計車塔）';
-    else if (zone.isCar) note = '剩餘車位數';
+    else if (value.kind === 'carts') note = '台車（不計車塔）';
+    else if (value.kind === 'guiding') note = '引導中（不計車塔）';
+    else if (zone.unit === 'spaces') note = '剩餘車位數';
     else note = '—';
     const pctDisplay = pct == null ? 0 : pct;
     return `
@@ -363,54 +348,44 @@ function nowTaipeiHHMM() {
 }
 
 async function refresh() {
-  const today = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Taipei',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-  dateChip.textContent = today;
   try {
-    const [recordsData] = await Promise.all([
-      fetchJson(`/api/records?from=${today}&to=${today}`),
-    ]);
-    const records = recordsData.records || [];
-    const latest = records[records.length - 1];
+    const data = await fetchJson('/api/public/current');
+    zones = data.zones || zones;
+    towerTotal = data.towerTotal || towerTotal;
+    dateChip.textContent = data.businessDate;
+    const entries = data.entries || [];
+    const latest = entries[entries.length - 1];
     updatedChip.textContent = `更新於 ${nowTaipeiHHMM()}`;
+    updatedChip.classList.remove('bad');
+    authBanner.classList.remove('show');
     if (!latest) {
       renderGauge(null, null, null);
       renderZones({});
-      renderChart(records);
+      renderChart(entries);
       latestChip.textContent = '今日尚無確認紀錄';
       return;
     }
     latestChip.textContent = `最後回報 ${latest.reportTime}`;
-    const tokens = latest.tokens || {};
-    const upRaw = parseInt(tokens.floor_above ?? 'x', 10);
-    const downRaw = parseInt(tokens.floor_below ?? 'x', 10);
-    const hasUp = !Number.isNaN(upRaw);
-    const hasDown = !Number.isNaN(downRaw);
-    const remaining = hasUp || hasDown ? Math.max(0, (hasUp ? upRaw : 0) + (hasDown ? downRaw : 0)) : null;
+    const values = latest.values || {};
+    const towerZones = zones.filter((zone) => zone.inTower);
+    const remaining = towerZones.reduce((sum, zone) => {
+      const value = values[zone.code];
+      if (value?.kind === 'full') return sum;
+      if (value?.kind !== 'spaces') return null;
+      return sum == null ? null : sum + value.value;
+    }, 0);
     const occupied = remaining == null ? null : Math.min(towerTotal, Math.max(0, towerTotal - remaining));
     renderGauge(latest.towerPct, remaining, occupied);
-    renderZones(tokens);
-    renderChart(records);
-  } catch (err) {
-    if (err.message !== 'unauthorized') {
-      updatedChip.textContent = '更新失敗';
-      updatedChip.classList.add('bad');
-    }
+    renderZones(values);
+    renderChart(entries);
+  } catch {
+    updatedChip.textContent = '更新失敗';
+    updatedChip.classList.add('bad');
+    authBanner.classList.add('show');
   }
 }
 
 async function boot() {
-  try {
-    const data = await fetchJson('/api/zones');
-    zones = data.zones || [];
-    towerTotal = data.towerTotal || 1600;
-  } catch {
-    zones = [];
-  }
   await refresh();
 }
 

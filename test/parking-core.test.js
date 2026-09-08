@@ -1,127 +1,239 @@
-import { test } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  LABELS,
-  IS_CAR,
-  ALIAS_MAP,
-  TIME_ZONE,
-  parseText,
-  zoneInfo,
-  buildLineReport,
-  buildControlReport,
+  KINDS,
+  normalizeInput,
+  validateValue,
+  formatValue,
+  buildReport,
+  excelCell,
   buildExcelValues,
   buildTowerUsage,
   formatTime,
   businessDate,
+  TIME_ZONE,
 } from '../public/js/parking-core.js';
 
-const sampleTime = new Date('2026-06-18T14:35:00+08:00');
+const towerZone = { code: 'floor_above', label: '車塔1上', excelLabel: '1F↑', position: 0, unit: 'spaces', inTower: true };
+const tenthZone = { code: 'spin_a', label: 'A區', excelLabel: '紡織-A', position: 4, unit: 'tenths', inTower: false };
 
-test('labels and car flags preserved from v1', () => {
-  assert.deepEqual(LABELS, ['一樓以上', '一樓以下', 'P1', 'P3', '紡A', '紡B', '紡C', '紡D', '紡E', '柏油路']);
-  assert.deepEqual(IS_CAR, [true, true, false, false, false, false, false, false, false, false]);
+test('kinds are the six documented values', () => {
+  assert.deepEqual(KINDS, ['spaces', 'tenths', 'carts', 'full', 'guiding', 'none']);
 });
 
-test('parseText positional and pair syntax', () => {
-  const parsed = parseText('423 256 7 7 E=0.4');
-  assert.deepEqual(parsed, ['423', '256', '7', '7', 'x', 'x', 'x', 'x', '0.4', 'x']);
-  assert.deepEqual(parseText('一樓以上=10 P1=5'), ['10', 'x', '5', 'x', 'x', 'x', 'x', 'x', 'x', 'x']);
+test('normalizeInput reads bare numbers by the zone unit', () => {
+  assert.deepEqual(normalizeInput('232', towerZone), { kind: 'spaces', value: 232 });
+  assert.deepEqual(normalizeInput('9', tenthZone), { kind: 'tenths', value: 9 });
+  assert.deepEqual(normalizeInput(9, tenthZone), { kind: 'tenths', value: 9 });
 });
 
-test('zoneInfo display strings preserved from v1', () => {
-  assert.deepEqual(zoneInfo(0, '423'), { cls: 'ok', s: '423 車位' });
-  assert.deepEqual(zoneInfo(2, '8'), { cls: 'ok', s: '8 成' });
-  assert.deepEqual(zoneInfo(4, '0'), { cls: 'full', s: '全滿' });
-  assert.deepEqual(zoneInfo(8, '0.4'), { cls: 'few', s: '尚有 4 台' });
-  assert.deepEqual(zoneInfo(3, 'x'), { cls: 'empty', s: '未停車' });
+test('normalizeInput folds zero remaining spaces into full', () => {
+  assert.deepEqual(normalizeInput('0', towerZone), { kind: 'full' });
+  assert.deepEqual(normalizeInput('0', tenthZone), { kind: 'full' });
 });
 
-test('excel values preserved from v1', () => {
-  const parsed = parseText('423 256 7 7 E=0.4');
-  assert.deepEqual(
-    buildExcelValues(parsed),
-    ['423', '256', '7成', '7成', '未停車', '未停車', '未停車', '未停車', '4台車', '未停車']
-  );
+test('normalizeInput accepts the hand-written wordings found in the real sheet', () => {
+  assert.deepEqual(normalizeInput('滿', tenthZone), { kind: 'full' });
+  assert.deepEqual(normalizeInput('全滿', tenthZone), { kind: 'full' });
+  assert.deepEqual(normalizeInput('未停車', tenthZone), { kind: 'none' });
+  assert.deepEqual(normalizeInput('引導中', tenthZone), { kind: 'guiding' });
+  assert.deepEqual(normalizeInput('3成', tenthZone), { kind: 'tenths', value: 3 });
+  assert.deepEqual(normalizeInput('3成空', tenthZone), { kind: 'tenths', value: 3 });
+  assert.deepEqual(normalizeInput('停2台', tenthZone), { kind: 'carts', value: 2 });
+  assert.deepEqual(normalizeInput('2台車', tenthZone), { kind: 'carts', value: 2 });
+  assert.deepEqual(normalizeInput('2台', tenthZone), { kind: 'carts', value: 2 });
 });
 
-test('tower usage default indexes preserved from v1', () => {
-  const parsed = parseText('423 256 7 7 E=0.4');
-  assert.equal(buildTowerUsage(parsed).percent, 58);
+test('normalizeInput passes through already-structured values', () => {
+  assert.deepEqual(normalizeInput({ kind: 'carts', value: 2 }, tenthZone), { kind: 'carts', value: 2 });
+  assert.deepEqual(normalizeInput({ kind: 'full' }, tenthZone), { kind: 'full' });
 });
 
-test('tower usage honors custom zones and tower total', () => {
-  const tokens = ['100', '100', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'];
-  const result = buildTowerUsage(tokens, { towerTotal: 400, towerIndexes: [0, 1] });
-  assert.equal(result.percent, 50);
-  assert.equal(result.remaining, 200);
-  assert.equal(result.occupied, 200);
-
-  const invalid = buildTowerUsage(['x', '100', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'], {
-    towerTotal: 400,
-    towerIndexes: [0, 1],
-  });
-  assert.equal(invalid.valid, false);
+test('normalizeInput treats empty input as none', () => {
+  assert.deepEqual(normalizeInput('', tenthZone), { kind: 'none' });
+  assert.deepEqual(normalizeInput(null, tenthZone), { kind: 'none' });
+  assert.deepEqual(normalizeInput(undefined, tenthZone), { kind: 'none' });
 });
 
-test('line report preserved from v1', () => {
-  const parsed = parseText('423 256 7 7 E=0.4');
+test('normalizeInput rejects junk instead of guessing', () => {
+  assert.throws(() => normalizeInput('9誠', tenthZone), /無法解析/);
+  assert.throws(() => normalizeInput('馬來食品', tenthZone), /無法解析/);
+});
+
+test('validateValue enforces the documented ranges', () => {
+  assert.deepEqual(validateValue({ kind: 'spaces', value: 232 }, towerZone), { ok: true });
+  assert.equal(validateValue({ kind: 'spaces', value: 10000 }, towerZone).ok, false);
+  assert.equal(validateValue({ kind: 'tenths', value: 10 }, tenthZone).ok, false);
+  assert.equal(validateValue({ kind: 'tenths', value: 0 }, tenthZone).ok, false);
+  assert.equal(validateValue({ kind: 'carts', value: 0 }, tenthZone).ok, false);
+  assert.equal(validateValue({ kind: 'carts', value: 100 }, tenthZone).ok, false);
+  assert.equal(validateValue({ kind: 'nope' }, tenthZone).ok, false);
+});
+
+test('validateValue rejects a value on the valueless kinds', () => {
+  assert.equal(validateValue({ kind: 'full', value: 1 }, tenthZone).ok, false);
+  assert.equal(validateValue({ kind: 'guiding', value: 1 }, tenthZone).ok, false);
+  assert.equal(validateValue({ kind: 'none', value: 1 }, tenthZone).ok, false);
+});
+
+test('validateValue rejects spaces on a tenths zone and vice versa', () => {
+  assert.equal(validateValue({ kind: 'spaces', value: 5 }, tenthZone).ok, false);
+  assert.equal(validateValue({ kind: 'tenths', value: 5 }, towerZone).ok, false);
+});
+
+test('formatValue is the single source of wording', () => {
+  assert.equal(formatValue({ kind: 'spaces', value: 232 }, towerZone), '232車位');
+  assert.equal(formatValue({ kind: 'tenths', value: 3 }, tenthZone), '3成空');
+  assert.equal(formatValue({ kind: 'carts', value: 2 }, tenthZone), '停2台');
+  assert.equal(formatValue({ kind: 'full' }, tenthZone), '滿');
+  assert.equal(formatValue({ kind: 'guiding' }, tenthZone), '引導中');
+  assert.equal(formatValue({ kind: 'none' }, tenthZone), '未停車');
+});
+
+test('time formatting is explicit Asia/Taipei, independent of host timezone', () => {
+  assert.equal(formatTime(new Date('2026-01-02T06:35:00Z')), '14:35');
+  assert.equal(businessDate(new Date('2026-01-02T16:30:00Z')), '2026-01-03');
+  assert.equal(TIME_ZONE, 'Asia/Taipei');
+});
+
+const ZONES = [
+  { code: 'floor_above', label: '車塔1上', excelLabel: '1F↑', position: 0, unit: 'spaces', inTower: true },
+  { code: 'floor_below', label: '車塔1下', excelLabel: '1F↓', position: 1, unit: 'spaces', inTower: true },
+  { code: 'p1', label: 'P1', excelLabel: 'P1', position: 2, unit: 'tenths', inTower: false },
+  { code: 'p3', label: 'P3', excelLabel: 'P3', position: 3, unit: 'tenths', inTower: false },
+  { code: 'spin_a', label: 'A區', excelLabel: '紡織-A', position: 4, unit: 'tenths', inTower: false },
+  { code: 'spin_b', label: 'B區', excelLabel: '紡織-B', position: 5, unit: 'tenths', inTower: false },
+  { code: 'spin_c', label: 'C區', excelLabel: '紡織-C', position: 6, unit: 'tenths', inTower: false },
+  { code: 'spin_d', label: 'D區', excelLabel: '紡織-D', position: 7, unit: 'tenths', inTower: false },
+  { code: 'spin_e', label: 'E區', excelLabel: '紡織-E', position: 8, unit: 'tenths', inTower: false },
+  { code: 'asphalt', label: '柏油路', excelLabel: '柏油路', position: 9, unit: 'tenths', inTower: false },
+];
+
+const SAMPLE = {
+  floor_above: { kind: 'full' },
+  floor_below: { kind: 'spaces', value: 232 },
+  p1: { kind: 'tenths', value: 3 },
+  p3: { kind: 'tenths', value: 4 },
+  spin_a: { kind: 'full' },
+  spin_b: { kind: 'carts', value: 2 },
+  spin_c: { kind: 'guiding' },
+  spin_d: { kind: 'none' },
+  spin_e: { kind: 'none' },
+  asphalt: { kind: 'none' },
+};
+
+const AT_1237 = new Date('2026-09-09T04:37:00Z'); // 台北 12:37
+
+test('guard style keeps one line per zone with a full-width colon', () => {
   assert.equal(
-    buildLineReport(parsed, sampleTime),
+    buildReport(SAMPLE, ZONES, { style: 'guard', time: AT_1237 }),
     [
       '停車場回報',
-      '14:35 保全回報停車情況：',
-      '一樓以上：423 車位',
-      '一樓以下：256 車位',
-      'P1：7 成',
-      'P3：7 成',
-      '紡A：未停車',
-      '紡B：未停車',
-      '紡C：未停車',
-      '紡D：未停車',
-      '紡E：尚有 4 台',
+      '12:37 保全回報停車情況：',
+      '車塔1上：滿',
+      '車塔1下：232車位',
+      'P1：3成空',
+      'P3：4成空',
+      'A區：滿',
+      'B區：停2台',
+      'C區：引導中',
+      'D區：未停車',
+      'E區：未停車',
       '柏油路：未停車',
     ].join('\n')
   );
 });
 
-test('control report preserved from v1', () => {
-  const parsed = parseText('423 256 7 7 E=0.4');
+test('console style carries the device code and merges the trailing none run', () => {
   assert.equal(
-    buildControlReport(parsed, sampleTime),
+    buildReport(SAMPLE, ZONES, { style: 'console', time: AT_1237, deviceLabel: 'A1' }),
     [
-      '中控回報:',
-      '14:35 保全回報停車情況：',
-      '一樓以上423車位',
-      '一樓以下256車位',
-      'P1 尚有7成車位',
-      'P3 尚有7成車位',
-      '紡A 沒停車',
-      '紡B 沒停車',
-      '紡C 沒停車',
-      '紡D 沒停車',
-      '紡E 尚有4台車',
-      '柏油路 沒停車',
+      '中控回報：12:37 A1回報',
+      '車塔1上 滿',
+      '車塔1下 232車位',
+      'P1 3成空',
+      'P3 4成空',
+      'A區 滿',
+      'B區 停2台',
+      'C區 引導中',
+      'D區、E區及柏油路未停車。',
     ].join('\n')
   );
 });
 
-test('time formatting is explicit Asia/Taipei, independent of host timezone', () => {
-  // 06:35 UTC == 14:35 Taipei regardless of the machine's local timezone
-  const utcInstant = '2026-06-18T06:35:00Z';
-  const parsed = parseText('423 256 7 7 E=0.4');
-  assert.equal(formatTime(utcInstant), '14:35');
-  assert.equal(buildLineReport(parsed, utcInstant).split('\n')[1], '14:35 保全回報停車情況：');
-  assert.equal(buildControlReport(parsed, utcInstant).split('\n')[1], '14:35 保全回報停車情況：');
+test('console style joins exactly two merged zones with 及', () => {
+  const values = { ...SAMPLE, asphalt: { kind: 'full' } };
+  const lines = buildReport(values, ZONES, { style: 'console', time: AT_1237, deviceLabel: 'A1' }).split('\n');
+  assert.equal(lines.at(-2), 'D區及E區未停車。');
+  assert.equal(lines.at(-1), '柏油路 滿');
 });
 
-test('businessDate uses the reporting timezone, not the host', () => {
-  // 2026-01-01 17:00 Taipei is still Jan 1; 2026-01-01 17:00 UTC is Jan 2 in Taipei
-  assert.equal(businessDate('2026-01-01T17:00:00+08:00'), '2026-01-01');
-  assert.equal(businessDate('2026-01-01T17:00:00Z'), '2026-01-02');
-  assert.equal(businessDate('2026-01-01T17:00:00Z', 'UTC'), '2026-01-01');
+test('console style leaves a lone none zone as a normal line', () => {
+  const values = { ...SAMPLE, spin_e: { kind: 'full' }, asphalt: { kind: 'full' } };
+  const lines = buildReport(values, ZONES, { style: 'console', time: AT_1237, deviceLabel: 'A1' });
+  assert.match(lines, /\nD區 未停車\n/);
+  assert.doesNotMatch(lines, /。/);
 });
 
-test('time zone constant', () => {
-  assert.equal(TIME_ZONE, 'Asia/Taipei');
-  assert.equal(ALIAS_MAP.R, '柏油路');
+test('console style merges a non-trailing none run too', () => {
+  const values = { ...SAMPLE, spin_a: { kind: 'none' }, spin_b: { kind: 'none' }, spin_c: { kind: 'full' } };
+  const text = buildReport(values, ZONES, { style: 'console', time: AT_1237, deviceLabel: 'A1' });
+  assert.match(text, /\nA區及B區未停車。\n/);
+  assert.match(text, /\nC區 滿\n/);
+});
+
+test('console style omits the device code when there is none', () => {
+  const text = buildReport(SAMPLE, ZONES, { style: 'console', time: AT_1237 });
+  assert.equal(text.split('\n')[0], '中控回報：12:37 保全回報');
+});
+
+test('buildReport treats a missing zone code as not parked', () => {
+  const text = buildReport({}, ZONES, { style: 'guard', time: AT_1237 });
+  assert.match(text, /車塔1上：未停車/);
+});
+
+test('excelCell writes numbers as numbers and tenths with a number format', () => {
+  assert.deepEqual(excelCell({ kind: 'spaces', value: 232 }), { value: 232 });
+  assert.deepEqual(excelCell({ kind: 'tenths', value: 3 }), { value: 3, numFmt: '0"成"' });
+  assert.deepEqual(excelCell({ kind: 'carts', value: 2 }), { value: '停2台' });
+  assert.deepEqual(excelCell({ kind: 'full' }), { value: '滿' });
+  assert.deepEqual(excelCell({ kind: 'guiding' }), { value: '引導中' });
+  assert.deepEqual(excelCell({ kind: 'none' }), { value: '未停車' });
+});
+
+test('buildExcelValues follows zone order and fills gaps with not parked', () => {
+  const cells = buildExcelValues({ p1: { kind: 'tenths', value: 3 } }, ZONES);
+  assert.equal(cells.length, 10);
+  assert.deepEqual(cells[0], { value: '未停車' });
+  assert.deepEqual(cells[2], { value: 3, numFmt: '0"成"' });
+});
+
+test('tower usage sums the in-tower zones and treats full as zero remaining', () => {
+  const usage = buildTowerUsage(
+    { floor_above: { kind: 'spaces', value: 400 }, floor_below: { kind: 'full' } },
+    ZONES,
+    { towerTotal: 1600 }
+  );
+  assert.deepEqual(usage, { valid: true, percent: 75, remaining: 400, occupied: 1200 });
+});
+
+test('tower usage is invalid when an in-tower zone has no number', () => {
+  for (const kind of ['none', 'guiding']) {
+    const usage = buildTowerUsage(
+      { floor_above: { kind: 'spaces', value: 100 }, floor_below: { kind } },
+      ZONES,
+      { towerTotal: 1600 }
+    );
+    assert.equal(usage.valid, false, `${kind} should invalidate tower usage`);
+    assert.equal(usage.percent, null);
+  }
+});
+
+test('tower usage ignores zones that are not in the tower', () => {
+  const usage = buildTowerUsage(
+    { floor_above: { kind: 'full' }, floor_below: { kind: 'full' }, p1: { kind: 'tenths', value: 9 } },
+    ZONES,
+    { towerTotal: 1600 }
+  );
+  assert.deepEqual(usage, { valid: true, percent: 100, remaining: 0, occupied: 1600 });
 });

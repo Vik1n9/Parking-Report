@@ -1,8 +1,5 @@
 export const TIME_ZONE = 'Asia/Taipei';
-export const LABELS = ['一樓以上', '一樓以下', 'P1', 'P3', '紡A', '紡B', '紡C', '紡D', '紡E', '柏油路'];
-export const ALIAS_MAP = { A: '紡A', B: '紡B', C: '紡C', D: '紡D', E: '紡E', R: '柏油路' };
-export const IS_CAR = [true, true, false, false, false, false, false, false, false, false];
-export const DEFAULT_TOWER_TOTAL = 1600;
+export const KINDS = ['spaces', 'tenths', 'carts', 'full', 'guiding', 'none'];
 
 const timeFormatters = new Map();
 const dateFormatters = new Map();
@@ -51,122 +48,132 @@ export function businessDate(input, timeZone = TIME_ZONE) {
   return dateFormatter(timeZone).format(toDate(input));
 }
 
-function normalizeKey(key) {
-  if (LABELS.includes(key)) return key;
-  return ALIAS_MAP[key] || null;
-}
+const RANGES = { spaces: [0, 9999], tenths: [1, 9], carts: [1, 99] };
+const VALUELESS = new Set(['full', 'guiding', 'none']);
 
-export function parseText(str) {
-  const result = new Array(LABELS.length).fill('x');
-  const tokens = String(str || '').trim().split(/\s+/).filter(Boolean);
-  if (!tokens.length) return result;
+const WORDS = [
+  [/^(滿|全滿)$/, () => ({ kind: 'full' })],
+  [/^(未停車|沒停車|無停車)$/, () => ({ kind: 'none' })],
+  [/^(引導中|車導中)$/, () => ({ kind: 'guiding' })],
+  [/^(\d{1,2})成空?$/, (m) => ({ kind: 'tenths', value: Number(m[1]) })],
+  [/^停(\d{1,2})台$/, (m) => ({ kind: 'carts', value: Number(m[1]) })],
+  [/^(\d{1,2})台車?$/, (m) => ({ kind: 'carts', value: Number(m[1]) })],
+];
 
-  const plains = [];
-  const pairs = [];
-  tokens.forEach((token) => (token.includes('=') ? pairs : plains).push(token));
-  plains.forEach((value, index) => {
-    if (index < LABELS.length) result[index] = value;
-  });
-
-  const labelIdx = Object.fromEntries(LABELS.map((label, index) => [label, index]));
-  pairs.forEach((pair) => {
-    const eq = pair.indexOf('=');
-    if (eq === -1) return;
-    const key = pair.slice(0, eq).trim();
-    const value = pair.slice(eq + 1).trim();
-    const full = normalizeKey(key);
-    if (full != null && labelIdx[full] !== undefined) result[labelIdx[full]] = value;
-  });
-  return result;
-}
-
-export function normalizeValue(raw) {
-  return (raw ?? 'x').toString().toLowerCase().trim() || 'x';
-}
-
-export function zoneInfo(index, raw) {
-  const value = normalizeValue(raw);
-  if (value === 'x') return { cls: 'empty', s: '未停車' };
-  if (value === '0') return { cls: 'full', s: '全滿' };
-  if (IS_CAR[index]) return { cls: 'ok', s: `${value} 車位` };
-  if (value.startsWith('0.')) {
-    const count = parseInt(value.slice(2), 10) || 0;
-    if (!count) return { cls: 'full', s: '全滿' };
-    return { cls: 'few', s: `尚有 ${count} 台` };
+export function normalizeInput(raw, zone) {
+  if (raw && typeof raw === 'object' && typeof raw.kind === 'string') {
+    return raw.value === undefined ? { kind: raw.kind } : { kind: raw.kind, value: raw.value };
   }
-  const count = parseInt(value, 10);
-  if (!Number.isNaN(count)) {
-    return { cls: count >= 7 ? 'ok' : count >= 4 ? 'few' : 'full', s: `${count} 成` };
+  const text = String(raw ?? '').trim();
+  if (!text) return { kind: 'none' };
+
+  for (const [re, build] of WORDS) {
+    const match = text.match(re);
+    if (match) return build(match);
   }
-  return { cls: 'empty', s: value };
-}
-
-export function toExcel(index, raw) {
-  const value = normalizeValue(raw);
-  if (value === 'x') return '未停車';
-  if (value === '0') return '滿';
-  if (IS_CAR[index]) return value;
-  if (value.startsWith('0.')) {
-    const count = parseInt(value.slice(2), 10) || 0;
-    return count ? `${count}台車` : '滿';
+  if (/^\d{1,4}$/.test(text)) {
+    const n = Number(text);
+    if (n === 0) return { kind: 'full' };
+    return zone.unit === 'spaces' ? { kind: 'spaces', value: n } : { kind: 'tenths', value: n };
   }
-  const count = parseInt(value, 10);
-  return Number.isNaN(count) ? value : `${count}成`;
+  throw new Error(`無法解析的值：${text}`);
 }
 
-export function buildExcelValues(tokens) {
-  return LABELS.map((_, index) => toExcel(index, tokens[index]));
+export function validateValue(value, zone) {
+  if (!value || typeof value !== 'object') return { ok: false, error: '值必須是物件' };
+  const { kind } = value;
+  if (!KINDS.includes(kind)) return { ok: false, error: `未知的 kind：${kind}` };
+
+  if (VALUELESS.has(kind)) {
+    if (value.value !== undefined) return { ok: false, error: `${kind} 不得帶 value` };
+    return { ok: true };
+  }
+  if (kind === 'spaces' && zone.unit !== 'spaces') return { ok: false, error: `${zone.code} 不是車位數區` };
+  if (kind === 'tenths' && zone.unit !== 'tenths') return { ok: false, error: `${zone.code} 不是成數區` };
+
+  const [min, max] = RANGES[kind];
+  if (!Number.isInteger(value.value) || value.value < min || value.value > max) {
+    return { ok: false, error: `${kind} 的值必須是 ${min}-${max} 的整數` };
+  }
+  return { ok: true };
 }
 
-export function buildControlReport(tokens, time) {
-  const date = toDate(time);
-  let output = `中控回報:\n${formatTime(date)} 保全回報停車情況：\n`;
-  LABELS.forEach((label, index) => {
-    const value = normalizeValue(tokens[index]);
-    if (IS_CAR[index]) {
-      if (value === 'x') output += `${label} 沒停車\n`;
-      else if (value === '0') output += `${label} 全滿\n`;
-      else output += `${label}${value}車位\n`;
-    } else if (value === 'x') {
-      output += `${label} 沒停車\n`;
-    } else if (value === '0') {
-      output += `${label} 全滿\n`;
-    } else if (value.startsWith('0.')) {
-      output += `${label} 尚有${value.slice(2)}台車\n`;
-    } else {
-      output += `${label} 尚有${value}成車位\n`;
+export function formatValue(value) {
+  switch (value?.kind) {
+    case 'spaces': return `${value.value}車位`;
+    case 'tenths': return `${value.value}成空`;
+    case 'carts': return `停${value.value}台`;
+    case 'full': return '滿';
+    case 'guiding': return '引導中';
+    default: return '未停車';
+  }
+}
+
+function joinLabels(labels) {
+  if (labels.length === 1) return labels[0];
+  return `${labels.slice(0, -1).join('、')}及${labels.at(-1)}`;
+}
+
+export function buildReport(values, zones, opts = {}) {
+  const { style = 'guard', time, deviceLabel, timeZone } = opts;
+  const clock = formatTime(time, timeZone ?? TIME_ZONE);
+  const read = (zone) => normalizeInput(values?.[zone.code], zone);
+
+  if (style === 'guard') {
+    const lines = ['停車場回報', `${clock} 保全回報停車情況：`];
+    for (const zone of zones) lines.push(`${zone.label}：${formatValue(read(zone))}`);
+    return lines.join('\n');
+  }
+
+  const lines = [`中控回報：${clock} ${deviceLabel || '保全'}回報`];
+  let run = [];
+  const flush = () => {
+    if (!run.length) return;
+    if (run.length === 1) lines.push(`${run[0]} 未停車`);
+    else lines.push(`${joinLabels(run)}未停車。`);
+    run = [];
+  };
+  for (const zone of zones) {
+    const value = read(zone);
+    if (value.kind === 'none') {
+      run.push(zone.label);
+      continue;
     }
-  });
-  return output.trim();
-}
-
-export function buildLineReport(tokens, time) {
-  const date = toDate(time);
-  const lines = ['停車場回報', `${formatTime(date)} 保全回報停車情況：`];
-  LABELS.forEach((label, index) => {
-    lines.push(`${label}：${zoneInfo(index, tokens[index]).s}`);
-  });
+    flush();
+    lines.push(`${zone.label} ${formatValue(value)}`);
+  }
+  flush();
   return lines.join('\n');
 }
 
-export function buildTowerUsage(tokens, options = {}) {
-  const towerTotal = options.towerTotal ?? DEFAULT_TOWER_TOTAL;
-  const indexes = options.towerIndexes ?? [0, 1];
-  let remaining = 0;
-  let valid = towerTotal > 0;
-  for (const index of indexes) {
-    const raw = normalizeValue(tokens[index]);
-    const count = parseInt(raw, 10);
-    if (Number.isNaN(count) || raw === 'x') {
-      valid = false;
-      break;
-    }
-    remaining += count;
+export function excelCell(value) {
+  switch (value?.kind) {
+    case 'spaces': return { value: value.value };
+    case 'tenths': return { value: value.value, numFmt: '0"成"' };
+    case 'carts': return { value: `停${value.value}台` };
+    case 'full': return { value: '滿' };
+    case 'guiding': return { value: '引導中' };
+    default: return { value: '未停車' };
   }
-  if (!valid) return { valid: false, percent: null, remaining: null, occupied: null };
+}
 
-  remaining = Math.max(0, remaining);
+export function buildExcelValues(values, zones) {
+  return zones.map((zone) => excelCell(normalizeInput(values?.[zone.code], zone)));
+}
+
+export function buildTowerUsage(values, zones, opts = {}) {
+  const towerTotal = opts.towerTotal ?? 0;
+  const towerZones = zones.filter((zone) => zone.inTower);
+  const invalid = { valid: false, percent: null, remaining: null, occupied: null };
+  if (towerTotal <= 0 || !towerZones.length) return invalid;
+
+  let remaining = 0;
+  for (const zone of towerZones) {
+    const value = normalizeInput(values?.[zone.code], zone);
+    if (value.kind === 'full') continue;
+    if (value.kind !== 'spaces') return invalid;
+    remaining += value.value;
+  }
   const occupied = Math.min(towerTotal, Math.max(0, towerTotal - remaining));
-  const percent = Math.round((occupied / towerTotal) * 100);
-  return { valid: true, percent, remaining, occupied };
+  return { valid: true, percent: Math.round((occupied / towerTotal) * 100), remaining, occupied };
 }

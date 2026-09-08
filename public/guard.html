@@ -211,7 +211,7 @@ button{
 }
 .mode-row{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:repeat(3,1fr);
   gap:8px;
   padding:12px 12px 0;
 }
@@ -597,6 +597,7 @@ button.press-flash{
     <div class="mode-row">
       <button class="mode-btn active" id="normalModeBtn">成數/車位</button>
       <button class="mode-btn" id="cartModeBtn">台車模式</button>
+      <button class="mode-btn" id="guidingBtn">引導中</button>
     </div>
     <div class="fn-grid">
       <button class="fn-btn warning" id="clearCellBtn">清除本格</button>
@@ -638,27 +639,33 @@ button.press-flash{
 <div class="toast" id="toast">已複製</div>
 
 <script type="module">
-import {
-  IS_CAR,
-  zoneInfo,
-  buildLineReport,
-  buildTowerUsage,
-  formatTime,
-} from './js/parking-core.js';
+import { normalizeInput, formatValue, buildReport, buildTowerUsage, formatTime } from './js/parking-core.js';
 
-const ZONES = [
-  { code: 'floor_above', label: '一樓以上' },
-  { code: 'floor_below', label: '一樓以下' },
-  { code: 'p1',          label: 'P1' },
-  { code: 'p3',          label: 'P3' },
-  { code: 'spin_a',      label: '紡A' },
-  { code: 'spin_b',      label: '紡B' },
-  { code: 'spin_c',      label: '紡C' },
-  { code: 'spin_d',      label: '紡D' },
-  { code: 'spin_e',      label: '紡E' },
-  { code: 'asphalt',     label: '柏油路' },
+const FALLBACK_ZONES = [
+  { code: 'floor_above', label: '車塔1上', position: 0, unit: 'spaces', inTower: true },
+  { code: 'floor_below', label: '車塔1下', position: 1, unit: 'spaces', inTower: true },
+  { code: 'p1',          label: 'P1',      position: 2, unit: 'tenths', inTower: false },
+  { code: 'p3',          label: 'P3',      position: 3, unit: 'tenths', inTower: false },
+  { code: 'spin_a',      label: 'A區',     position: 4, unit: 'tenths', inTower: false },
+  { code: 'spin_b',      label: 'B區',     position: 5, unit: 'tenths', inTower: false },
+  { code: 'spin_c',      label: 'C區',     position: 6, unit: 'tenths', inTower: false },
+  { code: 'spin_d',      label: 'D區',     position: 7, unit: 'tenths', inTower: false },
+  { code: 'spin_e',      label: 'E區',     position: 8, unit: 'tenths', inTower: false },
+  { code: 'asphalt',     label: '柏油路',   position: 9, unit: 'tenths', inTower: false },
 ];
-const ZONE_COUNT = ZONES.length;
+const ZONES_CACHE_KEY = 'parking_guard_zones_v1';
+const TOWER_TOTAL_CACHE_KEY = 'parking_guard_tower_total_v1';
+
+function loadCachedZones() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(ZONES_CACHE_KEY) || 'null');
+    if (Array.isArray(cached) && cached.length) return cached;
+  } catch {}
+  return FALLBACK_ZONES;
+}
+
+let zones = loadCachedZones();
+let towerTotal = Number(localStorage.getItem(TOWER_TOTAL_CACHE_KEY)) || 1600;
 
 const HISTORY_STORAGE_KEY = 'parking_guard_history_v1';
 const OUTBOX_STORAGE_KEY = 'parking_guard_outbox_v1';
@@ -667,11 +674,13 @@ const MAX_HISTORY = 30;
 const AUTO_ADVANCE_CAR_DIGITS = 3;
 const AUTO_ADVANCE_DELAY_MS = 650;
 const SYNC_RETRY_MS = 30000;
+const DEDUPE_WINDOW_MS = 3000;
 
 let currentTime = new Date();
 let currentIndex = 0;
 let entryMode = 'normal';
-let tokens = new Array(ZONE_COUNT).fill('x');
+let cells = zones.map(() => ({ kind: 'none' }));
+let draft = '';
 let historyEntries = [];
 let autoAdvanceTimer = null;
 let outbox = [];
@@ -688,6 +697,7 @@ const zoneList = $('zoneList');
 const keypad = $('keypad');
 const normalModeBtn = $('normalModeBtn');
 const cartModeBtn = $('cartModeBtn');
+const guidingBtn = $('guidingBtn');
 const clearCellBtn = $('clearCellBtn');
 const prevBtn = $('prevBtn');
 const nextBtn = $('nextBtn');
@@ -738,18 +748,27 @@ function cancelAutoAdvance() {
   autoAdvanceTimer = null;
 }
 
-function scheduleAutoAdvance(index, value) {
+function currentZone() {
+  return zones[currentIndex];
+}
+
+function commitDraft() {
+  cells[currentIndex] = draft ? normalizeInput(draft, currentZone()) : { kind: 'none' };
+}
+
+function scheduleAutoAdvance(index, snapshot) {
   cancelAutoAdvance();
   autoAdvanceTimer = setTimeout(() => {
     autoAdvanceTimer = null;
-    if (currentIndex === index && tokens[index] === value) moveNext();
+    if (currentIndex === index && draft === snapshot) moveNext();
   }, AUTO_ADVANCE_DELAY_MS);
 }
 
 function moveTo(index) {
   cancelAutoAdvance();
-  currentIndex = Math.max(0, Math.min(ZONE_COUNT - 1, index));
+  currentIndex = Math.max(0, Math.min(zones.length - 1, index));
   entryMode = 'normal';
+  draft = '';
   render();
 }
 
@@ -761,70 +780,78 @@ function movePrev() {
   moveTo(currentIndex - 1);
 }
 
-function shouldAutoAdvanceCarField() {
-  return currentIndex < 2 && IS_CAR[currentIndex] && tokens[currentIndex].length >= AUTO_ADVANCE_CAR_DIGITS;
-}
-
 function inputDigit(digit) {
   cancelAutoAdvance();
-  if (entryMode === 'cart' && !IS_CAR[currentIndex]) {
-    tokens[currentIndex] = digit === '0' ? '0' : `0.${digit}`;
+  const zone = currentZone();
+
+  if (entryMode === 'cart') {
+    cells[currentIndex] = digit === '0' ? { kind: 'full' } : { kind: 'carts', value: Number(digit) };
     moveNext();
     return;
   }
 
-  if (IS_CAR[currentIndex]) {
-    const current = tokens[currentIndex] === 'x' || tokens[currentIndex] === '0' ? '' : tokens[currentIndex];
-    tokens[currentIndex] = `${current}${digit}`.replace(/^0+(?=\d)/, '') || '0';
-    if (shouldAutoAdvanceCarField()) {
+  if (zone.unit === 'spaces') {
+    draft = `${draft}${digit}`.replace(/^0+(?=\d)/, '');
+    commitDraft();
+    if (draft.length >= AUTO_ADVANCE_CAR_DIGITS) {
       render();
-      scheduleAutoAdvance(currentIndex, tokens[currentIndex]);
+      scheduleAutoAdvance(currentIndex, draft);
       return;
     }
     render();
     return;
   }
 
-  tokens[currentIndex] = digit;
+  cells[currentIndex] = digit === '0' ? { kind: 'full' } : { kind: 'tenths', value: Number(digit) };
   moveNext();
 }
 
 function clearCurrent() {
   cancelAutoAdvance();
-  tokens[currentIndex] = 'x';
+  draft = '';
+  cells[currentIndex] = { kind: 'none' };
   render();
 }
 
 function deleteDigit() {
   cancelAutoAdvance();
-  let current = tokens[currentIndex];
-  if (current === 'x' && currentIndex > 0) {
+  if (!draft && cells[currentIndex].kind === 'none' && currentIndex > 0) {
     currentIndex -= 1;
     entryMode = 'normal';
-    current = tokens[currentIndex];
+    draft = '';
   }
-  if (current === 'x' || current === '0' || current.length <= 1 || current.startsWith('0.')) {
-    tokens[currentIndex] = 'x';
+  if (draft.length > 1) {
+    draft = draft.slice(0, -1);
+    commitDraft();
     render();
     return;
   }
-  tokens[currentIndex] = current.slice(0, -1);
+  draft = '';
+  cells[currentIndex] = { kind: 'none' };
   render();
 }
 
 function markFull() {
-  tokens[currentIndex] = '0';
+  draft = '';
+  cells[currentIndex] = { kind: 'full' };
   moveNext();
 }
 
 function markEmpty() {
-  tokens[currentIndex] = 'x';
+  draft = '';
+  cells[currentIndex] = { kind: 'none' };
+  moveNext();
+}
+
+function markGuiding() {
+  draft = '';
+  cells[currentIndex] = { kind: 'guiding' };
   moveNext();
 }
 
 function resetAll() {
   if (!confirm('確定要清除目前回報並重新輸入嗎？')) return;
-  tokens = new Array(ZONE_COUNT).fill('x');
+  cells = zones.map(() => ({ kind: 'none' }));
   currentTime = new Date();
   moveTo(0);
 }
@@ -864,12 +891,11 @@ function renderKeypad() {
 
 function renderZones() {
   zoneList.innerHTML = '';
-  ZONES.forEach((zone, index) => {
-    const info = zoneInfo(index, tokens[index]);
+  zones.forEach((zone, index) => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `zone-chip ${index === currentIndex ? 'active' : ''} ${tokens[index] !== 'x' ? 'done' : ''}`;
-    button.innerHTML = `<span class="zone-chip-name">${zone.label}</span><span class="zone-chip-value">${info.s}</span>`;
+    button.className = `zone-chip ${index === currentIndex ? 'active' : ''} ${cells[index].kind !== 'none' ? 'done' : ''}`;
+    button.innerHTML = `<span class="zone-chip-name">${zone.label}</span><span class="zone-chip-value">${formatValue(cells[index])}</span>`;
     button.addEventListener('click', () => moveTo(index));
     zoneList.appendChild(button);
   });
@@ -893,7 +919,8 @@ function renderHistory() {
     button.addEventListener('click', () => {
       const entry = historyEntries.find((item) => item.id === button.dataset.id);
       if (!entry) return;
-      tokens = entry.tokens.slice();
+      cells = zones.map((zone) => entry.values?.[zone.code] ?? { kind: 'none' });
+      draft = '';
       currentTime = new Date(entry.timestamp);
       moveTo(0);
     });
@@ -901,31 +928,49 @@ function renderHistory() {
 }
 
 function render() {
-  const tower = buildTowerUsage(tokens);
-  const completed = tokens.filter((token) => token !== 'x').length;
-  const currentValue = tokens[currentIndex];
+  const values = valuesObject();
+  const tower = buildTowerUsage(values, zones, { towerTotal });
+  const completed = cells.filter((cell) => cell.kind !== 'none').length;
+  const isSpacesZone = currentZone().unit === 'spaces';
 
   clockDisplay.textContent = formatClock(currentTime);
-  progressLabel.textContent = `${currentIndex + 1}/${ZONE_COUNT}`;
-  progressFill.style.width = `${((currentIndex + 1) / ZONE_COUNT) * 100}%`;
+  progressLabel.textContent = `${currentIndex + 1}/${zones.length}`;
+  progressFill.style.width = `${((currentIndex + 1) / zones.length) * 100}%`;
   normalModeBtn.classList.toggle('active', entryMode === 'normal');
   cartModeBtn.classList.toggle('active', entryMode === 'cart');
-  cartModeBtn.disabled = IS_CAR[currentIndex];
-  cartModeBtn.textContent = IS_CAR[currentIndex] ? '台車模式不可用' : '台車模式';
-  currentInputValue.textContent = currentValue === 'x' ? '—' : currentValue;
+  cartModeBtn.disabled = isSpacesZone;
+  cartModeBtn.textContent = isSpacesZone ? '台車模式不可用' : '台車模式';
+  currentInputValue.textContent = cells[currentIndex].kind === 'none' ? '—' : formatValue(cells[currentIndex]);
   towerUsage.textContent = tower.valid ? `${tower.percent}%` : '—';
   towerUsage.style.color = !tower.valid ? 'var(--sub)' : tower.percent >= 90 ? 'var(--red)' : tower.percent >= 70 ? 'var(--amber)' : 'var(--green)';
-  linePreview.textContent = buildLineReport(tokens, currentTime);
-  document.title = `保全停車回報 ${completed}/${ZONE_COUNT}`;
+  linePreview.textContent = buildReport(values, zones, { style: 'guard', time: currentTime });
+  document.title = `保全停車回報 ${completed}/${zones.length}`;
   renderZones();
 }
 
-function tokensObject() {
-  const obj = {};
-  ZONES.forEach((zone, index) => {
-    obj[zone.code] = tokens[index];
+function valuesObject() {
+  const out = {};
+  zones.forEach((zone, index) => {
+    out[zone.code] = cells[index];
   });
-  return obj;
+  return out;
+}
+
+async function refreshZones() {
+  try {
+    const response = await fetch('/api/zones');
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!Array.isArray(data.zones) || !data.zones.length) return;
+    const changed = JSON.stringify(data.zones) !== JSON.stringify(zones);
+    localStorage.setItem(ZONES_CACHE_KEY, JSON.stringify(data.zones));
+    zones = data.zones;
+    if (changed) {
+      cells = zones.map(() => ({ kind: 'none' }));
+      moveTo(0);
+      showToast('區域設定已更新');
+    }
+  } catch {}
 }
 
 function getDeviceKey() {
@@ -996,7 +1041,7 @@ async function flushOutbox() {
           },
           body: JSON.stringify({
             client_request_id: item.clientRequestId,
-            tokens: item.tokens,
+            values: item.values,
             raw_input: item.preview,
             client_submitted_at: item.submittedAt,
           }),
@@ -1026,7 +1071,7 @@ async function flushOutbox() {
 function enqueueSubmit(entry) {
   outbox.push({
     clientRequestId: entry.id,
-    tokens: tokensObject(),
+    values: entry.values,
     rawInput: entry.preview,
     submittedAt: new Date(entry.timestamp).toISOString(),
     preview: entry.preview,
@@ -1049,13 +1094,15 @@ function saveHistory() {
 }
 
 function addHistory() {
-  const now = new Date();
-  const id = `${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`;
+  const now = Date.now();
+  if (addHistory.lastAt && now - addHistory.lastAt < DEDUPE_WINDOW_MS) return;
+  addHistory.lastAt = now;
+
+  const id = `${now}-${Math.random().toString(36).slice(2, 8)}`;
+  const values = valuesObject();
   const timeLabel = formatHistoryTimeLabel(currentTime);
-  const preview = tokens.join(' ');
-  const last = historyEntries[historyEntries.length - 1];
-  if (last && last.preview === preview) return;
-  historyEntries.push({ id, timestamp: currentTime.getTime(), timeLabel, tokens: tokens.slice(), preview });
+  const preview = zones.map((zone, index) => `${zone.label}${formatValue(cells[index])}`).join(' ');
+  historyEntries.push({ id, timestamp: currentTime.getTime(), timeLabel, values, preview });
   historyEntries = historyEntries.slice(-MAX_HISTORY);
   saveHistory();
   renderHistory();
@@ -1063,7 +1110,7 @@ function addHistory() {
 }
 
 async function copyReport(message) {
-  const text = message || buildLineReport(tokens, currentTime);
+  const text = message || buildReport(valuesObject(), zones, { style: 'guard', time: currentTime });
   try {
     await navigator.clipboard.writeText(text);
     addHistory();
@@ -1101,7 +1148,7 @@ function fallbackCopyText(text) {
 }
 
 async function shareToLine() {
-  const text = buildLineReport(tokens, currentTime);
+  const text = buildReport(valuesObject(), zones, { style: 'guard', time: currentTime });
   await copyReport(text);
   const lineUrl = `https://line.me/R/share?text=${encodeURIComponent(text)}`;
   try {
@@ -1118,8 +1165,9 @@ refreshBtn.addEventListener('click', () => {
 });
 normalModeBtn.addEventListener('click', () => setMode('normal'));
 cartModeBtn.addEventListener('click', () => {
-  if (!IS_CAR[currentIndex]) setMode('cart');
+  if (currentZone().unit !== 'spaces') setMode('cart');
 });
+guidingBtn.addEventListener('click', markGuiding);
 clearCellBtn.addEventListener('click', clearCurrent);
 prevBtn.addEventListener('click', movePrev);
 nextBtn.addEventListener('click', moveNext);
@@ -1133,6 +1181,7 @@ document.addEventListener('pointerdown', (event) => {
   flashButton(button);
 });
 window.addEventListener('online', flushOutbox);
+window.addEventListener('online', refreshZones);
 window.addEventListener('load', flushOutbox);
 setInterval(flushOutbox, SYNC_RETRY_MS);
 
@@ -1146,6 +1195,7 @@ renderHistory();
 render();
 renderSync();
 flushOutbox();
+refreshZones();
 </script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 export async function getActiveZones(db) {
   const { results } = await db
     .prepare(
-      'SELECT code, label, excel_label, position, is_car, in_tower FROM zones WHERE active = 1 AND site_id = 1 ORDER BY position'
+      'SELECT code, label, excel_label, position, unit, in_tower FROM zones WHERE active = 1 AND site_id = 1 ORDER BY position'
     )
     .all();
   return results.map((z) => ({
@@ -9,18 +9,18 @@ export async function getActiveZones(db) {
     label: z.label,
     excelLabel: z.excel_label,
     position: z.position,
-    isCar: !!z.is_car,
+    unit: z.unit,
     inTower: !!z.in_tower,
   }));
 }
 
 export function toApiZones(zones) {
-  return zones.map(({ code, label, excelLabel, position, isCar, inTower }) => ({
+  return zones.map(({ code, label, excelLabel, position, unit, inTower }) => ({
     code,
     label,
     excelLabel,
     position,
-    isCar,
+    unit,
     inTower,
   }));
 }

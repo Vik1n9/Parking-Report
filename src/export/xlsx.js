@@ -1,8 +1,8 @@
 import ExcelJS from 'exceljs';
-import { businessDate } from '../../public/js/parking-core.js';
+import { businessDate, buildExcelValues } from '../../public/js/parking-core.js';
+import { getActiveZones } from '../routes/zones.js';
 
 const TIME_FORMAT = 'hh:mm';
-const TENTH_FORMAT = '0"成"';
 
 function toExcelTime(hhmm) {
   const match = String(hhmm || '').match(/^(\d{1,2}):(\d{2})/);
@@ -17,37 +17,25 @@ function rocTitle(businessDateStr) {
   return `${Number(year) - 1911}年${month}月${day}日車用數統計表`;
 }
 
-function cellValue(raw, zone) {
-  const value = String(raw ?? 'x').toLowerCase().trim() || 'x';
-  if (value === 'x') return '未停車';
-  if (value === '0') return '滿';
-  if (zone.isCar) {
-    const n = parseInt(value, 10);
-    return Number.isNaN(n) ? value : n;
-  }
-  if (value.startsWith('0.')) {
-    const count = parseInt(value.slice(2), 10) || 0;
-    return count ? `${count}台車` : '滿';
-  }
-  const n = parseInt(value, 10);
-  if (Number.isNaN(n)) return value;
-  return { formula: null, value: n, numFmt: TENTH_FORMAT };
+function writeValueRow(sheet, rowIndex, colStart, cells) {
+  const labelCell = sheet.getCell(rowIndex, colStart + 1);
+  labelCell.value = '剩餘車位數';
+  labelCell.font = { bold: true };
+  cells.forEach((cellSpec, index) => {
+    const cell = sheet.getCell(rowIndex, colStart + 2 + index);
+    cell.value = cellSpec.value;
+    if (cellSpec.numFmt) cell.numFmt = cellSpec.numFmt;
+    cell.alignment = { horizontal: 'center' };
+  });
 }
 
-function writeZoneRow(sheet, rowIndex, colStart, record, zones, label, { skipEmpty = false } = {}) {
-  sheet.getCell(rowIndex, colStart + 1).value = label;
-  const tokens = record.tokens || {};
+function writeRemarkRow(sheet, rowIndex, colStart, zones, remarks) {
+  sheet.getCell(rowIndex, colStart + 1).value = '備註';
   zones.forEach((zone, index) => {
-    const raw = tokens[zone.code];
-    if (skipEmpty && !(typeof raw === 'string' && raw.trim())) return;
+    const text = remarks?.[zone.code];
+    if (typeof text !== 'string' || !text.trim()) return;
     const cell = sheet.getCell(rowIndex, colStart + 2 + index);
-    const value = cellValue(raw, zone);
-    if (value && typeof value === 'object' && 'numFmt' in value) {
-      cell.value = value.value;
-      cell.numFmt = value.numFmt;
-    } else {
-      cell.value = value;
-    }
+    cell.value = text.trim();
     cell.alignment = { horizontal: 'center' };
   });
 }
@@ -67,7 +55,12 @@ async function buildWorkbook(records, zones) {
     const sheet = workbook.addWorksheet(`${month}月`);
     sheet.getColumn(1).width = 11;
     sheet.getColumn(2).width = 12;
-    for (let col = 3; col <= 12; col++) sheet.getColumn(col).width = 9;
+    sheet.getColumn(15).width = 11;
+    sheet.getColumn(16).width = 12;
+    for (const offset of [...Array(10).keys()]) {
+      sheet.getColumn(3 + offset).width = 9;
+      sheet.getColumn(17 + offset).width = 9;
+    }
 
     const byDate = new Map();
     for (const record of monthRecords) {
@@ -111,12 +104,9 @@ async function buildWorkbook(records, zones) {
           } else {
             timeCell.value = time.text;
           }
-          writeZoneRow(sheet, row, colStart, record, zones, '剩餘車位數');
-          sheet.getCell(row, colStart + 1).font = { bold: true };
-
-          const remarkRow = row + 1;
-          writeZoneRow(sheet, remarkRow, colStart, { tokens: record.remarks || {} }, zones, '備註', { skipEmpty: true });
-          row = remarkRow + 1;
+          writeValueRow(sheet, row, colStart, buildExcelValues(record.values, zones));
+          writeRemarkRow(sheet, row + 1, colStart, zones, record.remarks);
+          row += 2;
         }
       }
     }
@@ -139,21 +129,13 @@ export async function exportRecords(env, url) {
     )
     .bind(from, to)
     .all();
-  const zones = (await env.DB
-    .prepare('SELECT code, label, excel_label, position, is_car FROM zones WHERE active = 1 AND site_id = 1 ORDER BY position')
-    .all()).results.map((z) => ({
-    code: z.code,
-    label: z.label,
-    excelLabel: z.excel_label,
-    position: z.position,
-    isCar: !!z.is_car,
-  }));
+  const zones = await getActiveZones(env.DB);
 
   const records = results.map((row) => ({
     businessDate: row.business_date,
     reportTime: row.report_time,
     preparedBy: row.prepared_by,
-    tokens: JSON.parse(row.tokens_json || '{}'),
+    values: JSON.parse(row.values_json || '{}'),
     remarks: JSON.parse(row.remarks_json || '{}'),
   }));
 

@@ -42,7 +42,8 @@ test('guard page keeps legacy structural constraints', () => {
 test('guard page keeps legacy keypad behavior', () => {
   assert.match(html, /function markFull\(\)/);
   assert.match(html, /function deleteDigit\(\)/);
-  assert.match(html, /\.startsWith\('0\.'\)/);
+  assert.match(html, /function markGuiding\(\)/);
+  assert.match(html, /kind: 'carts', value: Number\(digit\)/);
   assert.match(html, /text:'全滿'/);
   assert.match(html, /text:'未停車'/);
   assert.match(
@@ -84,13 +85,11 @@ test('guard page keeps legacy auto-advance and backspace flow', () => {
   assert.match(html, /const AUTO_ADVANCE_CAR_DIGITS = 3/);
   assert.match(html, /const AUTO_ADVANCE_DELAY_MS = \d+/);
   assert.match(html, /function cancelAutoAdvance\(\)/);
-  assert.match(html, /function scheduleAutoAdvance\(index, value\)/);
+  assert.match(html, /function scheduleAutoAdvance\(index, snapshot\)/);
   assert.match(html, /setTimeout\(\(\) =>/);
-  assert.match(html, /function shouldAutoAdvanceCarField\(\)/);
-  assert.match(html, /currentIndex < 2/);
-  assert.match(html, /tokens\[currentIndex\]\.length >= AUTO_ADVANCE_CAR_DIGITS/);
-  assert.match(html, /scheduleAutoAdvance\(currentIndex, tokens\[currentIndex\]\)/);
-  assert.match(html, /if \(current === 'x' && currentIndex > 0\)/);
+  assert.match(html, /draft\.length >= AUTO_ADVANCE_CAR_DIGITS/);
+  assert.match(html, /scheduleAutoAdvance\(currentIndex, draft\)/);
+  assert.match(html, /if \(!draft && cells\[currentIndex\]\.kind === 'none' && currentIndex > 0\)/);
   assert.match(html, /currentIndex -= 1/);
   assert.match(html, /nextBtn\.addEventListener\('click', moveNext\)/);
   assert.match(html, /deleteDigitBtn\.addEventListener\('click', deleteDigit\)/);
@@ -123,4 +122,28 @@ test('guard page v2 keeps LINE share and history as local-first features', () =>
   assert.match(html, /function fallbackCopyText\(text\)/);
   assert.match(html, /HISTORY_STORAGE_KEY = 'parking_guard_history_v1'/);
   assert.match(html, /navigator\.clipboard\.writeText/);
+});
+
+test('guard page loads zones from the API with cache and packaged fallback', () => {
+  assert.match(html, /fetch\('\/api\/zones'\)/);
+  assert.match(html, /ZONES_CACHE_KEY\s*=\s*'parking_guard_zones_v1'/);
+  assert.match(html, /const FALLBACK_ZONES = \[/);
+  assert.equal(/const ZONES = \[/.test(html), false, 'zones must not be a hardcoded module constant');
+});
+
+test('guard page offers a guiding button without touching the numeric keypad grid', () => {
+  assert.match(html, /id="guidingBtn"[^>]*>引導中</);
+  assert.match(html, /\.keypad\{[\s\S]*?grid-template-columns:repeat\(3,1fr\)/);
+  const keypadItems = html.match(/const keypadItems = \[[\s\S]*?\];/)[0];
+  assert.equal((keypadItems.match(/text:'/g) || []).length, 12, 'numeric keypad still has 12 keys');
+});
+
+test('guard page posts structured values', () => {
+  assert.match(html, /values: item\.values/);
+  assert.equal(/tokens: item\.tokens/.test(html), false);
+});
+
+test('guard page only de-dupes rapid double taps, not repeated identical readings', () => {
+  assert.match(html, /DEDUPE_WINDOW_MS\s*=\s*3000/);
+  assert.equal(/last\.preview === preview/.test(html), false);
 });

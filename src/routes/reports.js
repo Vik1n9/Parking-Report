@@ -1,20 +1,20 @@
 import { json } from '../lib/http.js';
 import { getActiveZones, getSite } from './zones.js';
-import { buildLineReport, buildControlReport, buildExcelValues, buildTowerUsage, formatTime, businessDate } from '../../public/js/parking-core.js';
+import { buildReport, buildExcelValues, buildTowerUsage, validateValue, formatTime, businessDate } from '../../public/js/parking-core.js';
+import { mapRecord } from './records.js';
 
-const VALUE_RE = /^(x|[0-9]{1,4}(\.[0-9])?)$/i;
 const CLIENT_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 
-function tokensToArray(tokensObj, zones) {
-  return zones.map((z) => {
-    const value = tokensObj?.[z.code];
-    const str = typeof value === 'string' ? value.trim() : '';
-    return str || 'x';
-  });
+function fillValues(raw, zones) {
+  const out = {};
+  for (const zone of zones) {
+    const value = raw?.[zone.code];
+    out[zone.code] = value && typeof value === 'object' ? value : { kind: 'none' };
+  }
+  return out;
 }
 
-export function shapeReport(row, zones) {
-  const tokensObj = JSON.parse(row.tokens_json || '{}');
+export function shapeReport(row) {
   return {
     id: row.id,
     status: row.status,
@@ -24,25 +24,7 @@ export function shapeReport(row, zones) {
     clientRequestId: row.client_request_id,
     supersedesReportId: row.supersedes_report_id ?? null,
     rejectReason: row.reject_reason ?? null,
-    tokens: tokensObj,
-    values: zones ? tokensToArray(tokensObj, zones) : undefined,
-  };
-}
-
-function mapRecord(row) {
-  return {
-    id: row.id,
-    reportId: row.report_id,
-    businessDate: row.business_date,
-    lineReport: row.line_report,
-    controlReport: row.control_report,
-    excelValues: row.excel_values,
-    towerPct: row.tower_usage_pct,
-    remarks: JSON.parse(row.remarks_json || '{}'),
-    preparedBy: row.prepared_by,
-    reportTime: row.report_time,
-    confirmedAt: row.confirmed_at,
-    tokens: JSON.parse(row.tokens_json || '{}'),
+    values: JSON.parse(row.values_json || '{}'),
   };
 }
 
@@ -68,24 +50,20 @@ export async function createReport(env, request, device) {
     return json({ error: 'client_request_id 必須為 8-64 碼英數字或 -_ ' }, 400);
   }
 
-  const input = body?.tokens;
+  const input = body?.values;
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
-    return json({ error: 'tokens 必須是 { 區域code: 值 } 的物件' }, 400);
+    return json({ error: 'values 必須是 { 區域code: {kind, value} } 的物件' }, 400);
   }
 
   const zones = await getActiveZones(env.DB);
-  const validCodes = new Set(zones.map((z) => z.code));
-  const tokens = {};
+  const byCode = new Map(zones.map((z) => [z.code, z]));
   for (const [code, value] of Object.entries(input)) {
-    if (!validCodes.has(code)) {
-      return json({ error: `未知區域: ${code}` }, 400);
-    }
-    const v = String(value ?? '').trim().toLowerCase() || 'x';
-    if (!VALUE_RE.test(v)) {
-      return json({ error: `區域 ${code} 的值格式無效: ${v}` }, 400);
-    }
-    tokens[code] = v;
+    const zone = byCode.get(code);
+    if (!zone) return json({ error: `未知區域: ${code}` }, 400);
+    const check = validateValue(value, zone);
+    if (!check.ok) return json({ error: `區域 ${code}: ${check.error}` }, 400);
   }
+  const values = fillValues(input, zones);
 
   const rawInput = typeof body.raw_input === 'string' ? body.raw_input.slice(0, 2000) : null;
   const supersedes = Number.isInteger(body.supersedes_report_id) ? body.supersedes_report_id : null;
@@ -98,19 +76,19 @@ export async function createReport(env, request, device) {
     .bind(clientRequestId)
     .first();
   if (dup) {
-    return json({ report: shapeReport(dup, zones), duplicate: true }, 200);
+    return json({ report: shapeReport(dup), duplicate: true }, 200);
   }
 
   const insert = await env.DB
     .prepare(
-      `INSERT INTO reports (site_id, device_id, status, client_request_id, tokens_json, raw_input, business_date, submitted_at, supersedes_report_id)
+      `INSERT INTO reports (site_id, device_id, status, client_request_id, values_json, raw_input, business_date, submitted_at, supersedes_report_id)
        VALUES (1, ?, 'pending', ?, ?, ?, ?, ?, ?)`
     )
-    .bind(device.deviceId, clientRequestId, JSON.stringify(tokens), rawInput, bDate, submittedAt, supersedes)
+    .bind(device.deviceId, clientRequestId, JSON.stringify(values), rawInput, bDate, submittedAt, supersedes)
     .run();
 
   const row = await env.DB.prepare('SELECT * FROM reports WHERE id = ?').bind(insert.meta.last_row_id).first();
-  return json({ report: shapeReport(row, zones), duplicate: false }, 201);
+  return json({ report: shapeReport(row), duplicate: false }, 201);
 }
 
 export async function listReports(env, url) {
@@ -128,8 +106,7 @@ export async function listReports(env, url) {
     )
     .bind(status)
     .all();
-  const zones = await getActiveZones(env.DB);
-  return json({ status, reports: results.map((row) => shapeReport(row, zones)) });
+  return json({ status, reports: results.map((row) => shapeReport(row)) });
 }
 
 async function loadReport(env, id) {
@@ -158,28 +135,31 @@ export async function confirmReport(env, id, request, identity) {
 
   const zones = await getActiveZones(env.DB);
   const site = (await getSite(env.DB)) || { tower_total: 1600 };
-  const tokensObj = JSON.parse(report.tokens_json || '{}');
-  const tokens = tokensToArray(tokensObj, zones);
+  const values = JSON.parse(report.values_json || '{}');
   const reportTime = new Date(report.submitted_at);
+  const device = await env.DB
+    .prepare('SELECT label FROM guard_devices WHERE id = ?')
+    .bind(report.device_id)
+    .first();
+  const deviceLabel = device?.label ?? null;
 
-  const towerIndexes = zones.filter((z) => z.inTower).map((z) => z.position);
-  const tower = buildTowerUsage(tokens, { towerTotal: site.tower_total, towerIndexes });
+  const tower = buildTowerUsage(values, zones, { towerTotal: site.tower_total });
   const confirmedAt = new Date().toISOString();
 
   const insertRecord = env.DB
     .prepare(
       `INSERT INTO records
-        (report_id, site_id, business_date, tokens_json, line_report, control_report, excel_values,
+        (report_id, site_id, business_date, values_json, guard_report, console_report, excel_values,
          tower_usage_pct, remarks_json, prepared_by, report_time, confirmed_at)
        VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       report.id,
       report.business_date,
-      report.tokens_json,
-      buildLineReport(tokens, reportTime),
-      buildControlReport(tokens, reportTime),
-      buildExcelValues(tokens).join('\t'),
+      report.values_json,
+      buildReport(values, zones, { style: 'guard', time: reportTime }),
+      buildReport(values, zones, { style: 'console', time: reportTime, deviceLabel }),
+      buildExcelValues(values, zones).map((cell) => cell.value).join('\t'),
       tower.valid ? tower.percent : null,
       remarks ? JSON.stringify(remarks) : null,
       identity.email,
