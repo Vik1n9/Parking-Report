@@ -6,6 +6,9 @@ import {
   validateValue,
   formatValue,
   buildReport,
+  excelCell,
+  buildExcelValues,
+  buildTowerUsage,
   formatTime,
   businessDate,
   TIME_ZONE,
@@ -187,4 +190,50 @@ test('console style omits the device code when there is none', () => {
 test('buildReport treats a missing zone code as not parked', () => {
   const text = buildReport({}, ZONES, { style: 'guard', time: AT_1237 });
   assert.match(text, /車塔1上：未停車/);
+});
+
+test('excelCell writes numbers as numbers and tenths with a number format', () => {
+  assert.deepEqual(excelCell({ kind: 'spaces', value: 232 }), { value: 232 });
+  assert.deepEqual(excelCell({ kind: 'tenths', value: 3 }), { value: 3, numFmt: '0"成"' });
+  assert.deepEqual(excelCell({ kind: 'carts', value: 2 }), { value: '停2台' });
+  assert.deepEqual(excelCell({ kind: 'full' }), { value: '滿' });
+  assert.deepEqual(excelCell({ kind: 'guiding' }), { value: '引導中' });
+  assert.deepEqual(excelCell({ kind: 'none' }), { value: '未停車' });
+});
+
+test('buildExcelValues follows zone order and fills gaps with not parked', () => {
+  const cells = buildExcelValues({ p1: { kind: 'tenths', value: 3 } }, ZONES);
+  assert.equal(cells.length, 10);
+  assert.deepEqual(cells[0], { value: '未停車' });
+  assert.deepEqual(cells[2], { value: 3, numFmt: '0"成"' });
+});
+
+test('tower usage sums the in-tower zones and treats full as zero remaining', () => {
+  const usage = buildTowerUsage(
+    { floor_above: { kind: 'spaces', value: 400 }, floor_below: { kind: 'full' } },
+    ZONES,
+    { towerTotal: 1600 }
+  );
+  assert.deepEqual(usage, { valid: true, percent: 75, remaining: 400, occupied: 1200 });
+});
+
+test('tower usage is invalid when an in-tower zone has no number', () => {
+  for (const kind of ['none', 'guiding']) {
+    const usage = buildTowerUsage(
+      { floor_above: { kind: 'spaces', value: 100 }, floor_below: { kind } },
+      ZONES,
+      { towerTotal: 1600 }
+    );
+    assert.equal(usage.valid, false, `${kind} should invalidate tower usage`);
+    assert.equal(usage.percent, null);
+  }
+});
+
+test('tower usage ignores zones that are not in the tower', () => {
+  const usage = buildTowerUsage(
+    { floor_above: { kind: 'full' }, floor_below: { kind: 'full' }, p1: { kind: 'tenths', value: 9 } },
+    ZONES,
+    { towerTotal: 1600 }
+  );
+  assert.deepEqual(usage, { valid: true, percent: 100, remaining: 0, occupied: 1600 });
 });

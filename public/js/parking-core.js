@@ -146,24 +146,34 @@ export function buildReport(values, zones, opts = {}) {
   return lines.join('\n');
 }
 
-export function buildTowerUsage(tokens, options = {}) {
-  const towerTotal = options.towerTotal ?? DEFAULT_TOWER_TOTAL;
-  const indexes = options.towerIndexes ?? [0, 1];
-  let remaining = 0;
-  let valid = towerTotal > 0;
-  for (const index of indexes) {
-    const raw = normalizeValue(tokens[index]);
-    const count = parseInt(raw, 10);
-    if (Number.isNaN(count) || raw === 'x') {
-      valid = false;
-      break;
-    }
-    remaining += count;
+export function excelCell(value) {
+  switch (value?.kind) {
+    case 'spaces': return { value: value.value };
+    case 'tenths': return { value: value.value, numFmt: '0"成"' };
+    case 'carts': return { value: `停${value.value}台` };
+    case 'full': return { value: '滿' };
+    case 'guiding': return { value: '引導中' };
+    default: return { value: '未停車' };
   }
-  if (!valid) return { valid: false, percent: null, remaining: null, occupied: null };
+}
 
-  remaining = Math.max(0, remaining);
+export function buildExcelValues(values, zones) {
+  return zones.map((zone) => excelCell(normalizeInput(values?.[zone.code], zone)));
+}
+
+export function buildTowerUsage(values, zones, opts = {}) {
+  const towerTotal = opts.towerTotal ?? 0;
+  const towerZones = zones.filter((zone) => zone.inTower);
+  const invalid = { valid: false, percent: null, remaining: null, occupied: null };
+  if (towerTotal <= 0 || !towerZones.length) return invalid;
+
+  let remaining = 0;
+  for (const zone of towerZones) {
+    const value = normalizeInput(values?.[zone.code], zone);
+    if (value.kind === 'full') continue;
+    if (value.kind !== 'spaces') return invalid;
+    remaining += value.value;
+  }
   const occupied = Math.min(towerTotal, Math.max(0, towerTotal - remaining));
-  const percent = Math.round((occupied / towerTotal) * 100);
-  return { valid: true, percent, remaining, occupied };
+  return { valid: true, percent: Math.round((occupied / towerTotal) * 100), remaining, occupied };
 }
