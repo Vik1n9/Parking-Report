@@ -17,6 +17,8 @@ test('office.css exists with glass control tokens', () => {
   assert.match(css, /prefers-reduced-transparency/);
   assert.match(css, /\.queue-item\s*\{[^}]*flex-direction:\s*column/);
   assert.match(css, /\.app\.board\s*\{[^}]*padding-top:\s*calc\(20px \+ var\(--safe-top\)\)/);
+  assert.match(css, /overflow-x:\s*clip/);
+  assert.match(css, /word-break:\s*keep-all/);
   assert.match(css, /\.ex-list\s*\{[^}]*margin-bottom/);
   assert.match(css, /\.ex-item b\s*\{/);
   assert.match(css, /\.status-word\.hot/);
