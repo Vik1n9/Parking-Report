@@ -15,9 +15,9 @@
   <div class="board-shell">
     <div class="board-when" id="when"></div>
     <div class="board-kpis">
+      <div class="board-kpi" id="statusCard"><b id="statusWord">順暢</b><span>目前狀態</span></div>
       <div class="board-kpi" id="remainCard"><b id="remainingNum">—</b><span>車塔剩餘車格</span></div>
       <div class="board-kpi" id="occupiedCard"><b id="occupiedNum">—</b><span>車塔停放</span></div>
-      <div class="board-kpi" id="pctCard"><b id="gaugePct">—</b><span>目前車塔內百分比</span></div>
     </div>
     <div class="board-mid">
       <div class="board-card">
@@ -60,14 +60,29 @@ function pctClass(pct) {
   return pct >= 90 ? 'hot' : pct >= 70 ? 'warm' : 'cool';
 }
 
+function fieldStatus(events) {
+  const open = (events || []).filter((event) => !event.clearedAt);
+  if (open.some((event) => event.kind === 'jam' || event.kind === 'special')) {
+    return { word: '擁塞', cls: 'hot' };
+  }
+  if (open.some((event) => event.kind === 'guiding')) {
+    return { word: '引導中', cls: 'warm' };
+  }
+  return { word: '順暢', cls: 'cool' };
+}
+
+function renderStatus(events) {
+  const status = fieldStatus(events);
+  $('statusWord').textContent = status.word;
+  $('statusCard').className = `board-kpi ${status.cls}`;
+}
+
 function renderEmpty() {
   $('remainingNum').textContent = '—';
   $('occupiedNum').textContent = '—';
-  $('gaugePct').textContent = '—';
   $('gaugeCenter').textContent = '—';
   $('remainCard').className = 'board-kpi';
   $('occupiedCard').className = 'board-kpi';
-  $('pctCard').className = 'board-kpi';
   $('gaugeArc').style.strokeDashoffset = String(ARC);
   $('eventCard').hidden = true;
   $('eventList').innerHTML = '';
@@ -127,6 +142,7 @@ function render(data) {
   const bits = [data.businessDate];
   if (latest?.reportTime) bits.push(latest.reportTime);
   $('when').textContent = bits.filter(Boolean).join('  ');
+  renderStatus(data.events || []);
   renderEvents(data.events || []);
   $('histList').innerHTML = entries.map((entry) =>
     `<div class="hist-row"><span>${escapeHtml(entry.reportTime)}</span><b>${entry.towerPct == null ? '—' : entry.towerPct + '%'}</b></div>`
@@ -135,11 +151,9 @@ function render(data) {
   if (!latest) {
     $('remainingNum').textContent = '—';
     $('occupiedNum').textContent = '—';
-    $('gaugePct').textContent = '—';
     $('gaugeCenter').textContent = '—';
     $('remainCard').className = 'board-kpi';
     $('occupiedCard').className = 'board-kpi';
-    $('pctCard').className = 'board-kpi';
     $('gaugeArc').style.strokeDashoffset = String(ARC);
     return;
   }
@@ -150,11 +164,9 @@ function render(data) {
   const occupied = tower.valid ? tower.occupied : null;
   $('remainingNum').textContent = remain == null ? '—' : String(remain);
   $('occupiedNum').textContent = occupied == null ? '—' : String(occupied);
-  $('gaugePct').textContent = pct == null ? '—' : `${pct}%`;
   $('gaugeCenter').textContent = pct == null ? '—' : `${pct}%`;
-  $('remainCard').className = `board-kpi ${pctClass(pct)}`;
-  $('occupiedCard').className = `board-kpi ${pctClass(pct)}`;
-  $('pctCard').className = `board-kpi ${pctClass(pct)}`;
+  $('remainCard').className = 'board-kpi';
+  $('occupiedCard').className = 'board-kpi';
   const offset = pct == null ? ARC : ARC * (1 - pct / 100);
   $('gaugeArc').style.strokeDashoffset = String(offset);
   $('gaugeArc').style.stroke = pct >= 90 ? '#ff3b30' : pct >= 70 ? '#ff5a1f' : '#34c759';

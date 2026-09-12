@@ -59,7 +59,9 @@ button { cursor: pointer; }
   line-height: 1;
 }
 .board-kpi span { color: var(--muted); font-size: 0.85rem; font-weight: 600; }
-.board-kpi.hot b { color: #ff5a1f; }
+.board-kpi.hot b { color: #ff3b30; }
+.board-kpi.warm b { color: #ff5a1f; }
+.board-kpi.cool b { color: #34c759; }
 .board-mid, .board-bottom { display: grid; gap: 12px; }
 .board-card {
   background: #f4f4f5;
