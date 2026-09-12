@@ -41,7 +41,7 @@ button { cursor: pointer; }
 }
 .board-kpis {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin: 8px 0 16px;
 }
@@ -85,6 +85,13 @@ button { cursor: pointer; }
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
   line-height: 1;
+}
+.gauge-read span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 .event-list { display: flex; flex-direction: column; gap: 10px; }
 .event-row {

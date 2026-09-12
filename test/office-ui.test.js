@@ -65,6 +65,10 @@ test('manager board has hero and no annotative copy', () => {
   assert.match(html, /class="app board"/);
   assert.match(html, /id="gaugePct"/);
   assert.match(html, /id="remainingNum"/);
+  assert.match(html, /id="occupiedNum"/);
+  assert.match(body, />車塔</);
+  assert.match(body, />車塔停放</);
+  assert.match(body, /目前車塔內百分比/);
   assert.match(html, /id="eventList"/);
   assert.match(html, /id="histList"/);
   assert.match(html, /site_events|eventList|KIND_WORD/);
