@@ -20,6 +20,8 @@ test('office.css exists with glass control tokens', () => {
   assert.match(css, /\.ex-list\s*\{[^}]*margin-bottom/);
   assert.match(css, /\.ex-item b\s*\{/);
   assert.match(css, /\.status-word\.hot/);
+  assert.match(css, /\.event-list::before[^{]*\{[^}]*margin-top:\s*auto/);
+  assert.match(css, /\.board-card\[hidden\]\s*\{\s*display:\s*none/);
   assert.equal(/\.btn-primary[^{]*\{[^}]*backdrop-filter/.test(css), false);
 });
 
@@ -80,6 +82,8 @@ test('manager board has hero and no annotative copy', () => {
   assert.match(html, /id="eventList"/);
   assert.match(html, /id="histList"/);
   assert.match(html, /site_events|eventList|KIND_WORD/);
+  assert.match(html, /localeCompare\(String\(b\.occurredAt\)\)/);
+  assert.match(html, /scrollTop = \$\('eventList'\)\.scrollHeight/);
   assert.ok(html.indexOf('id="failBanner"') < html.indexOf('id="statusWord"'));
   assert.equal(body.includes('href="/CenterConsole"'), false);
   assert.equal(body.includes('異常'), false);

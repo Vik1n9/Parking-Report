@@ -116,18 +116,20 @@ function eventLine(event) {
 }
 
 function renderEvents(events) {
-  if (!events.length) {
+  const rows = [...events].sort((a, b) => String(a.occurredAt).localeCompare(String(b.occurredAt)));
+  if (!rows.length) {
     $('eventCard').hidden = true;
     $('eventList').innerHTML = '';
     return;
   }
-  const open = events.some((event) => !event.clearedAt);
+  const open = rows.some((event) => !event.clearedAt);
   $('eventCard').hidden = false;
   $('eventCard').className = open ? 'board-card accent' : 'board-card';
-  $('eventList').innerHTML = events.map((event) => {
+  $('eventList').innerHTML = rows.map((event) => {
     const line = eventLine(event);
     return `<div class="event-row"><span class="event-time">${escapeHtml(line.clock)}</span><span>${escapeHtml(line.text)}</span></div>`;
   }).join('');
+  $('eventList').scrollTop = $('eventList').scrollHeight;
 }
 
 function renderChart(records) {

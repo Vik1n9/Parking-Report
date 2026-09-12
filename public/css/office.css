@@ -77,6 +77,11 @@ button { cursor: pointer; }
   color: #fff;
 }
 .board-card.accent .event-time { color: rgba(255,255,255,0.8); }
+.board-card:has(> .event-list) {
+  display: flex;
+  flex-direction: column;
+}
+.board-card[hidden] { display: none; }
 .gauge-wrap { position: relative; width: min(100%, 280px); margin: 0 auto; }
 .gauge-wrap svg { width: 100%; height: auto; display: block; }
 .gauge-read {
@@ -98,7 +103,15 @@ button { cursor: pointer; }
   font-size: 0.78rem;
   font-weight: 600;
 }
-.event-list { display: flex; flex-direction: column; gap: 10px; }
+.event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.event-list::before { content: ''; margin-top: auto; }
 .event-row {
   display: flex;
   align-items: baseline;
