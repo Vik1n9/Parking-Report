@@ -71,38 +71,66 @@ function snapshot(partial, at, deviceLabel) {
   };
 }
 
+function towerSpaces(n) {
+  return n <= 0 ? { kind: 'full' } : { kind: 'spaces', value: n };
+}
+
+function sceneAt(above, below, extra = {}) {
+  const { floor_above: _a, floor_below: _b, ...rest } = extra;
+  return {
+    floor_above: towerSpaces(above),
+    floor_below: towerSpaces(below),
+    ...rest,
+  };
+}
+
 const SCENES = {
-  open: {
-    floor_above: { kind: 'spaces', value: 420 },
-    floor_below: { kind: 'spaces', value: 180 },
+  open: sceneAt(420, 180, {
     p1: { kind: 'tenths', value: 8 },
     p3: { kind: 'tenths', value: 7 },
     spin_a: { kind: 'tenths', value: 6 },
     asphalt: { kind: 'none' },
-  },
-  busy: {
-    floor_above: { kind: 'spaces', value: 232 },
-    floor_below: { kind: 'full' },
+  }),
+  busy: sceneAt(232, 0, {
     p1: { kind: 'tenths', value: 3 },
     p3: { kind: 'tenths', value: 2 },
     spin_a: { kind: 'tenths', value: 1 },
     spin_b: { kind: 'carts', value: 2 },
     spin_c: { kind: 'guiding' },
-    spin_d: { kind: 'none' },
-    spin_e: { kind: 'none' },
     asphalt: { kind: 'none' },
-  },
-  tight: {
-    floor_above: { kind: 'spaces', value: 40 },
-    floor_below: { kind: 'full' },
+  }),
+  tight: sceneAt(40, 0, {
     p1: { kind: 'full' },
     p3: { kind: 'tenths', value: 1 },
     spin_a: { kind: 'full' },
     spin_b: { kind: 'carts', value: 4 },
     spin_c: { kind: 'guiding' },
     asphalt: { kind: 'none' },
-  },
+  }),
 };
+
+const TODAY_CURVE = [
+  ['08:40', 720, 380],
+  ['09:05', 610, 310],
+  ['09:25', 520, 240],
+  ['09:50', 450, 180],
+  ['10:15', 390, 130],
+  ['10:40', 340, 90],
+  ['11:05', 300, 50],
+  ['11:30', 270, 20],
+  ['11:55', 250, 0],
+  ['12:20', 220, 0],
+  ['12:45', 180, 0],
+  ['13:10', 140, 0],
+  ['13:35', 95, 0],
+  ['14:00', 60, 0],
+  ['14:25', 35, 0],
+  ['14:50', 20, 0],
+  ['15:15', 45, 0],
+  ['15:40', 80, 0],
+  ['16:05', 130, 15],
+  ['16:30', 190, 40],
+];
 
 function run(cmd, args, env = {}) {
   return new Promise((resolve, reject) => {
@@ -138,17 +166,32 @@ function buildSql() {
   const d2 = shiftCivil(today, -2);
   const d3 = shiftCivil(today, -3);
   const rows = [
-    { id: 1, date: d3, clock: '09:20', scene: 'open', status: 'confirmed' },
-    { id: 2, date: d3, clock: '14:05', scene: 'busy', status: 'confirmed' },
-    { id: 3, date: d2, clock: '10:40', scene: 'busy', status: 'confirmed' },
-    { id: 4, date: d2, clock: '15:18', scene: 'tight', status: 'confirmed' },
-    { id: 5, date: d1, clock: '11:02', scene: 'busy', status: 'confirmed' },
-    { id: 6, date: d1, clock: '16:44', scene: 'tight', status: 'confirmed' },
-    { id: 7, date: today, clock: '09:15', scene: 'open', status: 'confirmed' },
-    { id: 8, date: today, clock: '12:37', scene: 'busy', status: 'confirmed' },
-    { id: 9, date: today, clock: '15:50', scene: 'tight', status: 'pending' },
-    { id: 10, date: today, clock: '16:10', scene: 'busy', status: 'pending' },
+    { id: 1, date: d3, clock: '09:20', scene: SCENES.open, status: 'confirmed' },
+    { id: 2, date: d3, clock: '11:10', scene: SCENES.busy, status: 'confirmed' },
+    { id: 3, date: d3, clock: '14:05', scene: SCENES.tight, status: 'confirmed' },
+    { id: 4, date: d3, clock: '16:20', scene: SCENES.busy, status: 'confirmed' },
+    { id: 5, date: d2, clock: '09:40', scene: SCENES.open, status: 'confirmed' },
+    { id: 6, date: d2, clock: '12:15', scene: SCENES.busy, status: 'confirmed' },
+    { id: 7, date: d2, clock: '15:18', scene: SCENES.tight, status: 'confirmed' },
+    { id: 8, date: d2, clock: '17:05', scene: SCENES.busy, status: 'confirmed' },
+    { id: 9, date: d1, clock: '10:02', scene: SCENES.open, status: 'confirmed' },
+    { id: 10, date: d1, clock: '12:40', scene: SCENES.busy, status: 'confirmed' },
+    { id: 11, date: d1, clock: '14:55', scene: SCENES.tight, status: 'confirmed' },
+    { id: 12, date: d1, clock: '16:44', scene: SCENES.busy, status: 'confirmed' },
   ];
+  TODAY_CURVE.forEach(([clock, above, below], index) => {
+    rows.push({
+      id: 20 + index,
+      date: today,
+      clock,
+      scene: sceneAt(above, below, index >= 11 ? SCENES.tight : index >= 7 ? SCENES.busy : SCENES.open),
+      status: 'confirmed',
+    });
+  });
+  rows.push(
+    { id: 50, date: today, clock: '16:50', scene: SCENES.tight, status: 'pending' },
+    { id: 51, date: today, clock: '17:05', scene: SCENES.busy, status: 'pending' },
+  );
 
   const statements = [
     'DELETE FROM records;',
@@ -164,7 +207,7 @@ function buildSql() {
 
   for (const row of rows) {
     const at = taipeiInstant(row.date, row.clock);
-    const snap = snapshot(SCENES[row.scene], at, 'A1');
+    const snap = snapshot(row.scene, at, 'A1');
     const submitted = at.toISOString();
     statements.push(
       `INSERT INTO reports (id, site_id, device_id, status, client_request_id, values_json, raw_input, business_date, submitted_at, confirmed_at)

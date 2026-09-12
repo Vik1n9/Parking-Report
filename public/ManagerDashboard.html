@@ -127,8 +127,9 @@ function renderChart(records) {
   const x = (i) => PAD_L + (points.length === 1 ? innerW / 2 : (i / (points.length - 1)) * innerW);
   const y = (pct) => PAD_T + innerH - (pct / 100) * innerH;
   const line = points.map((p, i) => `${x(i).toFixed(1)},${y(p.towerPct).toFixed(1)}`).join(' ');
+  const step = Math.max(1, Math.floor((points.length - 1) / 4));
   const labels = points.map((p, i) => {
-    const show = i === 0 || i === points.length - 1;
+    const show = i === 0 || i === points.length - 1 || i % step === 0;
     if (!show) return '';
     return `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="#6e6e73">${escapeHtml(p.reportTime)}</text>`;
   }).join('');
