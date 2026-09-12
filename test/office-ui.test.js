@@ -19,6 +19,8 @@ test('office.css exists with glass control tokens', () => {
   assert.match(css, /\.app\.board\s*\{[^}]*padding-top:\s*calc\(20px \+ var\(--safe-top\)\)/);
   assert.match(css, /overflow-x:\s*clip/);
   assert.match(css, /word-break:\s*keep-all/);
+  assert.match(css, /\.shot-row\s*\{/);
+  assert.match(css, /\.chart-hit/);
   assert.match(css, /\.ex-list\s*\{[^}]*margin-bottom/);
   assert.match(css, /\.ex-item b\s*\{/);
   assert.match(css, /\.status-word\.hot/);
@@ -91,7 +93,11 @@ test('manager board has hero and no annotative copy', () => {
   assert.match(body, /目前車塔內百分比/);
   assert.match(html, /<rect /);
   assert.match(html, /id="eventList"/);
-  assert.match(html, /id="histList"/);
+  assert.match(html, /id="shotList"/);
+  assert.match(html, /id="shotCard"/);
+  assert.match(html, /data-i/);
+  assert.match(html, /chart-hit/);
+  assert.equal(html.includes('id="histList"'), false);
   assert.match(html, /site_events|eventList|KIND_WORD/);
   assert.match(html, /localeCompare\(String\(b\.occurredAt\)\)/);
   assert.match(html, /scrollTop = \$\('eventList'\)\.scrollHeight/);

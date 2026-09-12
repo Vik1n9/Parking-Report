@@ -157,16 +157,29 @@ button { cursor: pointer; }
 }
 .event-row > span { min-width: 0; }
 .event-time { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 600; }
-.hist-row {
+.shot-when {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.shot-row {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   padding: 8px 0;
   font-variant-numeric: tabular-nums;
   font-weight: 650;
+  word-break: keep-all;
 }
+#shotCard {
+  overflow-y: auto;
+  max-height: min(280px, 50vh);
+}
+.chart-hit { cursor: pointer; }
+.chart-box svg { touch-action: manipulation; }
 @media (min-width: 860px) {
   .board-bottom { grid-template-columns: 1.15fr 0.85fr; }
+  .board-bottom:has(> #shotCard[hidden]) { grid-template-columns: 1fr; }
 }
 .glass {
   background: var(--glass);
