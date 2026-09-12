@@ -34,6 +34,17 @@ test('reports and records expose values_json and the renamed report columns', as
   db.close();
 });
 
+test('site_events stores console-issued field status', async () => {
+  const db = createTestDb();
+  const cols = (await db.prepare("SELECT name FROM pragma_table_info('site_events')").all()).results.map((r) => r.name);
+  assert.ok(cols.includes('kind'));
+  assert.ok(cols.includes('occurred_at'));
+  assert.ok(cols.includes('cleared_at'));
+  assert.ok(cols.includes('zone_code'));
+  assert.ok(cols.includes('created_by'));
+  db.close();
+});
+
 test('the migration converts legacy token strings into structured values', async () => {
   const db = createTestDb({ migrations: ['0001_init.sql', '0002_seed.sql'] });
   await db

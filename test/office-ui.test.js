@@ -64,11 +64,14 @@ test('manager board has hero and no annotative copy', () => {
   assert.equal(html.includes('user-scalable=no'), false);
   assert.match(html, /class="app board"/);
   assert.match(html, /id="gaugePct"/);
-  assert.match(html, /id="exList"/);
-  assert.match(html, /office-exceptions\.js/);
+  assert.match(html, /id="remainingNum"/);
+  assert.match(html, /id="eventList"/);
+  assert.match(html, /id="histList"/);
+  assert.match(html, /site_events|eventList|KIND_WORD/);
   assert.ok(html.indexOf('id="failBanner"') < html.indexOf('id="gaugePct"'));
   assert.equal(body.includes('href="/CenterConsole"'), false);
   assert.equal(body.includes('異常'), false);
+  assert.equal(body.includes('office-exceptions.js'), false);
   for (const word of FORBIDDEN) assert.equal(body.includes(word), false);
 });
 

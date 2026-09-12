@@ -29,7 +29,7 @@ class Stmt {
 }
 
 export function createTestDb(options = {}) {
-  const { migrations = ['0001_init.sql', '0002_seed.sql', '0003_value_model.sql'] } = options;
+  const { migrations = ['0001_init.sql', '0002_seed.sql', '0003_value_model.sql', '0004_site_events.sql'] } = options;
   const db = new DatabaseSync(':memory:');
   const api = {
     prepare: (sql) => new Stmt(db, sql),

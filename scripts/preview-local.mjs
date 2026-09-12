@@ -154,7 +154,12 @@ function buildSql() {
     'DELETE FROM records;',
     'DELETE FROM reports;',
     'DELETE FROM guard_devices;',
+    'DELETE FROM site_events;',
     `INSERT INTO guard_devices (id, label, token_hash) VALUES (1, 'A1', ${sqlStr(TOKEN_HASH)});`,
+    `INSERT INTO site_events (site_id, business_date, kind, zone_code, occurred_at, cleared_at, detail, created_by)
+     VALUES (1, ${sqlStr(today)}, 'guiding', NULL, ${sqlStr(taipeiInstant(today, '12:37').toISOString())}, NULL, NULL, 'console@example.test');`,
+    `INSERT INTO site_events (site_id, business_date, kind, zone_code, occurred_at, cleared_at, detail, created_by)
+     VALUES (1, ${sqlStr(today)}, 'jam', 'p1', ${sqlStr(taipeiInstant(today, '12:52').toISOString())}, ${sqlStr(taipeiInstant(today, '13:10').toISOString())}, NULL, 'console@example.test');`,
   ];
 
   for (const row of rows) {

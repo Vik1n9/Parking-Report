@@ -180,9 +180,53 @@ test('the public endpoint returns today entries without any operator data', asyn
   assert.equal(body.towerTotal, 1600);
   assert.equal(body.zones[0].label, '車塔1上');
 
+  assert.ok(Array.isArray(body.events));
+  assert.equal(body.events.length, 0);
+
   const serialized = JSON.stringify(body);
   for (const leak of ['prepared_by', 'preparedBy', 'remarks', '施工', 'reportId', 'deviceLabel', 'A1', 'example.test']) {
     assert.ok(!serialized.includes(leak), `public payload must not leak ${leak}`);
+  }
+  db.close();
+});
+
+test('the public endpoint returns site events without operator identity', async () => {
+  const db = await seededDb();
+  const day = '2026-09-13';
+  await db
+    .prepare(
+      `INSERT INTO site_events (site_id, business_date, kind, zone_code, occurred_at, cleared_at, detail, created_by)
+       VALUES (1, ?, 'guiding', NULL, '2026-09-13T04:37:00.000Z', NULL, NULL, 'console@example.test')`
+    )
+    .bind(day)
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO site_events (site_id, business_date, kind, zone_code, occurred_at, cleared_at, detail, created_by)
+       VALUES (1, ?, 'jam', 'p1', '2026-09-13T04:52:00.000Z', '2026-09-13T05:10:00.000Z', NULL, 'console@example.test')`
+    )
+    .bind(day)
+    .run();
+
+  const res = await publicCurrent(envWith(db), new URL(`https://example.test/api/public/current?date=${day}`));
+  const body = await res.json();
+  assert.equal(body.events.length, 2);
+  assert.deepEqual(body.events[0], {
+    kind: 'guiding',
+    zoneCode: null,
+    zoneLabel: null,
+    occurredAt: '2026-09-13T04:37:00.000Z',
+    clearedAt: null,
+    detail: null,
+  });
+  assert.equal(body.events[1].kind, 'jam');
+  assert.equal(body.events[1].zoneCode, 'p1');
+  assert.equal(body.events[1].zoneLabel, 'P1');
+  assert.equal(body.events[1].clearedAt, '2026-09-13T05:10:00.000Z');
+
+  const serialized = JSON.stringify(body);
+  for (const leak of ['created_by', 'createdBy', 'console@example.test', 'example.test']) {
+    assert.ok(!serialized.includes(leak), `public events must not leak ${leak}`);
   }
   db.close();
 });
