@@ -96,6 +96,9 @@ function renderZones(values) {
     return `<div class="zone-item"><span>${escapeHtml(zone.label)}</span><b>${escapeHtml(formatValue(value))}</b></div>`;
   }).join('');
 }
+function sentryFromReport(text) {
+  return String(text || '').match(/^中控回報：\d\d:\d\d (.+)回報/)?.[1] || '';
+}
 
 async function loadQueue() {
   const data = await fetchJson('/api/reports?status=pending');
@@ -117,13 +120,19 @@ async function loadRecords() {
   const today = businessDate(new Date());
   const data = await fetchJson(`/api/records?from=${today}&to=${today}`);
   const records = data.records || [];
-  $('recordList').innerHTML = records.map((record) => `
+  $('recordList').innerHTML = records.map((record) => {
+    const bits = [`<b>${escapeHtml(record.reportTime)}</b>`];
+    if (record.towerPct != null) bits.push(record.towerPct + '%');
+    const sentry = sentryFromReport(record.consoleReport);
+    if (sentry) bits.push(escapeHtml(sentry));
+    return `
     <div class="log-item">
-      <div><b>${escapeHtml(record.reportTime)}</b> ${record.towerPct == null ? '' : record.towerPct + '%'}</div>
+      <div>${bits.join(' ')}</div>
       <button class="btn" data-copy="${record.id}" type="button">複製</button>
       <pre class="report" hidden>${escapeHtml(record.consoleReport)}</pre>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function openConfirm(report) {
@@ -139,6 +148,7 @@ function openConfirm(report) {
   $('remarkRows').innerHTML = active.map((zone) => `
     <label class="remark"><span>${escapeHtml(zone.label)}</span><input data-code="${zone.code}" maxlength="50"></label>
   `).join('');
+  $('remarkRows').hidden = false;
   $('confirmActions').hidden = false;
   $('doneActions').hidden = true;
   $('confirmSheet').classList.add('show');
@@ -166,6 +176,7 @@ async function doConfirm() {
     });
     lastConsoleText = data.record?.consoleReport || lastConsoleText;
     $('previewText').textContent = lastConsoleText;
+    $('remarkRows').hidden = true;
     $('confirmActions').hidden = true;
     $('doneActions').hidden = false;
     await copyText(lastConsoleText);
@@ -190,21 +201,26 @@ function closeReject() {
 }
 async function doReject() {
   if (!pendingRejectId) return;
-  await fetchJson(`/api/reports/${pendingRejectId}/reject`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...devHeaders() },
-    body: JSON.stringify({ reason: $('rejectReason').value.slice(0, 200) }),
-  });
-  closeReject();
-  await refresh();
+  $('doRejectBtn').disabled = true;
+  try {
+    await fetchJson(`/api/reports/${pendingRejectId}/reject`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...devHeaders() },
+      body: JSON.stringify({ reason: $('rejectReason').value.slice(0, 200) }),
+    });
+    closeReject();
+    await refresh();
+  } catch (err) {
+    if (err.message !== 'unauthorized') showToast(err.message);
+  } finally {
+    $('doRejectBtn').disabled = false;
+  }
 }
 
 async function refresh() {
   try {
     await Promise.all([loadQueue(), loadRecords()]);
-  } catch (err) {
-    if (err.message !== 'unauthorized') { /* leave banner */ }
-  }
+  } catch {}
 }
 
 $('queueList').addEventListener('click', (event) => {

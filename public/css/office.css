@@ -29,6 +29,9 @@ button { cursor: pointer; }
   margin: 0 auto;
   padding: calc(72px + var(--safe-top)) 20px 40px;
 }
+.app.board {
+  padding-top: calc(20px + var(--safe-top));
+}
 .glass {
   background: var(--glass);
   backdrop-filter: blur(24px) saturate(180%);
@@ -76,9 +79,9 @@ button { cursor: pointer; }
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
-.hero-pct.hot { color: var(--hot); }
-.hero-pct.warm { color: var(--warm); }
-.hero-pct.cool { color: var(--cool); }
+.hero-pct.hot, .status-word.hot { color: var(--hot); }
+.hero-pct.warm, .status-word.warm { color: var(--warm); }
+.hero-pct.cool, .status-word.cool { color: var(--cool); }
 .status-word { display: block; text-align: center; font-weight: 600; margin-top: 8px; }
 .meta-row {
   display: flex;
@@ -90,7 +93,8 @@ button { cursor: pointer; }
 .meta-row span { color: var(--muted); }
 .meta-row b { color: var(--ink); font-weight: 600; }
 .ex-list, .zone-list, .queue, .log, .range-result { display: flex; flex-direction: column; gap: 8px; }
-.ex-item, .zone-item, .queue-item, .log-item {
+.ex-list { margin-bottom: 28px; }
+.ex-item, .zone-item, .log-item {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -98,6 +102,14 @@ button { cursor: pointer; }
   padding: 12px 4px;
   background: transparent;
   border: 0;
+}
+.ex-item b { font-weight: 700; font-size: 1.08em; }
+.queue-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px 4px;
 }
 .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 20px; }
 .pill {

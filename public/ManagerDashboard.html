@@ -10,7 +10,8 @@
 <title>看板</title>
 </head>
 <body>
-<main class="app">
+<main class="app board">
+  <div class="banner" id="failBanner">無法更新</div>
   <div class="board-when" id="when"></div>
   <div class="hero-pct" id="gaugePct">—</div>
   <span class="status-word" id="statusWord"></span>
@@ -22,7 +23,6 @@
   <div class="ex-list" id="exList"></div>
   <div class="zone-list" id="zoneList"></div>
   <div class="chart-box" id="chartBox"></div>
-  <div class="banner" id="failBanner">無法更新</div>
 </main>
 <script type="module">
 import { formatValue, buildTowerUsage } from './js/parking-core.js';
@@ -47,6 +47,7 @@ function renderEmpty() {
   $('gaugePct').textContent = '—';
   $('gaugePct').className = 'hero-pct';
   $('statusWord').textContent = '';
+  $('statusWord').className = 'status-word';
   $('remainingNum').textContent = '—';
   $('occupiedNum').textContent = '—';
   $('capacityNum').textContent = String(towerTotal);
@@ -73,6 +74,7 @@ function render(data) {
   $('gaugePct').textContent = pct == null ? '—' : `${pct}%`;
   $('gaugePct').className = `hero-pct ${pctClass(pct)}`;
   $('statusWord').textContent = towerStatusWord(pct);
+  $('statusWord').className = `status-word ${pctClass(pct)}`;
   $('remainingNum').textContent = tower.valid ? String(tower.remaining) : '—';
   $('occupiedNum').textContent = tower.valid ? String(tower.occupied) : '—';
   $('capacityNum').textContent = String(towerTotal);
