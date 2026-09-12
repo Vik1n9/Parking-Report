@@ -21,7 +21,7 @@ test('office.css exists with glass control tokens', () => {
   assert.match(css, /\.ex-item b\s*\{/);
   assert.match(css, /\.status-word\.hot/);
   assert.match(css, /\.event-list::before[^{]*\{[^}]*margin-top:\s*auto/);
-  assert.match(css, /max-height:\s*280px/);
+  assert.match(css, /\.board-mid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/);
   assert.match(css, /\.board-card\[hidden\]\s*\{\s*display:\s*none/);
   assert.equal(/\.btn-primary[^{]*\{[^}]*backdrop-filter/.test(css), false);
 });
@@ -67,6 +67,7 @@ test('manager board has hero and no annotative copy', () => {
   assert.equal(html.includes('user-scalable=no'), false);
   assert.match(html, /class="app board"/);
   assert.match(html, /id="gaugeCenter"/);
+  assert.ok(html.indexOf('id="gaugeCenter"') < html.indexOf('id="eventList"'));
   assert.match(html, /id="statusWord"/);
   assert.match(html, /id="aboveNum"/);
   assert.match(html, /id="belowNum"/);

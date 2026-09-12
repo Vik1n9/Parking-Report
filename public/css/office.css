@@ -66,6 +66,13 @@ button { cursor: pointer; }
 .board-kpi.warm b { color: #ff5a1f; }
 .board-kpi.cool b { color: #34c759; }
 .board-mid, .board-bottom { display: grid; gap: 12px; }
+.board-mid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+.board-mid:has(> #eventCard[hidden]) {
+  grid-template-columns: minmax(0, 1fr);
+}
 .board-card {
   background: #f4f4f5;
   border-radius: 24px;
@@ -77,10 +84,11 @@ button { cursor: pointer; }
   color: #fff;
 }
 .board-card.accent .event-time { color: rgba(255,255,255,0.8); }
+.board-mid > .board-card { min-height: 0; }
 .board-card:has(> .event-list) {
   display: flex;
   flex-direction: column;
-  max-height: 280px;
+  overflow: hidden;
 }
 .board-card[hidden] { display: none; }
 .gauge-wrap { position: relative; width: min(100%, 280px); margin: 0 auto; }
@@ -130,7 +138,6 @@ button { cursor: pointer; }
   font-weight: 650;
 }
 @media (min-width: 860px) {
-  .board-mid { grid-template-columns: 1.15fr 0.85fr; align-items: stretch; }
   .board-bottom { grid-template-columns: 1.15fr 0.85fr; }
 }
 .glass {
