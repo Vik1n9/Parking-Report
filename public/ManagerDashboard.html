@@ -58,12 +58,12 @@ function escapeHtml(text) {
 
 function fieldStatus(events) {
   const open = (events || []).filter((event) => !event.clearedAt);
-  if (open.some((event) => event.kind === 'jam' || event.kind === 'special')) {
-    return { word: '擁塞', cls: 'hot' };
+  if (open.some((event) => event.kind === 'guiding')) return { word: '引導', cls: 'warm' };
+  if (open.some((event) => event.kind === 'jam')) return { word: '擁塞', cls: 'hot' };
+  if (open.some((event) => event.kind === 'special' && String(event.detail || '').includes('車禍'))) {
+    return { word: '車禍', cls: 'hot' };
   }
-  if (open.some((event) => event.kind === 'guiding')) {
-    return { word: '引導中', cls: 'warm' };
-  }
+  if (open.some((event) => event.kind === 'special')) return { word: '擁塞', cls: 'hot' };
   return { word: '順暢', cls: 'cool' };
 }
 
