@@ -80,6 +80,7 @@ button { cursor: pointer; }
 .board-card:has(> .event-list) {
   display: flex;
   flex-direction: column;
+  max-height: 280px;
 }
 .board-card[hidden] { display: none; }
 .gauge-wrap { position: relative; width: min(100%, 280px); margin: 0 auto; }

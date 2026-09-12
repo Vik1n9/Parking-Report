@@ -21,6 +21,7 @@ test('office.css exists with glass control tokens', () => {
   assert.match(css, /\.ex-item b\s*\{/);
   assert.match(css, /\.status-word\.hot/);
   assert.match(css, /\.event-list::before[^{]*\{[^}]*margin-top:\s*auto/);
+  assert.match(css, /max-height:\s*280px/);
   assert.match(css, /\.board-card\[hidden\]\s*\{\s*display:\s*none/);
   assert.equal(/\.btn-primary[^{]*\{[^}]*backdrop-filter/.test(css), false);
 });

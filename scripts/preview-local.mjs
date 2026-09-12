@@ -109,6 +109,22 @@ const SCENES = {
   }),
 };
 
+const TODAY_EVENTS = [
+  { kind: 'jam', zone: 'p1', start: '09:12', end: '09:28' },
+  { kind: 'special', zone: 'asphalt', start: '10:05', end: '10:42', detail: '施工' },
+  { kind: 'jam', zone: 'p3', start: '11:18', end: '11:36' },
+  { kind: 'jam', zone: 'spin_a', start: '11:50', end: '12:14' },
+  { kind: 'guiding', start: '12:37' },
+  { kind: 'jam', zone: 'p1', start: '12:52', end: '13:10' },
+  { kind: 'special', zone: 'p3', start: '13:18', end: '13:55', detail: '車禍' },
+  { kind: 'jam', zone: 'spin_b', start: '14:08', end: '14:31' },
+  { kind: 'special', start: '14:22', end: '14:48', detail: '閘門' },
+  { kind: 'jam', zone: 'p1', start: '14:50', end: '15:12' },
+  { kind: 'special', zone: 'spin_c', start: '15:20', end: '15:44', detail: '車禍' },
+  { kind: 'jam', zone: 'p3', start: '15:38' },
+  { kind: 'special', zone: 'asphalt', start: '16:06', detail: '路樹' },
+];
+
 const TODAY_CURVE = [
   ['08:40', 720, 380],
   ['09:05', 610, 310],
@@ -199,10 +215,14 @@ function buildSql() {
     'DELETE FROM guard_devices;',
     'DELETE FROM site_events;',
     `INSERT INTO guard_devices (id, label, token_hash) VALUES (1, 'A1', ${sqlStr(TOKEN_HASH)});`,
-    `INSERT INTO site_events (site_id, business_date, kind, zone_code, occurred_at, cleared_at, detail, created_by)
-     VALUES (1, ${sqlStr(today)}, 'guiding', NULL, ${sqlStr(taipeiInstant(today, '12:37').toISOString())}, NULL, NULL, 'console@example.test');`,
-    `INSERT INTO site_events (site_id, business_date, kind, zone_code, occurred_at, cleared_at, detail, created_by)
-     VALUES (1, ${sqlStr(today)}, 'jam', 'p1', ${sqlStr(taipeiInstant(today, '12:52').toISOString())}, ${sqlStr(taipeiInstant(today, '13:10').toISOString())}, NULL, 'console@example.test');`,
+    ...TODAY_EVENTS.map((event) => {
+      const zone = event.zone == null ? 'NULL' : sqlStr(event.zone);
+      const occurred = sqlStr(taipeiInstant(today, event.start).toISOString());
+      const cleared = event.end ? sqlStr(taipeiInstant(today, event.end).toISOString()) : 'NULL';
+      const detail = event.detail == null ? 'NULL' : sqlStr(event.detail);
+      return `INSERT INTO site_events (site_id, business_date, kind, zone_code, occurred_at, cleared_at, detail, created_by)
+     VALUES (1, ${sqlStr(today)}, ${sqlStr(event.kind)}, ${zone}, ${occurred}, ${cleared}, ${detail}, 'console@example.test');`;
+    }),
   ];
 
   for (const row of rows) {
@@ -236,7 +256,7 @@ console.log(`${HOST}/ManagerDashboard`);
 console.log(`${HOST}/CenterConsole`);
 console.log(`${HOST}/secretary`);
 console.log(`${HOST}/guard#key=${TOKEN}`);
-console.log(`confirmed ${d3}..${today} · pending 2 · device A1`);
+console.log(`confirmed ${d3}..${today} · pending 2 · events ${TODAY_EVENTS.length} · device A1`);
 console.log('');
 
 if (seedOnly) process.exit(0);
