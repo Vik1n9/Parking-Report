@@ -51,3 +51,20 @@ test('manager board has hero and no annotative copy', () => {
   assert.equal(body.includes('href="/CenterConsole"'), false);
   for (const word of FORBIDDEN) assert.equal(body.includes(word), false);
 });
+
+test('secretary is download with 2/3/4 day chips', () => {
+  const { html, body } = pageBody('secretary.html');
+  assert.match(html, /href="\.\/css\/office\.css"/);
+  assert.match(html, /office-chrome\.js/);
+  assert.match(html, /office-dates\.js/);
+  assert.match(html, /mountChrome\(/);
+  assert.match(body, />最近 2 天</);
+  assert.match(body, />最近 3 天</);
+  assert.match(body, />最近 4 天</);
+  assert.match(body, />自訂</);
+  assert.match(body, />下載</);
+  assert.equal(body.includes('下載主管報表'), false);
+  assert.equal(body.includes('秘書彙整'), false);
+  assert.equal(body.includes('此區間沒有紀錄'), false);
+  assert.match(body, /href="\/CenterConsole"/);
+});
