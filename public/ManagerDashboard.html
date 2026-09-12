@@ -47,7 +47,7 @@ import { buildTowerUsage, formatTime, formatValue } from './js/parking-core.js';
 
 const POLL_MS = 30000;
 const ARC = 314;
-const KIND_WORD = { guiding: '引導', jam: '塞車', special: '狀況' };
+const KIND_WORD = { guiding: '引導', jam: '塞車', special: '車禍' };
 const $ = (id) => document.getElementById(id);
 let towerTotal = 1600;
 let lastOk = null;
@@ -60,10 +60,7 @@ function fieldStatus(events) {
   const open = (events || []).filter((event) => !event.clearedAt);
   if (open.some((event) => event.kind === 'guiding')) return { word: '引導', cls: 'warm' };
   if (open.some((event) => event.kind === 'jam')) return { word: '擁塞', cls: 'hot' };
-  if (open.some((event) => event.kind === 'special' && String(event.detail || '').includes('車禍'))) {
-    return { word: '車禍', cls: 'hot' };
-  }
-  if (open.some((event) => event.kind === 'special')) return { word: '擁塞', cls: 'hot' };
+  if (open.some((event) => event.kind === 'special')) return { word: '車禍', cls: 'hot' };
   return { word: '順暢', cls: 'cool' };
 }
 

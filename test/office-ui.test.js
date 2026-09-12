@@ -79,7 +79,8 @@ test('manager board has hero and no annotative copy', () => {
   assert.match(html, /word: '擁塞'/);
   assert.match(html, /word: '車禍'/);
   assert.ok(html.indexOf("kind === 'guiding'") < html.indexOf("kind === 'jam'"));
-  assert.ok(html.indexOf("kind === 'jam'") < html.indexOf('車禍'));
+  assert.ok(html.indexOf("kind === 'jam'") < html.indexOf("kind === 'special'"));
+  assert.match(html, /special: '車禍'/);
   assert.match(body, />車塔一樓以上</);
   assert.match(body, />車塔一樓以下</);
   assert.match(body, />紡外大致成數</);

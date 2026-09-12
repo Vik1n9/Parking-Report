@@ -111,18 +111,17 @@ const SCENES = {
 
 const TODAY_EVENTS = [
   { kind: 'jam', zone: 'p1', start: '09:12', end: '09:28' },
-  { kind: 'special', zone: 'asphalt', start: '10:05', end: '10:42', detail: '施工' },
-  { kind: 'jam', zone: 'p3', start: '11:18', end: '11:36' },
-  { kind: 'jam', zone: 'spin_a', start: '11:50', end: '12:14' },
+  { kind: 'jam', zone: 'p3', start: '10:05', end: '10:22' },
+  { kind: 'jam', zone: 'spin_a', start: '11:18', end: '11:36' },
+  { kind: 'jam', zone: 'p1', start: '11:50', end: '12:14' },
   { kind: 'guiding', start: '12:37' },
   { kind: 'jam', zone: 'p1', start: '12:52', end: '13:10' },
-  { kind: 'special', zone: 'p3', start: '13:18', end: '13:55', detail: '車禍' },
+  { kind: 'special', zone: 'p3', start: '13:18', end: '13:55' },
   { kind: 'jam', zone: 'spin_b', start: '14:08', end: '14:31' },
-  { kind: 'special', start: '14:22', end: '14:48', detail: '閘門' },
-  { kind: 'jam', zone: 'p1', start: '14:50', end: '15:12' },
-  { kind: 'special', zone: 'spin_c', start: '15:20', end: '15:44', detail: '車禍' },
-  { kind: 'jam', zone: 'p3', start: '15:38' },
-  { kind: 'special', zone: 'asphalt', start: '16:06', detail: '路樹' },
+  { kind: 'special', zone: 'p1', start: '14:40', end: '15:12' },
+  { kind: 'jam', zone: 'p3', start: '15:20', end: '15:38' },
+  { kind: 'special', zone: 'spin_c', start: '15:44' },
+  { kind: 'jam', zone: 'p1', start: '16:06' },
 ];
 
 const TODAY_CURVE = [
