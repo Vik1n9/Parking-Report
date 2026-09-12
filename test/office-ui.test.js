@@ -97,6 +97,7 @@ test('manager board has hero and no annotative copy', () => {
   assert.match(html, /id="shotCard"/);
   assert.match(html, /data-i/);
   assert.match(html, /chart-hit/);
+  assert.match(html, /point\.reportTime === selectedTime \? null : point\.reportTime/);
   assert.equal(html.includes('id="histList"'), false);
   assert.match(html, /site_events|eventList|KIND_WORD/);
   assert.match(html, /localeCompare\(String\(b\.occurredAt\)\)/);

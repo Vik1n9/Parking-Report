@@ -236,9 +236,9 @@ $('chartBox').addEventListener('click', (ev) => {
   if (!hit || !lastOk) return;
   const point = chartPoints[Number(hit.dataset.i)];
   if (!point) return;
-  selectedTime = point.reportTime;
+  selectedTime = point.reportTime === selectedTime ? null : point.reportTime;
   renderChart(chartPoints, selectedTime);
-  renderShot(point, lastOk.zones || []);
+  renderShot(selectedTime ? point : null, lastOk.zones || []);
 });
 
 refresh();
