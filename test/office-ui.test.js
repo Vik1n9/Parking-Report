@@ -68,3 +68,19 @@ test('secretary is download with 2/3/4 day chips', () => {
   assert.equal(body.includes('此區間沒有紀錄'), false);
   assert.match(body, /href="\/CenterConsole"/);
 });
+
+test('console confirm sheet previews report and copies', () => {
+  const { html, body } = pageBody('CenterConsole.html');
+  assert.match(html, /href="\.\/css\/office\.css"/);
+  assert.match(html, /office-chrome\.js/);
+  assert.match(html, /mountChrome\(/);
+  assert.match(html, /id="previewText"/);
+  assert.match(html, /確認並複製/);
+  assert.match(html, /再複製/);
+  assert.equal(body.includes('prompt('), false);
+  assert.equal(body.includes('待確認回報'), false);
+  assert.equal(body.includes('今日已確認'), false);
+  assert.equal(body.includes('中控台'), false);
+  assert.equal(/[^/]CenterConsole/.test(body), false);
+  assert.match(html, /id="rejectSheet"/);
+});
