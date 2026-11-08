@@ -31,30 +31,51 @@ test('office.css exists with glass control tokens', () => {
   assert.equal(/\.btn-primary[^{]*\{[^}]*backdrop-filter/.test(css), false);
 });
 
-test('mountChrome renders console/export without product copy', () => {
+test('mountChrome filters nav by role and shows the signed-in user', () => {
   const el = { innerHTML: '' };
-  mountChrome(el, { current: 'console', date: '2026-09-13' });
+  mountChrome(el, { current: 'console', date: '2026-09-13', me: { displayName: '中控', role: 'console' } });
+  assert.match(el.innerHTML, /class="glass chrome-bar"/);
+  assert.match(el.innerHTML, /class="seg"/);
   assert.match(el.innerHTML, /href="\/CenterConsole"/);
-  assert.match(el.innerHTML, /href="\/secretary"/);
-  assert.match(el.innerHTML, />中控</);
-  assert.match(el.innerHTML, />匯出</);
-  assert.match(el.innerHTML, /2026-09-13/);
+  assert.match(el.innerHTML, /href="\/ManagerDashboard"/);
+  assert.equal(el.innerHTML.includes('href="/secretary"'), false);
   assert.match(el.innerHTML, /aria-current="page"/);
   assert.match(el.innerHTML, /class="seg-item is-current" href="\/CenterConsole" aria-current="page">中控</);
+  assert.match(el.innerHTML, /2026-09-13/);
+  assert.match(el.innerHTML, /中控/);
+  assert.match(el.innerHTML, /data-logout/);
+  assert.match(el.innerHTML, />登出</);
   assert.equal(el.innerHTML.includes('停車回報'), false);
   assert.equal(el.innerHTML.includes('唯讀'), false);
   assert.equal(el.innerHTML.includes('儀表板'), false);
   assert.equal(el.innerHTML.includes('中控台'), false);
 });
 
-test('mountChrome marks 匯出 current', () => {
+test('mountChrome renders a role-less nav with only the current item', () => {
   const el = { innerHTML: '' };
   mountChrome(el, { current: 'export', date: '2026-09-13' });
-  assert.match(el.innerHTML, />中控</);
-  assert.match(el.innerHTML, />匯出</);
-  assert.match(el.innerHTML, /href="\/CenterConsole"/);
   assert.match(el.innerHTML, /class="seg-item is-current" href="\/secretary" aria-current="page">匯出</);
+  assert.equal(el.innerHTML.includes('/CenterConsole'), false);
+  assert.equal(el.innerHTML.includes('data-logout'), false);
   assert.equal(el.innerHTML.includes('aria-current="page">中控'), false);
+});
+
+test('mountChrome follows the role matrix', () => {
+  const cases = [
+    ['secretary', 'export', ['/secretary', '/ManagerDashboard'], ['/CenterConsole', '/review', '/guard', '/admin']],
+    ['captain', 'review', ['/review', '/guard'], ['/CenterConsole', '/secretary', '/ManagerDashboard', '/admin']],
+    ['patrol', 'guard', ['/guard'], ['/review', '/CenterConsole', '/secretary', '/ManagerDashboard', '/admin']],
+    ['manager', 'dashboard', ['/ManagerDashboard'], ['/CenterConsole', '/secretary', '/review', '/guard', '/admin']],
+    ['admin', 'admin', ['/CenterConsole', '/secretary', '/ManagerDashboard', '/review', '/guard', '/admin'], []],
+  ];
+  for (const [role, current, present, absent] of cases) {
+    const el = { innerHTML: '' };
+    mountChrome(el, { current, date: '2026-09-13', me: { displayName: role, role } });
+    for (const href of present) assert.ok(el.innerHTML.includes(`href="${href}"`), `${role} should see ${href}`);
+    for (const href of absent) assert.equal(el.innerHTML.includes(`href="${href}"`), false, `${role} should not see ${href}`);
+    assert.match(el.innerHTML, /aria-current="page"/);
+    assert.match(el.innerHTML, /data-logout/);
+  }
 });
 
 function pageBody(file) {
@@ -106,6 +127,9 @@ test('manager board has hero and no annotative copy', () => {
   assert.equal(body.includes('href="/CenterConsole"'), false);
   assert.equal(body.includes('異常'), false);
   assert.equal(body.includes('office-exceptions.js'), false);
+  assert.match(html, /\/api\/dashboard\/current/);
+  assert.equal(html.includes('/api/public/current'), false);
+  assert.match(html, /import \{ apiFetch \} from '\.\/js\/session\.js'/);
   for (const word of FORBIDDEN) assert.equal(body.includes(word), false);
 });
 
@@ -116,6 +140,9 @@ test('secretary is download with 2/3/4 day chips', () => {
   assert.match(html, /office-dates\.js/);
   assert.match(html, /mountChrome\(/);
   assert.match(html, /current:\s*'export'/);
+  assert.match(html, /loadMe\(/);
+  assert.match(html, /apiFetch\(/);
+  assert.equal(html.includes('authBanner'), false);
   assert.match(body, />最近 2 天</);
   assert.match(body, />最近 3 天</);
   assert.match(body, />最近 4 天</);
@@ -146,9 +173,10 @@ test('console confirm sheet previews report and copies', () => {
   assert.match(html, /async function doReject\(\) \{[\s\S]*try \{[\s\S]*catch \(err\)/);
   assert.match(html, /\$\('remarkRows'\)\.hidden = true/);
   assert.equal(html.includes('leave banner'), false);
-  assert.match(html, /import \{[^}]*\bnormalizeInput\b[^}]*\bvalidateValue\b[^}]*\} from '\.\/js\/parking-core\.js'/);
-  assert.match(html, /normalizeInput\(/);
-  assert.match(html, /validateValue\(/);
+  assert.match(html, /import \{[^}]*\bparseCorrection\b[^}]*\bmergeCorrections\b[^}]*\} from '\.\/js\/value-edit\.js'/);
+  assert.match(html, /import \{[^}]*\bloadMe\b[^}]*\bapiFetch\b[^}]*\} from '\.\/js\/session\.js'/);
+  assert.match(html, /parseCorrection\(/);
+  assert.match(html, /mergeCorrections\(/);
   assert.match(html, /buildTowerUsage\(/);
   assert.match(html, /id="boardTarget"/);
   assert.match(html, /顯示牌應設為/);
@@ -160,6 +188,12 @@ test('console confirm sheet previews report and copies', () => {
   assert.match(html, /encodeURIComponent/);
   assert.match(html, /保全原值/);
   assert.match(html, /已修正/);
+  assert.match(html, /隊長已複核/);
+  assert.match(html, /隊長修正/);
+  assert.match(html, /車巡原值/);
+  assert.equal(html.includes('x-dev-user'), false);
+  assert.equal(html.includes('devHeaders'), false);
+  assert.equal(html.includes('authBanner'), false);
   assert.match(html, /towerRemaining/);
   assert.match(html, /display_before/);
   assert.equal(/\balert\(/.test(body), false);

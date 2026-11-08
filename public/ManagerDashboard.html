@@ -45,6 +45,7 @@
 </main>
 <script type="module">
 import { buildTowerUsage, formatTime, formatValue } from './js/parking-core.js';
+import { apiFetch } from './js/session.js';
 
 const POLL_MS = 30000;
 const ARC = 314;
@@ -219,13 +220,12 @@ function render(data) {
 
 async function refresh() {
   try {
-    const response = await fetch('/api/public/current');
-    const data = await response.json();
-    if (!response.ok) throw new Error('bad');
+    const data = await apiFetch('/api/dashboard/current');
     lastOk = data;
     $('failBanner').classList.remove('show');
     render(data);
-  } catch {
+  } catch (err) {
+    if (err.message === 'unauthorized' || err.message === 'must-change-password') return;
     $('failBanner').classList.add('show');
     if (lastOk) render(lastOk);
   }

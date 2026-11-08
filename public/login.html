@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f5f7">
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./css/office.css">
+<title>登入</title>
+</head>
+<body>
+<main class="app">
+  <section class="glass login-card">
+    <h1 class="login-title">登入</h1>
+    <form id="loginForm" novalidate>
+      <label class="form-field">
+        <span>帳號</span>
+        <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </label>
+      <label class="form-field">
+        <span>密碼</span>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="btn-primary login-submit" id="loginBtn" type="submit">登入</button>
+      <p class="form-error" id="loginError" hidden></p>
+    </form>
+    <form id="changeForm" novalidate hidden>
+      <label class="form-field">
+        <span>目前密碼</span>
+        <input id="currentPassword" type="password" autocomplete="current-password" required>
+      </label>
+      <label class="form-field">
+        <span>新密碼</span>
+        <input id="newPassword" type="password" autocomplete="new-password" required>
+      </label>
+      <label class="form-field">
+        <span>再輸入一次</span>
+        <input id="confirmPassword" type="password" autocomplete="new-password" required>
+      </label>
+      <button class="btn-primary login-submit" id="changeBtn" type="submit">儲存</button>
+      <p class="form-error" id="changeError" hidden></p>
+    </form>
+  </section>
+</main>
+<script type="module">
+import { safeNext } from './js/session.js';
+
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const wantsChange = params.get('change') === '1';
+const nextTarget = safeNext(params.get('next'), location.origin);
+let me = null;
+
+function destination(user) {
+  return nextTarget || user?.home || '/';
+}
+
+function setError(el, message) {
+  el.textContent = message;
+  el.hidden = false;
+}
+
+function clearError(el) {
+  el.textContent = '';
+  el.hidden = true;
+}
+
+async function fetchMe() {
+  try {
+    const response = await fetch('/api/me', { credentials: 'same-origin' });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.me || null;
+  } catch {
+    return null;
+  }
+}
+
+function showLogin() {
+  $('changeForm').hidden = true;
+  $('loginForm').hidden = false;
+  $('username').focus();
+}
+
+function showChange() {
+  $('loginForm').hidden = true;
+  $('changeForm').hidden = false;
+  $('currentPassword').focus();
+}
+
+async function doLogin(event) {
+  event.preventDefault();
+  clearError($('loginError'));
+  $('loginBtn').disabled = true;
+  try {
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: $('username').value.trim(), password: $('password').value }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || '登入失敗');
+    me = data.me || null;
+    if (me?.mustChangePw || wantsChange) {
+      showChange();
+      return;
+    }
+    location.replace(destination(me));
+  } catch (err) {
+    setError($('loginError'), err.message);
+  } finally {
+    $('loginBtn').disabled = false;
+  }
+}
+
+async function doChange(event) {
+  event.preventDefault();
+  clearError($('changeError'));
+  const currentPassword = $('currentPassword').value;
+  const newPassword = $('newPassword').value;
+  const confirmPassword = $('confirmPassword').value;
+  if (newPassword.length < 8) {
+    setError($('changeError'), '新密碼至少 8 字');
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    setError($('changeError'), '兩次密碼不一致');
+    return;
+  }
+  $('changeBtn').disabled = true;
+  try {
+    const response = await fetch('/api/change-password', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || '無法變更密碼');
+    const updated = await fetchMe();
+    location.replace(destination(updated || me));
+  } catch (err) {
+    setError($('changeError'), err.message);
+  } finally {
+    $('changeBtn').disabled = false;
+  }
+}
+
+$('loginForm').addEventListener('submit', doLogin);
+$('changeForm').addEventListener('submit', doChange);
+
+(async () => {
+  me = await fetchMe();
+  if (me && (me.mustChangePw || wantsChange)) {
+    showChange();
+    return;
+  }
+  if (me) {
+    location.replace(destination(me));
+    return;
+  }
+  showLogin();
+})();
+</script>
+</body>
+</html>

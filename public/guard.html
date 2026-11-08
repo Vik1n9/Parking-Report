@@ -669,7 +669,6 @@ let towerTotal = Number(localStorage.getItem(TOWER_TOTAL_CACHE_KEY)) || 1600;
 
 const HISTORY_STORAGE_KEY = 'parking_guard_history_v1';
 const OUTBOX_STORAGE_KEY = 'parking_guard_outbox_v1';
-const DEVICE_KEY_STORAGE = 'parking_guard_device_key_v1';
 const MAX_HISTORY = 30;
 const AUTO_ADVANCE_CAR_DIGITS = 3;
 const AUTO_ADVANCE_DELAY_MS = 650;
@@ -1040,18 +1039,6 @@ async function refreshZones() {
   } catch {}
 }
 
-function getDeviceKey() {
-  return localStorage.getItem(DEVICE_KEY_STORAGE) || '';
-}
-
-function setupDeviceKeyFromHash() {
-  const match = location.hash.match(/^#key=([A-Za-z0-9_-]+)$/);
-  if (!match) return false;
-  localStorage.setItem(DEVICE_KEY_STORAGE, match[1]);
-  history.replaceState(null, '', location.pathname + location.search);
-  return true;
-}
-
 function loadOutbox() {
   try {
     const stored = JSON.parse(localStorage.getItem(OUTBOX_STORAGE_KEY) || '[]');
@@ -1066,17 +1053,19 @@ function saveOutbox() {
 }
 
 function renderSync() {
-  const hasKey = !!getDeviceKey();
   syncStatus.className = 'sync-chip';
   if (syncError === 'unauthorized') {
     syncStatus.classList.add('bad');
-    syncStatus.textContent = '裝置未授權，請聯絡中控';
+    syncStatus.textContent = '登入已過期，點此重新登入';
+  } else if (syncError === 'forbidden') {
+    syncStatus.classList.add('bad');
+    syncStatus.textContent = '此帳號不能送出回報';
   } else if (syncing) {
     syncStatus.classList.add('warn');
     syncStatus.textContent = '同步中…';
   } else if (outbox.length) {
-    syncStatus.classList.add(hasKey ? 'warn' : 'bad');
-    syncStatus.textContent = hasKey ? `待同步 ${outbox.length}` : '未綁定裝置，僅存本機';
+    syncStatus.classList.add('warn');
+    syncStatus.textContent = `待同步 ${outbox.length}`;
   } else if (lastSyncedAt) {
     syncStatus.classList.add('good');
     syncStatus.textContent = `已同步 ${formatClock(lastSyncedAt)}`;
@@ -1087,8 +1076,7 @@ function renderSync() {
 
 async function flushOutbox() {
   if (syncing) return;
-  const hasKey = !!getDeviceKey();
-  if (!hasKey || !outbox.length) {
+  if (!outbox.length) {
     renderSync();
     return;
   }
@@ -1102,9 +1090,9 @@ async function flushOutbox() {
       try {
         response = await fetch('/api/reports', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: {
             'content-type': 'application/json',
-            'authorization': `Bearer ${getDeviceKey()}`,
           },
           body: JSON.stringify({
             client_request_id: item.clientRequestId,
@@ -1116,8 +1104,12 @@ async function flushOutbox() {
       } catch {
         throw new Error('network');
       }
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 401) {
         syncError = 'unauthorized';
+        break;
+      }
+      if (response.status === 403) {
+        syncError = 'forbidden';
         break;
       }
       if (response.ok || response.status === 400 || response.status === 422) {
@@ -1243,6 +1235,9 @@ deleteDigitBtn.addEventListener('click', deleteDigit);
 shareLineBtn.addEventListener('click', shareToLine);
 copyLineBtn.addEventListener('click', () => copyReport());
 resetBtn.addEventListener('click', resetAll);
+syncStatus.addEventListener('click', () => {
+  if (syncError === 'unauthorized') location.href = '/login?next=/guard';
+});
 document.addEventListener('pointerdown', (event) => {
   const button = event.target.closest('button');
   if (!button) return;
@@ -1253,9 +1248,9 @@ window.addEventListener('online', refreshZones);
 window.addEventListener('load', flushOutbox);
 setInterval(flushOutbox, SYNC_RETRY_MS);
 
-if (setupDeviceKeyFromHash()) {
-  showToast('裝置綁定完成');
-}
+try {
+  localStorage.removeItem('parking_guard_device_key_v1');
+} catch {}
 loadOutbox();
 renderKeypad();
 loadHistory();

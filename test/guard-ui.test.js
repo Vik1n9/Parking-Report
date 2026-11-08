@@ -95,21 +95,26 @@ test('guard page keeps legacy auto-advance and backspace flow', () => {
   assert.match(html, /deleteDigitBtn\.addEventListener\('click', deleteDigit\)/);
 });
 
-test('guard page v2 uses ESM core, device key and offline outbox', () => {
+test('guard page v2 uses ESM core and session-cookie outbox', () => {
   assert.match(html, /<script type="module">/);
   assert.match(html, /import \{[\s\S]*\} from '\.\/js\/parking-core\.js'/);
   assert.equal(html.includes('window.ParkingCore'), false);
   assert.equal(html.includes('parking-core.js"></script'), false);
 
-  assert.match(html, /DEVICE_KEY_STORAGE = 'parking_guard_device_key_v1'/);
-  assert.match(html, /function setupDeviceKeyFromHash\(\)/);
-  assert.match(html, /location\.hash\.match\(\/\^#key=/);
-  assert.match(html, /history\.replaceState\(null, '', location\.pathname \+ location\.search\)/);
+  assert.equal(html.includes('DEVICE_KEY_STORAGE'), false);
+  assert.equal(html.includes('Bearer'), false);
+  assert.equal(html.includes('#key='), false);
+  assert.equal(html.includes("setItem('parking_guard_device_key_v1'"), false);
+  assert.match(html, /localStorage\.removeItem\('parking_guard_device_key_v1'\)/);
+  assert.equal(html.includes('未綁定裝置'), false);
 
   assert.match(html, /OUTBOX_STORAGE_KEY = 'parking_guard_outbox_v1'/);
   assert.match(html, /client_request_id: item\.clientRequestId/);
   assert.match(html, /client_submitted_at: item\.submittedAt/);
-  assert.match(html, /'authorization': `Bearer \$\{getDeviceKey\(\)\}`/);
+  assert.match(html, /credentials: 'same-origin'/);
+  assert.match(html, /登入已過期，點此重新登入/);
+  assert.match(html, /此帳號不能送出回報/);
+  assert.match(html, /\/login\?next=\/guard/);
   assert.match(html, /window\.addEventListener\('online', flushOutbox\)/);
   assert.match(html, /setInterval\(flushOutbox, SYNC_RETRY_MS\)/);
   assert.match(html, /id="syncStatus"/);

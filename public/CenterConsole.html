@@ -11,7 +11,6 @@
 <body>
 <div id="chrome"></div>
 <main class="app">
-  <div class="banner" id="authBanner">請重新整理</div>
   <div class="queue" id="queueList"></div>
   <div class="log" id="recordList"></div>
 </main>
@@ -47,12 +46,13 @@
 </div>
 <div class="toast glass" id="toast"></div>
 <script type="module">
-import { normalizeInput, validateValue, formatValue, businessDate, buildReport, buildTowerUsage, formatTime } from './js/parking-core.js';
+import { formatValue, businessDate, buildReport, buildTowerUsage, formatTime } from './js/parking-core.js';
 import { mountChrome } from './js/office-chrome.js';
+import { loadMe, logout, apiFetch } from './js/session.js';
+import { sameValue, parseCorrection, mergeCorrections } from './js/value-edit.js';
 
 const POLL_MS = 8000;
 const $ = (id) => document.getElementById(id);
-mountChrome($('chrome'), { current: 'console', date: businessDate(new Date()) });
 
 let zones = [];
 let towerTotal = 1600;
@@ -63,12 +63,6 @@ let lastConsoleText = '';
 let sheetOpen = false;
 let sheetBusy = false;
 
-function isLocalDev() {
-  return location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-}
-function devHeaders() {
-  return isLocalDev() ? { 'x-dev-user': 'console@example.test' } : {};
-}
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -88,16 +82,8 @@ async function copyText(text) {
     return false;
   }
 }
-async function fetchJson(url, options = {}) {
-  const response = await fetch(url, options);
-  const data = await response.json().catch(() => ({}));
-  if (response.status === 401) {
-    $('authBanner').classList.add('show');
-    throw new Error('unauthorized');
-  }
-  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-  $('authBanner').classList.remove('show');
-  return data;
+function isRedirectError(err) {
+  return err?.message === 'unauthorized' || err?.message === 'must-change-password';
 }
 function renderZones(values) {
   return zones.map((zone) => {
@@ -110,12 +96,12 @@ function sentryFromReport(text) {
 }
 
 async function loadQueue() {
-  const data = await fetchJson('/api/reports?status=pending');
+  const data = await apiFetch('/api/reports?status=pending');
   pendingReportsCache = data.reports || [];
   const reports = pendingReportsCache;
   $('queueList').innerHTML = reports.map((report) => `
     <div class="queue-item">
-      <div><b>${escapeHtml(formatTime(report.submittedAt))}</b> ${escapeHtml(report.deviceLabel || '')}</div>
+      <div><b>${escapeHtml(formatTime(report.submittedAt))}</b> ${escapeHtml(report.deviceLabel || '')} ${report.reviewedBy ? '<span class="tag-fixed">隊長已複核</span>' : ''}</div>
       ${renderZones(report.values)}
       <div class="action-row">
         <button class="btn-primary" data-confirm="${report.id}" type="button">確認</button>
@@ -127,7 +113,7 @@ async function loadQueue() {
 
 async function loadRecords() {
   const today = businessDate(new Date());
-  const data = await fetchJson(`/api/records?from=${today}&to=${today}`);
+  const data = await apiFetch(`/api/records?from=${today}&to=${today}`);
   const records = data.records || [];
   $('recordList').innerHTML = records.map((record) => {
     const bits = [`<b>${escapeHtml(record.reportTime)}</b>`];
@@ -136,6 +122,7 @@ async function loadRecords() {
     const sentry = sentryFromReport(record.consoleReport);
     if (sentry) bits.push(escapeHtml(sentry));
     if (Object.keys(record.corrections || {}).length > 0) bits.push('<span class="tag-fixed">已修正</span>');
+    if (Object.keys(record.captainCorrections || {}).length > 0) bits.push('<span class="tag-fixed">隊長修正</span>');
     return `
     <div class="log-item">
       <div>${bits.join(' ')}</div>
@@ -146,26 +133,12 @@ async function loadRecords() {
   }).join('');
 }
 
-function sameValue(a, b) {
-  return a?.kind === b?.kind && a?.value === b?.value;
-}
-
-function parseCorrection(text, zone) {
-  try {
-    const value = normalizeInput(text, zone);
-    const check = validateValue(value, zone);
-    if (!check.ok) return { ok: false, error: check.error || '值不正確' };
-    return { ok: true, value };
-  } catch {
-    return { ok: false, error: '無法解析' };
-  }
-}
-
 function sheetState() {
-  const merged = {};
-  const corrections = {};
+  const base = {};
+  for (const zone of zones) base[zone.code] = pendingConfirm.values?.[zone.code] ?? { kind: 'none' };
+  const parsedValues = {};
+  const rows = new Map();
   let invalid = false;
-  for (const zone of zones) merged[zone.code] = pendingConfirm.values?.[zone.code] ?? { kind: 'none' };
 
   $('remarkRows').querySelectorAll('.remark-row').forEach((row) => {
     const zone = zones.find((z) => z.code === row.dataset.row);
@@ -186,15 +159,17 @@ function sheetState() {
       error.hidden = false;
       return;
     }
-    const guard = merged[zone.code];
-    if (!sameValue(parsed.value, guard)) {
-      merged[zone.code] = parsed.value;
-      corrections[zone.code] = parsed.value;
-      row.classList.add('is-changed');
-      fixed.textContent = `保全原值：${formatValue(guard)}`;
-      fixed.hidden = false;
-    }
+    parsedValues[zone.code] = parsed.value;
+    rows.set(zone.code, { row, fixed });
   });
+
+  const { merged, corrections } = mergeCorrections(base, parsedValues);
+  for (const [code, { row, fixed }] of rows) {
+    if (sameValue(parsedValues[code], base[code])) continue;
+    row.classList.add('is-changed');
+    fixed.textContent = `保全原值：${formatValue(base[code])}`;
+    fixed.hidden = false;
+  }
 
   const displayText = $('displayBefore').value.trim();
   let displayBefore = null;
@@ -234,11 +209,13 @@ function openConfirm(report) {
   sheetBusy = false;
   $('remarkRows').innerHTML = zones.map((zone) => {
     const guard = report.values?.[zone.code] ?? { kind: 'none' };
+    const captain = report.reviewCorrections?.[zone.code];
     return `
     <div class="remark-row" data-row="${escapeHtml(zone.code)}">
       <span class="remark-zone">${escapeHtml(zone.label)}</span>
       <input class="remark-value" type="text" inputmode="text" autocomplete="off" data-value aria-label="${escapeHtml(zone.label)} 數值" placeholder="${escapeHtml(formatValue(guard))}">
       <input class="remark-note" type="text" maxlength="50" autocomplete="off" data-code="${escapeHtml(zone.code)}" aria-label="${escapeHtml(zone.label)} 備註" placeholder="備註">
+      ${captain ? `<p class="remark-captain">車巡原值：${escapeHtml(formatValue(captain))}</p>` : ''}
       <p class="remark-fixed" hidden></p>
       <p class="remark-error" hidden></p>
     </div>
@@ -276,9 +253,9 @@ async function doConfirm() {
   sheetBusy = true;
   $('doConfirmBtn').disabled = true;
   try {
-    const data = await fetchJson(`/api/reports/${pendingConfirm.id}/confirm`, {
+    const data = await apiFetch(`/api/reports/${pendingConfirm.id}/confirm`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', ...devHeaders() },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
     const record = data.record || {};
@@ -292,7 +269,7 @@ async function doConfirm() {
     await copyText(lastConsoleText);
     await refresh();
   } catch (err) {
-    if (err.message !== 'unauthorized') showToast(err.message);
+    if (!isRedirectError(err)) showToast(err.message);
   } finally {
     sheetBusy = false;
     if (pendingConfirm) $('doConfirmBtn').disabled = sheetState().invalid;
@@ -314,15 +291,15 @@ async function doReject() {
   if (!pendingRejectId) return;
   $('doRejectBtn').disabled = true;
   try {
-    await fetchJson(`/api/reports/${pendingRejectId}/reject`, {
+    await apiFetch(`/api/reports/${pendingRejectId}/reject`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', ...devHeaders() },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ reason: $('rejectReason').value.slice(0, 200) }),
     });
     closeReject();
     await refresh();
   } catch (err) {
-    if (err.message !== 'unauthorized') showToast(err.message);
+    if (!isRedirectError(err)) showToast(err.message);
   } finally {
     $('doRejectBtn').disabled = false;
   }
@@ -370,16 +347,23 @@ $('rejectSheet').addEventListener('click', (event) => {
   if (event.target === $('rejectSheet')) closeReject();
 });
 
-(async () => {
+async function start() {
   try {
-    const data = await fetchJson('/api/zones');
+    const data = await apiFetch('/api/zones');
     zones = data.zones || [];
     towerTotal = Number.isFinite(data.towerTotal) ? data.towerTotal : 1600;
   } catch {
     zones = [];
   }
   await refresh();
-})();
+}
+
+const me = await loadMe();
+if (me) {
+  mountChrome($('chrome'), { current: 'console', date: businessDate(new Date()), me });
+  document.querySelector('[data-logout]')?.addEventListener('click', logout);
+  await start();
+}
 setInterval(() => {
   if (!sheetOpen) refresh();
 }, POLL_MS);
