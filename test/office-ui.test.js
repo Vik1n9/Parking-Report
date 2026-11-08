@@ -25,10 +25,40 @@ test('office.css exists with glass control tokens', () => {
   assert.match(css, /\.ex-item b\s*\{/);
   assert.match(css, /\.status-word\.hot/);
   assert.match(css, /\.event-list::before[^{]*\{[^}]*margin-top:\s*auto/);
-  assert.match(css, /\.event-list\s*\{[^}]*max-height:\s*calc\(5 \* 1\.4em \+ 4 \* 10px\)/);
+  assert.match(css, /\.event-list\s*\{[^}]*max-height:\s*calc\(5 \* 1\.5rem \+ 4 \* 10px\)/);
   assert.match(css, /\.board-mid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/);
   assert.match(css, /\.board-card\[hidden\]\s*\{\s*display:\s*none/);
   assert.equal(/\.btn-primary[^{]*\{[^}]*backdrop-filter/.test(css), false);
+});
+
+test('office.css stacks and fits the small screens (nav, dashboard, console)', () => {
+  const css = fs.readFileSync(path.join(here, '..', 'public', 'css', 'office.css'), 'utf8');
+  // narrow-screen top bar: two rows, tabs full-width with 44px targets, date hidden, content offset
+  assert.match(css, /\.app\s*\{\s*padding-top:\s*calc\(118px \+ var\(--safe-top\)\)/);
+  assert.match(css, /\.chrome-bar\s*\{[^}]*flex-wrap:\s*wrap/);
+  assert.match(css, /\.seg\s*\{[^}]*flex:\s*1 1 100%/);
+  assert.match(css, /\.seg-item\s*\{[^}]*flex:\s*1 1 0/);
+  assert.match(css, /\.seg-item\s*\{[^}]*min-height:\s*44px/);
+  assert.match(css, /\.chrome-date\s*\{\s*display:\s*none/);
+  assert.match(css, /\.chrome-logout\s*\{\s*min-height:\s*44px/);
+  // dashboard below 720px: gauge and event cards stack at full width
+  assert.match(css, /@media \(max-width:\s*720px\)[^]*?\.board-mid\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  // gauge readout never overlaps the arc (no longer absolutely positioned over it)
+  assert.equal(/\.gauge-read\s*\{[^}]*position:\s*absolute/.test(css), false);
+  // event rows keep time and label on one line, at a fixed height so the
+  // list cap always shows exactly 5 whole rows (rem, not row font-size)
+  assert.match(css, /\.event-row\s*\{[^}]*flex-wrap:\s*nowrap/);
+  assert.match(css, /\.event-row\s*\{[^}]*height:\s*1\.5rem/);
+  assert.match(css, /\.event-row\s*\{[^}]*line-height:\s*1\.5rem/);
+  // chart card sizes to its content (no min-height floor, aligned to start)
+  assert.match(css, /\.chart-box\s*\{[^}]*min-height:\s*0/);
+  assert.match(css, /\.chart-box\s*\{[^}]*align-self:\s*start/);
+  // board-mid keeps the same gap before the chart card as between the other cards
+  assert.match(css, /\.board-mid\s*\{[^}]*margin-bottom:\s*12px/);
+  // console at >= 1024px: two columns, queue left, records right
+  assert.match(css, /@media \(min-width:\s*1024px\)[^]*?\.console-cols\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/);
+  assert.match(css, /\.app-console\s*\{\s*width:\s*min\(100%,\s*1120px\)/);
+  assert.match(css, /\.console-heading\s*\{/);
 });
 
 test('mountChrome filters nav by role and shows the signed-in user', () => {
