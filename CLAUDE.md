@@ -10,7 +10,7 @@ Old static version: branch `legacy-static` (serves GitHub Pages site). `main` = 
 - `src/auth.js`: single auth core — six roles, PBKDF2-SHA256 passwords, D1 sessions, login rate limits, Origin check, cookie helpers. No Access JWT, no device tokens.
 - `src/routes/`: `auth` (login/logout/me/change-password), `users` (admin list/create/reset/status/patch), zones, reports (submit/queue/confirm/reject), records (query), dashboard (manager read-only).
 - `src/export/xlsx.js`: ExcelJS manager template (ROC year, side-by-side date tables, alternating remaining-spaces/remarks rows).
-- `public/guard.html`: guard page. Layout/interaction MUST NOT change (glare, one-hand, first-screen principles in PRODUCT.md); behavior locked by string assertions in `test/guard-ui.test.js`; sends queued reports with the session cookie.
+- `public/guard.html`: guard page. Layout/interaction MUST NOT change (glare, one-hand, first-screen principles in PRODUCT.md); behavior locked by string assertions in `test/guard-ui.test.js`; sends queued reports with the session cookie. Tower usage, LINE preview and history cards removed at owner request (2026-11-09); do not re-add.
 - `public/CenterConsole.html` control console; `public/ManagerDashboard.html` manager read-only; `public/secretary.html` secretary export.
 - `public/login.html`: login and forced password change. `public/review.html`: phone-first captain review. `public/admin.html`: account management.
 - `public/js/session.js`: browser session bootstrap (`loadMe`, `logout`, `apiFetch` redirects). `public/js/value-edit.js`: shared per-zone correction parsing for console and captain review.
