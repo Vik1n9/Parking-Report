@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto';
 import { writeFileSync, existsSync, copyFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -11,10 +10,19 @@ import {
   buildTowerUsage,
   formatTime,
 } from '../public/js/parking-core.js';
+import { hashPassword } from '../src/auth.js';
 
 const HOST = 'http://127.0.0.1:8787';
-const TOKEN = 'preview-A1-not-a-secret';
-const TOKEN_HASH = createHash('sha256').update(TOKEN).digest('hex');
+const DEV_PASSWORD = 'local-dev-pass';
+const DEV_PASSWORD_HASH = await hashPassword(DEV_PASSWORD);
+const ACCOUNTS = [
+  ['admin', 'admin', '後台管理者', null],
+  ['console', 'console', '中控', null],
+  ['secretary', 'secretary', '秘書', null],
+  ['captain', 'captain', '保全隊長', 'A1'],
+  ['patrol', 'patrol', '車巡保全', '車巡'],
+  ['manager', 'manager', '主管', null],
+];
 const seedOnly = process.argv.includes('--seed-only');
 const noOpen = process.argv.includes('--no-open');
 
@@ -162,7 +170,8 @@ async function waitReady() {
   const deadline = Date.now() + 30000;
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(`${HOST}/api/zones`);
+      // /css/* 是公開路徑；/api/zones 現在需要登入，不能再拿來探測。
+      const res = await fetch(`${HOST}/css/office.css`);
       if (res.ok) return;
     } catch {}
     await new Promise((r) => setTimeout(r, 300));
@@ -212,31 +221,38 @@ function buildSql() {
   const statements = [
     'DELETE FROM records;',
     'DELETE FROM reports;',
-    'DELETE FROM guard_devices;',
     'DELETE FROM site_events;',
-    `INSERT INTO guard_devices (id, label, token_hash) VALUES (1, 'A1', ${sqlStr(TOKEN_HASH)});`,
+    'DELETE FROM sessions;',
+    'DELETE FROM login_attempts;',
+    'DELETE FROM users;',
+    ...ACCOUNTS.map(
+      ([username, role, displayName, postCode]) =>
+        `INSERT INTO users (username, display_name, role, post_code, password_hash, status, must_change_pw, created_at)
+     VALUES (${sqlStr(username)}, ${sqlStr(displayName)}, ${sqlStr(role)}, ${postCode === null ? 'NULL' : sqlStr(postCode)}, ${sqlStr(DEV_PASSWORD_HASH)}, 'active', 0, ${sqlStr(new Date().toISOString())});`
+    ),
     ...TODAY_EVENTS.map((event) => {
       const zone = event.zone == null ? 'NULL' : sqlStr(event.zone);
       const occurred = sqlStr(taipeiInstant(today, event.start).toISOString());
       const cleared = event.end ? sqlStr(taipeiInstant(today, event.end).toISOString()) : 'NULL';
       const detail = event.detail == null ? 'NULL' : sqlStr(event.detail);
       return `INSERT INTO site_events (site_id, business_date, kind, zone_code, occurred_at, cleared_at, detail, created_by)
-     VALUES (1, ${sqlStr(today)}, ${sqlStr(event.kind)}, ${zone}, ${occurred}, ${cleared}, ${detail}, 'console@example.test');`;
+     VALUES (1, ${sqlStr(today)}, ${sqlStr(event.kind)}, ${zone}, ${occurred}, ${cleared}, ${detail}, 'console');`;
     }),
   ];
 
   for (const row of rows) {
     const at = taipeiInstant(row.date, row.clock);
-    const snap = snapshot(row.scene, at, 'A1');
+    const submitter = row.status === 'pending' ? 'captain' : row.id % 2 === 0 ? 'patrol' : 'captain';
+    const snap = snapshot(row.scene, at, submitter === 'patrol' ? '車巡' : 'A1');
     const submitted = at.toISOString();
     statements.push(
-      `INSERT INTO reports (id, site_id, device_id, status, client_request_id, values_json, raw_input, business_date, submitted_at, confirmed_at)
-       VALUES (${row.id}, 1, 1, ${sqlStr(row.status)}, ${sqlStr(`preview-${row.id}`)}, ${sqlJson(snap.values)}, ${sqlStr('preview')}, ${sqlStr(row.date)}, ${sqlStr(submitted)}, ${row.status === 'confirmed' ? sqlStr(submitted) : 'NULL'});`,
+      `INSERT INTO reports (id, site_id, submitted_by, status, client_request_id, values_json, raw_input, business_date, submitted_at, confirmed_at)
+       VALUES (${row.id}, 1, ${sqlStr(submitter)}, ${sqlStr(row.status)}, ${sqlStr(`preview-${row.id}`)}, ${sqlJson(snap.values)}, ${sqlStr('preview')}, ${sqlStr(row.date)}, ${sqlStr(submitted)}, ${row.status === 'confirmed' ? sqlStr(submitted) : 'NULL'});`,
     );
     if (row.status === 'confirmed') {
       statements.push(
         `INSERT INTO records (report_id, site_id, business_date, values_json, guard_report, console_report, excel_values, tower_usage_pct, tower_remaining, remarks_json, prepared_by, report_time, confirmed_at)
-         VALUES (${row.id}, 1, ${sqlStr(row.date)}, ${sqlJson(snap.values)}, ${sqlStr(snap.guard)}, ${sqlStr(snap.console)}, ${sqlStr(snap.excel)}, ${snap.towerPct ?? 'NULL'}, ${snap.towerRemaining ?? 'NULL'}, ${sqlJson(row.scene === 'busy' ? { p1: '施工' } : {})}, 'console@example.test', ${sqlStr(snap.reportTime)}, ${sqlStr(submitted)});`,
+         VALUES (${row.id}, 1, ${sqlStr(row.date)}, ${sqlJson(snap.values)}, ${sqlStr(snap.guard)}, ${sqlStr(snap.console)}, ${sqlStr(snap.excel)}, ${snap.towerPct ?? 'NULL'}, ${snap.towerRemaining ?? 'NULL'}, ${sqlJson(row.scene === 'busy' ? { p1: '施工' } : {})}, 'console', ${sqlStr(snap.reportTime)}, ${sqlStr(submitted)});`,
       );
     }
   }
@@ -252,11 +268,13 @@ writeFileSync(sqlPath, sql);
 await run('npx', ['wrangler', 'd1', 'execute', 'parking-report', '--local', '--yes', '--file', sqlPath]);
 
 console.log('');
+console.log(`${HOST}/login`);
 console.log(`${HOST}/ManagerDashboard`);
 console.log(`${HOST}/CenterConsole`);
 console.log(`${HOST}/secretary`);
-console.log(`${HOST}/guard#key=${TOKEN}`);
-console.log(`confirmed ${d3}..${today} · pending 2 · events ${TODAY_EVENTS.length} · device A1`);
+console.log(`${HOST}/guard`);
+console.log(`confirmed ${d3}..${today} · pending 2 · events ${TODAY_EVENTS.length}`);
+console.log(`登入帳號：${ACCOUNTS.map(([username]) => username).join(' / ')}　密碼：${DEV_PASSWORD}`);
 console.log('');
 
 if (seedOnly) process.exit(0);

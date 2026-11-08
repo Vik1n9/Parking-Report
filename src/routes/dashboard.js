@@ -1,9 +1,9 @@
 import { getActiveZones, getSite } from './zones.js';
 import { businessDate } from '../../public/js/parking-core.js';
 
-const PUBLIC_HEADERS = {
+const DASHBOARD_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
-  'cache-control': 'public, max-age=30',
+  'cache-control': 'private, max-age=30',
   'x-robots-tag': 'noindex',
 };
 
@@ -18,12 +18,12 @@ function mapEvent(row) {
   };
 }
 
-export async function publicCurrent(env, url) {
+export async function dashboardCurrent(env, url) {
   const date = url.searchParams.get('date') || businessDate(new Date());
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return new Response(JSON.stringify({ error: '日期格式必須為 YYYY-MM-DD' }), {
       status: 400,
-      headers: PUBLIC_HEADERS,
+      headers: DASHBOARD_HEADERS,
     });
   }
 
@@ -64,5 +64,5 @@ export async function publicCurrent(env, url) {
     })),
     events: (eventsResult.results || []).map(mapEvent),
   };
-  return new Response(JSON.stringify(body), { headers: PUBLIC_HEADERS });
+  return new Response(JSON.stringify(body), { headers: DASHBOARD_HEADERS });
 }

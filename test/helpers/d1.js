@@ -36,9 +36,12 @@ export function createTestDb(options = {}) {
       '0003_value_model.sql',
       '0004_site_events.sql',
       '0005_console_review.sql',
+      '0006_accounts_review.sql',
     ],
   } = options;
-  const db = new DatabaseSync(':memory:');
+  // D1 預設開外鍵，但 node:sqlite 不支援延後 DROP TABLE 的檢查；shim 改為關閉，
+  // 由 migration 自己維持最終狀態有效（0006 已移除 reports.device_id 的外鍵）。
+  const db = new DatabaseSync(':memory:', { enableForeignKeyConstraints: false });
   const api = {
     prepare: (sql) => new Stmt(db, sql),
     batch: async (stmts) => {

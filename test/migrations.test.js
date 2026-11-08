@@ -114,3 +114,145 @@ test('0005 backfills tower_remaining only when every tower zone is spaces or ful
   ]);
   db.close();
 });
+
+test('0006 creates users, sessions and login_attempts with the expected columns', async () => {
+  const db = createTestDb();
+  const userCols = (await db.prepare("SELECT name FROM pragma_table_info('users')").all()).results.map((r) => r.name);
+  for (const name of [
+    'username',
+    'display_name',
+    'role',
+    'post_code',
+    'password_hash',
+    'status',
+    'must_change_pw',
+    'created_at',
+    'last_login_at',
+  ]) {
+    assert.ok(userCols.includes(name), `users.${name}`);
+  }
+  const sessionCols = (await db.prepare("SELECT name FROM pragma_table_info('sessions')").all()).results.map((r) => r.name);
+  assert.deepEqual(sessionCols.sort(), ['created_at', 'expires_at', 'token_hash', 'username']);
+  const attemptCols = (await db.prepare("SELECT name FROM pragma_table_info('login_attempts')").all()).results.map((r) => r.name);
+  assert.deepEqual(attemptCols.sort(), ['fails', 'key', 'locked_until', 'updated_at']);
+  db.close();
+});
+
+test('0006 constrains user roles, statuses and report statuses', async () => {
+  const db = createTestDb();
+  const insertUser = (username, role, status = 'active') =>
+    db
+      .prepare(
+        `INSERT INTO users (username, display_name, role, password_hash, status, created_at)
+         VALUES (?, 'name', ?, 'hash', ?, '2026-11-09T00:00:00.000Z')`
+      )
+      .bind(username, role, status)
+      .run();
+
+  for (const role of ['admin', 'console', 'secretary', 'captain', 'patrol', 'manager']) {
+    await insertUser(`u_${role}`, role);
+  }
+  await assert.rejects(insertUser('bad_role', 'owner'), /CHECK/);
+  await assert.rejects(insertUser('bad_status', 'admin', 'pending'), /CHECK/);
+
+  const insertReport = (status) =>
+    db
+      .prepare(
+        `INSERT INTO reports (site_id, status, client_request_id, values_json, business_date, submitted_at)
+         VALUES (1, ?, ?, '{}', '2026-11-09', '2026-11-09T00:00:00.000Z')`
+      )
+      .bind(status, `req-${status}-${Math.random()}`)
+      .run();
+
+  for (const status of ['awaiting_captain', 'pending', 'confirmed', 'rejected']) {
+    await insertReport(status);
+  }
+  await assert.rejects(insertReport('junk'), /CHECK/);
+  db.close();
+});
+
+test('0006 adds review columns and the captain corrections column', async () => {
+  const db = createTestDb();
+  const reportCols = (await db.prepare("SELECT name FROM pragma_table_info('reports')").all()).results.map((r) => r.name);
+  for (const name of [
+    'submitted_by',
+    'reviewed_values_json',
+    'review_corrections_json',
+    'reviewed_by',
+    'reviewed_at',
+  ]) {
+    assert.ok(reportCols.includes(name), `reports.${name}`);
+  }
+  const recordCols = (await db.prepare("SELECT name FROM pragma_table_info('records')").all()).results.map((r) => r.name);
+  assert.ok(recordCols.includes('captain_corrections_json'));
+  db.close();
+});
+
+test('0006 rebuild keeps existing reports and records, clears guard devices and keeps indexes', async () => {
+  const db = createTestDb({
+    migrations: ['0001_init.sql', '0002_seed.sql', '0003_value_model.sql', '0004_site_events.sql', '0005_console_review.sql'],
+  });
+  const values = { floor_above: { kind: 'spaces', value: 120 }, floor_below: { kind: 'full' } };
+  await db
+    .prepare("INSERT INTO guard_devices (id, label, token_hash) VALUES (7, 'A1', 'hash-7')")
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO reports (id, site_id, device_id, status, client_request_id, values_json, raw_input,
+                            business_date, submitted_at, confirmed_at, reject_reason)
+       VALUES (42, 1, 7, 'confirmed', 'legacy-42', ?, 'raw', '2026-09-01', '2026-09-01T04:00:00.000Z',
+               '2026-09-01T04:10:00.000Z', NULL)`
+    )
+    .bind(JSON.stringify(values))
+    .run();
+  await db
+    .prepare(
+      `INSERT INTO records (report_id, site_id, business_date, values_json, guard_report, console_report,
+                            excel_values, tower_usage_pct, remarks_json, prepared_by, report_time, confirmed_at)
+       VALUES (42, 1, '2026-09-01', ?, 'g', 'c', '', 86, '{}', 'console@example.test', '12:00', '2026-09-01T04:10:00.000Z')`
+    )
+    .bind(JSON.stringify(values))
+    .run();
+
+  db.applyMigration('0006_accounts_review.sql');
+
+  const report = await db.prepare('SELECT * FROM reports WHERE id = 42').first();
+  assert.equal(report.status, 'confirmed');
+  assert.equal(report.client_request_id, 'legacy-42');
+  assert.equal(report.device_id, 7);
+  assert.deepEqual(JSON.parse(report.values_json), values);
+  assert.equal(report.submitted_by, null);
+  assert.equal(report.reviewed_values_json, null);
+
+  const record = await db.prepare('SELECT * FROM records WHERE report_id = 42').first();
+  assert.equal(record.values_json, JSON.stringify(values));
+  assert.equal(record.captain_corrections_json, null);
+
+  assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM guard_devices').first()).n, 0);
+  assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM reports').first()).n, 1);
+
+  const indexes = (await db.prepare("SELECT name FROM sqlite_master WHERE type = 'index'").all()).results.map((r) => r.name);
+  assert.ok(indexes.includes('idx_reports_status'));
+  assert.ok(indexes.includes('idx_records_date'));
+
+  // UNIQUE(site_id, client_request_id) survived the rebuild.
+  await assert.rejects(
+    db
+      .prepare(
+        `INSERT INTO reports (site_id, status, client_request_id, values_json, business_date, submitted_at)
+         VALUES (1, 'pending', 'legacy-42', '{}', '2026-09-01', '2026-09-01T04:00:00.000Z')`
+      )
+      .run(),
+    /UNIQUE/
+  );
+
+  // New reports keep auto-incrementing ids after the rebuild.
+  const inserted = await db
+    .prepare(
+      `INSERT INTO reports (site_id, submitted_by, status, client_request_id, values_json, business_date, submitted_at)
+       VALUES (1, 'patrol', 'awaiting_captain', 'new-1', '{}', '2026-11-09', '2026-11-09T00:00:00.000Z')`
+    )
+    .run();
+  assert.equal(inserted.meta.last_row_id, 43);
+  db.close();
+});

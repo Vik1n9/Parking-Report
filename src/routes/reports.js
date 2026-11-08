@@ -54,7 +54,7 @@ function resolveSubmittedAt(raw, now) {
   return new Date(Math.min(Math.max(parsed, min), max)).toISOString();
 }
 
-export async function createReport(env, request, device) {
+export async function createReport(env, request, user) {
   let body;
   try {
     body = await request.json();
@@ -96,12 +96,14 @@ export async function createReport(env, request, device) {
     return json({ report: shapeReport(dup), duplicate: true }, 200);
   }
 
+  // 車巡上傳後等隊長複核；隊長（適應期直送中控）與其他可上傳角色直接進 pending。
+  const status = user.role === 'patrol' ? 'awaiting_captain' : 'pending';
   const insert = await env.DB
     .prepare(
-      `INSERT INTO reports (site_id, device_id, status, client_request_id, values_json, raw_input, business_date, submitted_at, supersedes_report_id)
-       VALUES (1, ?, 'pending', ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO reports (site_id, device_id, submitted_by, status, client_request_id, values_json, raw_input, business_date, submitted_at, supersedes_report_id)
+       VALUES (1, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .bind(device.deviceId, clientRequestId, JSON.stringify(values), rawInput, bDate, submittedAt, supersedes)
+    .bind(user.username, status, clientRequestId, JSON.stringify(values), rawInput, bDate, submittedAt, supersedes)
     .run();
 
   const row = await env.DB.prepare('SELECT * FROM reports WHERE id = ?').bind(insert.meta.last_row_id).first();
@@ -110,13 +112,14 @@ export async function createReport(env, request, device) {
 
 export async function listReports(env, url) {
   const status = url.searchParams.get('status') || 'pending';
-  if (!['pending', 'confirmed', 'rejected'].includes(status)) {
-    return json({ error: 'status 僅接受 pending/confirmed/rejected' }, 400);
+  if (!['awaiting_captain', 'pending', 'confirmed', 'rejected'].includes(status)) {
+    return json({ error: 'status 僅接受 awaiting_captain/pending/confirmed/rejected' }, 400);
   }
+  // 回報標題代號沿用上傳者的哨點代號；沒有代號時退回顯示名稱。
   const { results } = await env.DB
     .prepare(
-      `SELECT r.*, d.label AS device_label
-       FROM reports r LEFT JOIN guard_devices d ON d.id = r.device_id
+      `SELECT r.*, COALESCE(NULLIF(u.post_code, ''), u.display_name) AS device_label
+       FROM reports r LEFT JOIN users u ON u.username = r.submitted_by
        WHERE r.site_id = 1 AND r.status = ?
        ORDER BY r.submitted_at ASC
        LIMIT 100`
@@ -130,7 +133,7 @@ async function loadReport(env, id) {
   return env.DB.prepare('SELECT * FROM reports WHERE id = ?').bind(id).first();
 }
 
-export async function confirmReport(env, id, request, identity) {
+export async function confirmReport(env, id, request, user) {
   const report = await loadReport(env, id);
   if (!report) return json({ error: '找不到回報單' }, 404);
 
@@ -140,6 +143,9 @@ export async function confirmReport(env, id, request, identity) {
   }
   if (report.status === 'rejected') {
     return json({ error: '已退回的回報單不能確認' }, 409);
+  }
+  if (report.status === 'awaiting_captain') {
+    return json({ error: '等待隊長複核的回報單不能直接確認' }, 409);
   }
 
   let body = {};
@@ -182,11 +188,13 @@ export async function confirmReport(env, id, request, identity) {
   const correctionsJson = Object.keys(corrections).length ? JSON.stringify(corrections) : null;
 
   const reportTime = new Date(report.submitted_at);
-  const device = await env.DB
-    .prepare('SELECT label FROM guard_devices WHERE id = ?')
-    .bind(report.device_id)
-    .first();
-  const deviceLabel = device?.label ?? null;
+  const submitter = report.submitted_by
+    ? await env.DB
+        .prepare('SELECT post_code, display_name FROM users WHERE username = ?')
+        .bind(report.submitted_by)
+        .first()
+    : null;
+  const deviceLabel = submitter?.post_code || submitter?.display_name || null;
 
   const tower = buildTowerUsage(finalValues, zones, { towerTotal: site.tower_total });
   const confirmedAt = new Date().toISOString();
@@ -210,7 +218,7 @@ export async function confirmReport(env, id, request, identity) {
       correctionsJson,
       display.value,
       remarks ? JSON.stringify(remarks) : null,
-      identity.email,
+      user.username,
       formatTime(reportTime),
       confirmedAt
     );
@@ -232,6 +240,9 @@ export async function rejectReport(env, id, request) {
   }
   if (report.status === 'rejected') {
     return json({ report: shapeReport(report) }, 200);
+  }
+  if (report.status === 'awaiting_captain') {
+    return json({ error: '等待隊長複核的回報單不能直接退回' }, 409);
   }
 
   let body = {};

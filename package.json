@@ -10,7 +10,8 @@
     "deploy": "wrangler deploy",
     "db:migrate:local": "wrangler d1 migrations apply parking-report --local",
     "db:migrate": "wrangler d1 migrations apply parking-report --remote",
-    "device:provision": "node scripts/provision-device.mjs"
+    "account:create": "node scripts/account-create.mjs",
+    "accounts:seed": "node scripts/accounts-seed.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.130.0"
