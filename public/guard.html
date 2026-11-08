@@ -340,7 +340,8 @@ button.press-flash{
   font-weight:950;
   letter-spacing:.04em;
 }
-.share{grid-column:1/-1;background:var(--green);color:#ffffff;font-size:1rem}
+.submit{background:#07111f;color:#ffffff;font-size:1rem}
+.share{background:var(--green);color:#ffffff;font-size:1rem}
 .copy{background:var(--accent);color:#ffffff}
 .reset{background:var(--surface);color:var(--text);border:2px solid var(--border)}
 .toast{
@@ -482,7 +483,7 @@ button.press-flash{
     padding:6px 10px calc(6px + env(safe-area-inset-bottom));
   }
   .bottom-inner{
-    grid-template-columns:1fr 1fr 1fr;
+    grid-template-columns:repeat(4,minmax(0,1fr));
     gap:6px;
   }
   .bottom-btn{
@@ -490,8 +491,10 @@ button.press-flash{
     border-radius:8px;
     font-size:.7rem;
     letter-spacing:0;
+    line-height:1.15;
     padding:4px 2px;
   }
+  .submit{font-size:.8rem}
   .share{grid-column:auto;font-size:.75rem}
   .toast{bottom:58px}
 }
@@ -543,6 +546,7 @@ button.press-flash{
 
 <div class="bottom-bar">
   <div class="bottom-inner">
+    <button class="bottom-btn submit" id="submitBtn">送出</button>
     <button class="bottom-btn share" id="shareLineBtn">分享到 LINE</button>
     <button class="bottom-btn copy" id="copyLineBtn">複製 LINE 回報</button>
     <button class="bottom-btn reset" id="resetBtn">清除重填</button>
@@ -615,6 +619,7 @@ const prevBtn = $('prevBtn');
 const nextBtn = $('nextBtn');
 const deleteDigitBtn = $('deleteDigitBtn');
 const currentInputValue = $('currentInputValue');
+const submitBtn = $('submitBtn');
 const shareLineBtn = $('shareLineBtn');
 const copyLineBtn = $('copyLineBtn');
 const resetBtn = $('resetBtn');
@@ -1031,6 +1036,11 @@ function addHistory() {
   clearDraft();
 }
 
+function submitReport() {
+  addHistory();
+  showToast(navigator.onLine === false ? '離線中，已排入待送' : '已送出');
+}
+
 async function copyReport(message) {
   const text = message || buildReport(valuesObject(), zones, { style: 'guard', time: currentTime });
   try {
@@ -1094,6 +1104,7 @@ clearCellBtn.addEventListener('click', clearCurrent);
 prevBtn.addEventListener('click', movePrev);
 nextBtn.addEventListener('click', moveNext);
 deleteDigitBtn.addEventListener('click', deleteDigit);
+submitBtn.addEventListener('click', submitReport);
 shareLineBtn.addEventListener('click', shareToLine);
 copyLineBtn.addEventListener('click', () => copyReport());
 resetBtn.addEventListener('click', resetAll);

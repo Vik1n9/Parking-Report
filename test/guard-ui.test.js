@@ -202,3 +202,13 @@ test('guard page keeps unsent input in a draft that survives reloads', () => {
 
   assert.match(html, /loadHistory\(\);\s*\n\s*loadDraft\(\);\s*\n\s*render\(\);/);
 });
+
+test('guard page has a submit button that queues the report without LINE', () => {
+  assert.match(html, /<button class="bottom-btn submit" id="submitBtn">送出<\/button>/);
+  const submitBody = html.match(/function submitReport\(\) \{[\s\S]*?\n\}/)[0];
+  assert.match(submitBody, /addHistory\(\);/);
+  assert.equal(submitBody.includes('line.me'), false);
+  assert.equal(submitBody.includes('clipboard'), false);
+  assert.match(html, /submitBtn\.addEventListener\('click', submitReport\)/);
+  assert.match(html, /\.bottom-inner\{\s*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+});
