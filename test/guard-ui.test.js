@@ -236,10 +236,45 @@ test('guard page bottom bar stays one row and clears the keypad at every size', 
 
   const baseBottomBtn = html.match(/\.bottom-btn\{[\s\S]*?\}/)[0];
   assert.match(baseBottomBtn, /min-height:52px/);
+  assert.match(baseBottomBtn, /text-wrap:balance/);
   const baseKey = html.match(/\.key\{[\s\S]*?\}/)[0];
   assert.match(baseKey, /min-height:48px/);
   const modeBtn = html.match(/\.mode-btn\{[\s\S]*?\}/)[0];
   assert.match(modeBtn, /white-space:nowrap/);
   const disabledModeBtn = html.match(/\.mode-btn:disabled\{[\s\S]*?\}/)[0];
   assert.match(disabledModeBtn, /font-size:\.8rem/);
+});
+
+test('guard page stamps the report time at send time and clears after submit', () => {
+  const submitBody = html.match(/function submitReport\(\) \{[\s\S]*?\n\}/)[0];
+  const submitTime = submitBody.indexOf('currentTime = new Date()');
+  const submitHistory = submitBody.indexOf('addHistory()');
+  assert.ok(submitTime !== -1, 'submitReport sets the send time');
+  assert.ok(submitTime < submitHistory, 'submitReport stamps the time before queueing');
+  assert.match(submitBody, /cells\.every\(\(cell\) => cell\.kind === 'none'\)/);
+  assert.match(submitBody, /尚未填寫/);
+  assert.match(submitBody, /if \(!queued\) return;/);
+  assert.match(submitBody, /cells = zones\.map\(\(\) => \(\{ kind: 'none' \}\)\)/);
+  assert.match(submitBody, /clearDraft\(\);/);
+  assert.match(submitBody, /moveTo\(0\);/);
+  assert.equal(submitBody.includes('confirm('), false);
+
+  const copyBody = html.match(/async function copyReport\(message\) \{[\s\S]*?\n\}/)[0];
+  const copyTime = copyBody.indexOf('currentTime = new Date()');
+  const copyBuild = copyBody.indexOf('buildReport');
+  assert.ok(copyTime !== -1, 'copyReport sets the send time');
+  assert.ok(copyTime < copyBuild, 'copyReport stamps the time before building text');
+  assert.match(copyBody, /render\(\)/);
+
+  const shareBody = html.match(/async function shareToLine\(\) \{[\s\S]*?\n\}/)[0];
+  const shareTime = shareBody.indexOf('currentTime = new Date()');
+  const shareBuild = shareBody.indexOf('buildReport');
+  assert.ok(shareTime !== -1, 'shareToLine sets the send time');
+  assert.ok(shareTime < shareBuild, 'shareToLine stamps the time before building text');
+  assert.match(shareBody, /render\(\)/);
+  assert.match(shareBody, /copyReport\(text\)/);
+
+  const addHistoryBody = html.match(/function addHistory\(\) \{[\s\S]*?\n\}/)[0];
+  assert.match(addHistoryBody, /return false;/);
+  assert.match(addHistoryBody, /return true;/);
 });

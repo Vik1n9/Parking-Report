@@ -343,6 +343,7 @@ button.press-flash{
   border-radius:10px;
   font-weight:950;
   letter-spacing:.04em;
+  text-wrap:balance;
 }
 .submit{background:#07111f;color:#ffffff;font-size:1rem}
 .share{background:var(--green);color:#ffffff;font-size:1rem}
@@ -1027,7 +1028,7 @@ function saveHistory() {
 
 function addHistory() {
   const now = Date.now();
-  if (addHistory.lastAt && now - addHistory.lastAt < DEDUPE_WINDOW_MS) return;
+  if (addHistory.lastAt && now - addHistory.lastAt < DEDUPE_WINDOW_MS) return false;
   addHistory.lastAt = now;
 
   const id = `${now}-${Math.random().toString(36).slice(2, 8)}`;
@@ -1038,14 +1039,30 @@ function addHistory() {
   saveHistory();
   enqueueSubmit(historyEntries[historyEntries.length - 1]);
   clearDraft();
+  return true;
 }
 
 function submitReport() {
-  addHistory();
+  currentTime = new Date();
+  render();
+  if (cells.every((cell) => cell.kind === 'none')) {
+    showToast('尚未填寫');
+    return;
+  }
+  const queued = addHistory();
+  if (!queued) return;
+  cells = zones.map(() => ({ kind: 'none' }));
+  currentTime = new Date();
+  clearDraft();
+  moveTo(0);
   showToast(navigator.onLine === false ? '離線中，已排入待送' : '已送出');
 }
 
 async function copyReport(message) {
+  if (!message) {
+    currentTime = new Date();
+    render();
+  }
   const text = message || buildReport(valuesObject(), zones, { style: 'guard', time: currentTime });
   try {
     await navigator.clipboard.writeText(text);
@@ -1084,6 +1101,8 @@ function fallbackCopyText(text) {
 }
 
 async function shareToLine() {
+  currentTime = new Date();
+  render();
   const text = buildReport(valuesObject(), zones, { style: 'guard', time: currentTime });
   await copyReport(text);
   const lineUrl = `https://line.me/R/share?text=${encodeURIComponent(text)}`;
