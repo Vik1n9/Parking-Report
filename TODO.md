@@ -24,7 +24,8 @@
   - [ ] 顯示牌數字＝車塔1上＋車塔1下剩餘
   - [ ] LINE 分享按鈕在手機能開 LINE 選群組；電腦端至少能複製
   - [ ] 未登入開 `/CenterConsole`、`/secretary`、`/api/records` 被 Access 擋；`/guard`、`/ManagerDashboard`、`/api/public/current` 不被擋（2026-11-09 已用 HTTP 驗過）
-- [ ] 紙本備援 SOP、操作卡、試點紀錄表（計畫段 4 第 2 點，`docs/pilot/`）
+- [x] 試點文件（計畫段 4 第 2 點）：紙本備援 SOP、保全操作卡、中控操作卡、試點紀錄表，在 `docs/pilot/`
+- [ ] 列印、護貝 10 區卡與操作卡
 - [ ] 段 6、段 8 新增 `/api/events*`、`/api/stats*` 時，加進同一個 Access 應用的 destinations
 
 ## 之後（已規劃、本次不做）
