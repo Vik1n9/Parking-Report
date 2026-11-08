@@ -65,6 +65,18 @@ async function seedPendingReport(db) {
   return result.meta.last_row_id;
 }
 
+async function seedAwaitingReport(db) {
+  seq += 1;
+  const result = await db
+    .prepare(
+      `INSERT INTO reports (site_id, submitted_by, status, client_request_id, values_json, business_date, submitted_at)
+       VALUES (1, 'patrol', 'awaiting_captain', ?, '{}', '2026-11-09', '2026-11-09T00:00:00.000Z')`
+    )
+    .bind(`req-awaiting-${seq}`)
+    .run();
+  return result.meta.last_row_id;
+}
+
 function newReportBody(role) {
   seq += 1;
   return {
@@ -119,6 +131,22 @@ const CASES = [
     path: '/api/reports?status=awaiting_captain',
     allowed: ['captain', 'admin'],
     status: 200,
+  },
+  {
+    name: 'review report',
+    method: 'POST',
+    allowed: ['captain', 'admin'],
+    status: 200,
+    body: () => ({}),
+    path: async (db) => `/api/reports/${await seedAwaitingReport(db)}/review`,
+  },
+  {
+    name: 'review-reject report',
+    method: 'POST',
+    allowed: ['captain', 'admin'],
+    status: 200,
+    body: () => ({ reason: '退回' }),
+    path: async (db) => `/api/reports/${await seedAwaitingReport(db)}/review-reject`,
   },
   {
     name: 'confirm report',
@@ -230,6 +258,23 @@ test('API permission matrix matches the plan for every role', async () => {
         assert.equal((await res.json()).error, '沒有權限');
       }
     }
+  }
+  db.close();
+});
+
+test('the review endpoints reject a missing Origin', async () => {
+  const { db, env, cookies } = await setupMatrix();
+  for (const suffix of ['review', 'review-reject']) {
+    const id = await seedAwaitingReport(db);
+    const res = await worker.fetch(
+      new Request(`${ORIGIN}/api/reports/${id}/${suffix}`, {
+        method: 'POST',
+        headers: { Cookie: cookies.captain, 'content-type': 'application/json' },
+        body: '{}',
+      }),
+      env
+    );
+    assert.equal(res.status, 403, `${suffix} without Origin`);
   }
   db.close();
 });

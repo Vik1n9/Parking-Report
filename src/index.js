@@ -1,7 +1,7 @@
 import { json } from './lib/http.js';
 import { ROLE_HOME, canAccess, getSessionUser, requireOrigin } from './auth.js';
 import { zonesResponse } from './routes/zones.js';
-import { createReport, listReports, confirmReport, rejectReport } from './routes/reports.js';
+import { createReport, listReports, confirmReport, rejectReport, reviewReport, reviewReject } from './routes/reports.js';
 import { listRecords } from './routes/records.js';
 import { dashboardCurrent } from './routes/dashboard.js';
 import { exportRecords } from './export/xlsx.js';
@@ -110,6 +110,18 @@ export default {
           if (!canAccess(role, allowed)) return json({ error: '沒有權限' }, 403);
           return listReports(env, url);
         }
+      }
+
+      const reviewMatch = path.match(/^\/api\/reports\/(\d+)\/review$/);
+      if (reviewMatch && request.method === 'POST') {
+        if (!canAccess(role, ['captain', 'admin'])) return json({ error: '沒有權限' }, 403);
+        return reviewReport(env, Number(reviewMatch[1]), request, session.user);
+      }
+
+      const reviewRejectMatch = path.match(/^\/api\/reports\/(\d+)\/review-reject$/);
+      if (reviewRejectMatch && request.method === 'POST') {
+        if (!canAccess(role, ['captain', 'admin'])) return json({ error: '沒有權限' }, 403);
+        return reviewReject(env, Number(reviewRejectMatch[1]), request, session.user);
       }
 
       const confirmMatch = path.match(/^\/api\/reports\/(\d+)\/confirm$/);

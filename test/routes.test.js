@@ -104,6 +104,17 @@ test('patrol reports are awaiting_captain and captain reports go straight to pen
   db.close();
 });
 
+test('shapeReport keeps the uploader original separate from the effective values', async () => {
+  const db = await seededDb();
+  const created = await (await createReport(envWith(db), post(validBody()), CAPTAIN)).json();
+  assert.deepEqual(created.report.values, created.report.submittedValues);
+  assert.equal(created.report.submittedBy, 'captain');
+  assert.deepEqual(created.report.reviewCorrections, {});
+  assert.equal(created.report.reviewedBy, null);
+  assert.equal(created.report.reviewedAt, null);
+  db.close();
+});
+
 test('createReport rejects an unknown zone code', async () => {
   const db = await seededDb();
   const res = await createReport(envWith(db), post(validBody({ values: { nope: { kind: 'full' } } })), PATROL);
@@ -205,12 +216,14 @@ test('awaiting_captain reports cannot be confirmed or rejected by the console ye
     CONSOLE
   );
   assert.equal(confirmed.status, 409);
+  assert.equal((await confirmed.json()).error, '尚待隊長複核');
   const rejected = await rejectReport(
     envWith(db),
     created.report.id,
     new Request('https://example.test/reject', { method: 'POST' })
   );
   assert.equal(rejected.status, 409);
+  assert.equal((await rejected.json()).error, '尚待隊長複核');
   db.close();
 });
 
@@ -261,6 +274,9 @@ test('the dashboard endpoint returns today entries without any operator data', a
     'reportId',
     'submitted_by',
     'submittedBy',
+    'reviewedBy',
+    'captainCorrections',
+    'reviewCorrections',
     'deviceLabel',
     'T1',
     'Test Captain',

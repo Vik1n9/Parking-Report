@@ -12,6 +12,7 @@ export function mapRecord(row) {
     towerPct: row.tower_usage_pct,
     towerRemaining: row.tower_remaining ?? null,
     corrections: JSON.parse(row.corrections_json || '{}'),
+    captainCorrections: JSON.parse(row.captain_corrections_json || '{}'),
     displayBefore: row.display_before ?? null,
     remarks: JSON.parse(row.remarks_json || '{}'),
     preparedBy: row.prepared_by,
