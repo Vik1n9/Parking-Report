@@ -11,7 +11,9 @@
     "db:migrate:local": "wrangler d1 migrations apply parking-report --local",
     "db:migrate": "wrangler d1 migrations apply parking-report --remote",
     "account:create": "node scripts/account-create.mjs",
-    "accounts:seed": "node scripts/accounts-seed.mjs"
+    "accounts:seed": "node scripts/accounts-seed.mjs",
+    "demo:seed": "node scripts/demo-seed.mjs",
+    "demo:clear": "node scripts/demo-seed.mjs --clear"
   },
   "devDependencies": {
     "wrangler": "^4.130.0"
