@@ -1,46 +1,31 @@
-# TODO（上線前待辦）
+# TODO（上線狀態與待辦）
 
-## 1. Cloudflare Access 設定（中控 / 秘書登入）
+## 已上線（2026-11-09）
 
-> 狀態：待辦。目前 `/CenterConsole`、`/secretary` 與其 API 在 Access 設定前一律 401（fail-closed）。主管頁 `/ManagerDashboard` 與 `/api/public/current` 為公開唯讀，不經 Access。
+- 網址：`https://parking.voriens.dev`（Worker custom domain；`workers.dev`、preview URL 已關閉）
+- 線上 D1 `parking-report` 已套用 0003–0005
+- Zero Trust：team `voriens.cloudflareaccess.com`；登入方式「Email 驗證碼」（One-time PIN）
+- Access 應用「停車回報後台」（單一應用、單一 AUD，已寫入 secret `ACCESS_AUD`），destinations：
+  - `parking.voriens.dev/CenterConsole*`
+  - `parking.voriens.dev/secretary*`
+  - `parking.voriens.dev/api/records*`
+  - `parking.voriens.dev/api/reports/*`（確認／退回）
+  - `GET /api/reports`（待確認清單）與保全 `POST /api/reports` 同路徑，**不能**加進 Access；Worker 改讀 `CF_Authorization` cookie 驗證中控身分
+  - **不要綁裸網域**：會擋到 `/guard` 與保全送出
+- 保全裝置已綁 7 台：A1（保全隊長）、10（南側入口）、12（北側入口）、紡外、P1、P3、車巡。token 只存 SHA-256；設定連結只交給使用者一次
 
-- [ ] Zero Trust Dashboard → Access → Applications → Add → Self-hosted
-- [ ] **建三個 path-scoped application**，不要綁裸 host（綁裸 host 會連 `/guard` 與 `POST /api/reports` 一起擋掉，保全沒有 Access 身分會完全無法回報）：
-  - `parking-report.twstock-gacha.workers.dev/CenterConsole*`
-  - `parking-report.twstock-gacha.workers.dev/secretary*`
-  - `parking-report.twstock-gacha.workers.dev/api/records*`
-- [ ] Policy：允許中控/秘書的 email（One-time PIN 即可）
-- [ ] 取得 Team domain（`<團隊名>.cloudflareaccess.com`）與 Application AUD，寫成 secret（用 `--var` 部署會在下次 `wrangler deploy` 被洗掉）：
-  ```bash
-  npx wrangler secret put ACCESS_TEAM_DOMAIN
-  npx wrangler secret put ACCESS_AUD
-  ```
-- [ ] 驗證：瀏覽器開 `/CenterConsole` 應導向 Access 登入頁；開 `/guard` 與 `/ManagerDashboard` 不應被擋
+## 待辦
 
-## 2. 保全裝置 token 綁定
-
-> 狀態：待辦。保全頁目前可離線使用，但送出需裝置 token 才會進佇列。
-
-- [ ] 產生 token（代號會出現在中控回報標題，用現場慣用的哨點代號）：
-  ```bash
-  npm run device:provision -- A1
-  ```
-- [ ] 依腳本輸出，把 `INSERT INTO guard_devices ...` 寫入線上資料庫：
-  ```bash
-  npx wrangler d1 execute parking-report --remote --command "<腳本輸出的 INSERT 指令>"
-  ```
-- [ ] 把設定連結 `https://parking-report.twstock-gacha.workers.dev/guard#key=<token>` 用 LINE 傳給保全
-- [ ] 保全手機點一次連結 → 顯示「裝置綁定完成」→ 送一筆測試回報
-- [ ] 中控於 `/CenterConsole` 確認收到該筆，全流程驗收完成
-
-## 3. 線上 D1 migrations
-
-> 狀態：**卡住**。現有 wrangler 憑證對該資料庫回 `The given account is not valid or is not authorized to access this service [code: 7403]`。
-
-- [ ] 換成對 D1 `parking-report` 有權限的 Cloudflare 帳號
-- [ ] `npm run db:migrate`（會套用 `0003_value_model.sql`：`unit` 取代 `is_car`、`tokens_json`→`values_json`、舊值自動轉成 `{kind, value}`）
-- [ ] 驗證：`npx wrangler d1 execute parking-report --remote --command "SELECT code,label,unit FROM zones ORDER BY position"` 應看到 `車塔1上/spaces`、`A區/tenths`
-- [ ] 未完成前不要部署 — 線上 schema 還是舊欄位，所有 API 會 500
+- [ ] 允許登入後台的 email：目前只有管理者本人。加人：Zero Trust → Access → Applications → 停車回報後台 → Policies → 後台人員 → Include Emails
+- [ ] 把各裝置設定連結傳給對應保全，各點一次 → 保全頁顯示「裝置綁定完成」
+- [ ] 試點驗收（計畫段 4 第 3 點）：
+  - [ ] 保全手機輸入一半鎖屏再開，數字還在；送出後中控 8 秒內看到
+  - [ ] 中控改一區數字確認，LINE 文、Excel、主管頁都用修正值
+  - [ ] 顯示牌數字＝車塔1上＋車塔1下剩餘
+  - [ ] LINE 分享按鈕在手機能開 LINE 選群組；電腦端至少能複製
+  - [ ] 未登入開 `/CenterConsole`、`/secretary`、`/api/records` 被 Access 擋；`/guard`、`/ManagerDashboard`、`/api/public/current` 不被擋（2026-11-09 已用 HTTP 驗過）
+- [ ] 紙本備援 SOP、操作卡、試點紀錄表（計畫段 4 第 2 點，`docs/pilot/`）
+- [ ] 段 6、段 8 新增 `/api/events*`、`/api/stats*` 時，加進同一個 Access 應用的 destinations
 
 ## 之後（已規劃、本次不做）
 

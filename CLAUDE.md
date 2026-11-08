@@ -27,11 +27,10 @@ Old static version: branch `legacy-static` (serves GitHub Pages site). `main` = 
 ## Active plan
 `docs/superpowers/plans/2026-11-09-pilot-first-full-stack.md`: pilot-first order (go-live slice → pilot → ops alerts/events → reports). Office pages stay plain HTML + `office.css`, no build step; Astryx deferred (§6 criteria). Read it first; it holds field facts and user decisions. Stop and ask the user at each permission checkpoint (§2).
 
-## Go-live TODO
-Details in `TODO.md`. All three incomplete → not usable online.
-1. Run migrations on live D1: `npm run db:migrate`. BLOCKED: current wrangler credentials get `code: 7403` (no permission) on that D1; need Cloudflare account with access. Without it live schema is old (`tokens_json`/`is_car`) and all APIs fail.
-2. Access secrets: `npx wrangler secret put ACCESS_TEAM_DOMAIN` / `ACCESS_AUD`; create 3 path-scoped applications (`/CenterConsole*`, `/secretary*`, `/api/records*`). NEVER bind the bare domain (blocks `/guard` and `POST /api/reports`; guards have no Access identity). Manager page: no Access.
-3. Provision real guard device tokens: `npm run device:provision -- <code>`. Code appears in control-report title (`中控回報：12:37 A1回報`), so use the on-site post code. Token shown once, stored as SHA-256 only, never in VCS.
+## Deployment
+Live since 2026-11-09 at `https://parking.voriens.dev` (custom domain; workers.dev off). Details and open items in `TODO.md`.
+- Access: single app 「停車回報後台」 (team `voriens.cloudflareaccess.com`, One-time PIN), destinations `/CenterConsole*`, `/secretary*`, `/api/records*`, `/api/reports/*`. NEVER bind the bare domain or `/api/reports` itself (guard `POST /api/reports` shares the path; console `GET /api/reports` authenticates via `CF_Authorization` cookie). New Access-only APIs → add to the same app's destinations.
+- Guard devices: `npm run device:provision -- <code>`; code appears in control-report title, so use on-site post code. Token shown once, SHA-256 only, never in VCS or chat.
 Out of scope this round: reject feedback to guard, shifts/holiday classes, audit log, LINE Messaging API push, zones admin UI.
 
 ## Commands
