@@ -186,6 +186,40 @@ test('site events are demo-marked, 2-4 per day, with one special and tower guidi
   assert.ok(demo.events.filter((event) => event.kind === 'jam').every((event) => event.zone_code === null));
 });
 
+test('timestamps never run past now, including a report submitted in the current hour', () => {
+  const lateNow = new Date('2026-11-09T23:01:00Z'); // 2026-11-10 07:01 Asia/Taipei
+  const nowMs = lateNow.getTime();
+
+  for (const seed of [1, 2, 3, 7]) {
+    const sample = generateDemo({ now: lateNow, zones, towerTotal: TOWER_TOTAL, seed });
+    for (const report of sample.reports) {
+      assert.ok(Date.parse(report.submitted_at) <= nowMs, `${seed} ${report.client_request_id} submitted_at`);
+      if (report.reviewed_at) {
+        assert.ok(Date.parse(report.reviewed_at) <= nowMs, `${seed} ${report.client_request_id} reviewed_at`);
+      }
+      if (report.confirmed_at) {
+        assert.ok(Date.parse(report.confirmed_at) <= nowMs, `${seed} ${report.client_request_id} confirmed_at`);
+      }
+    }
+    for (const record of sample.records) {
+      assert.ok(Date.parse(record.confirmed_at) <= nowMs, `${seed} ${record.report_client_request_id} record`);
+    }
+    for (const event of sample.events) {
+      assert.ok(Date.parse(event.occurred_at) <= nowMs, `${seed} ${event.business_date} ${event.kind}`);
+      if (event.cleared_at) assert.ok(Date.parse(event.cleared_at) <= nowMs, `${seed} ${event.business_date} cleared`);
+    }
+
+    const todayReports = sample.reports.filter((report) => report.business_date === '2026-11-10');
+    assert.equal(todayReports.length, 9); // 00:00-06:00 confirmed + 2 queue reports
+    const queue = todayReports.filter((report) => report.status !== 'confirmed');
+    assert.equal(queue.length, 2);
+    assert.deepEqual(
+      queue.map((report) => report.submitted_at),
+      ['2026-11-09T23:01:00.000Z', '2026-11-09T23:01:00.000Z']
+    );
+  }
+});
+
 test('the generated rows insert into the migrated schema and feed the dashboard query', async () => {
   const mem = createTestDb();
   for (const row of demo.reports) {

@@ -240,7 +240,10 @@ export function generateDemo({ now = new Date(), zones, towerTotal = 0, days = 7
 
     for (let hour = 0; hour <= lastHour; hour++) {
       const load = clamp(HOUR_LOAD[hour] + (weekend ? 0.1 : 0) + (rng() - 0.5) * 0.04, 0.02, 0.99);
-      const minute = intBetween(rng, 3, 12);
+      const minute =
+        isToday && hour === currentHour
+          ? Math.min(intBetween(rng, 3, 12), currentMinute)
+          : intBetween(rng, 3, 12);
       const submittedAt = taipeiInstant(date, hour, minute);
 
       if (isToday && hour === currentHour) {
@@ -288,6 +291,10 @@ export function generateDemo({ now = new Date(), zones, towerTotal = 0, days = 7
       }
 
       const confirmedAt = new Date((reviewedAt ?? submittedAt).getTime() + intBetween(rng, 2, 8) * 60000);
+      if (isToday) {
+        if (reviewedAt && reviewedAt.getTime() > now.getTime()) reviewedAt = new Date(now);
+        if (confirmedAt.getTime() > now.getTime()) confirmedAt.setTime(now.getTime());
+      }
       const finalValues = reviewedValues ?? submittedValues;
       const report = reportRow({
         date,
