@@ -24,6 +24,9 @@ Old static version: branch `legacy-static` (serves GitHub Pages site). `main` = 
 6. Manager page public: `/ManagerDashboard` and `/api/public/current` unauthenticated; endpoint must not return `prepared_by`, `remarks`, `report_id`, device code.
 7. Access config via secrets: `ACCESS_TEAM_DOMAIN`/`ACCESS_AUD` with `wrangler secret put`; never in `wrangler.jsonc` vars (deploy wipes them).
 
+## Active plan
+`docs/superpowers/plans/2026-11-09-full-stack-console-reports-deploy.md`: console correction, events, meeting reports, Astryx office UI, Cloudflare deploy. Read it first; it holds field facts and user decisions. Stop and ask the user at each permission checkpoint (§2).
+
 ## Go-live TODO
 Details in `TODO.md`. All three incomplete → not usable online.
 1. Run migrations on live D1: `npm run db:migrate`. BLOCKED: current wrangler credentials get `code: 7403` (no permission) on that D1; need Cloudflare account with access. Without it live schema is old (`tokens_json`/`is_car`) and all APIs fail.
