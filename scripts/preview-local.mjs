@@ -67,6 +67,7 @@ function snapshot(partial, at, deviceLabel) {
     console: buildReport(values, ZONES, { style: 'console', time: at, deviceLabel }),
     excel: buildExcelValues(values, ZONES).map((cell) => cell.value).join('\t'),
     towerPct: tower.valid ? tower.percent : null,
+    towerRemaining: tower.valid ? tower.remaining : null,
     reportTime: formatTime(at),
   };
 }
@@ -234,8 +235,8 @@ function buildSql() {
     );
     if (row.status === 'confirmed') {
       statements.push(
-        `INSERT INTO records (report_id, site_id, business_date, values_json, guard_report, console_report, excel_values, tower_usage_pct, remarks_json, prepared_by, report_time, confirmed_at)
-         VALUES (${row.id}, 1, ${sqlStr(row.date)}, ${sqlJson(snap.values)}, ${sqlStr(snap.guard)}, ${sqlStr(snap.console)}, ${sqlStr(snap.excel)}, ${snap.towerPct ?? 'NULL'}, ${sqlJson(row.scene === 'busy' ? { p1: '施工' } : {})}, 'console@example.test', ${sqlStr(snap.reportTime)}, ${sqlStr(submitted)});`,
+        `INSERT INTO records (report_id, site_id, business_date, values_json, guard_report, console_report, excel_values, tower_usage_pct, tower_remaining, remarks_json, prepared_by, report_time, confirmed_at)
+         VALUES (${row.id}, 1, ${sqlStr(row.date)}, ${sqlJson(snap.values)}, ${sqlStr(snap.guard)}, ${sqlStr(snap.console)}, ${sqlStr(snap.excel)}, ${snap.towerPct ?? 'NULL'}, ${snap.towerRemaining ?? 'NULL'}, ${sqlJson(row.scene === 'busy' ? { p1: '施工' } : {})}, 'console@example.test', ${sqlStr(snap.reportTime)}, ${sqlStr(submitted)});`,
       );
     }
   }
