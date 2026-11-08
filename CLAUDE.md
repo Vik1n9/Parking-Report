@@ -44,6 +44,8 @@ npm run db:migrate            # live D1 migrations
 npm run deploy                # wrangler deploy
 npm run account:create -- <username> <role> [display_name] [--post <code>] [--local]
 npm run accounts:seed -- --out <file> [--local]   # six preset accounts; 0600 file
+npm run demo:seed -- --local|--remote [--days 7] [--seed 1]   # demo- marked hourly data
+npm run demo:clear -- --local|--remote   # remove only demo data
 ```
 
 ## Local auth
