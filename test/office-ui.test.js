@@ -25,7 +25,7 @@ test('office.css exists with glass control tokens', () => {
   assert.match(css, /\.ex-item b\s*\{/);
   assert.match(css, /\.status-word\.hot/);
   assert.match(css, /\.event-list::before[^{]*\{[^}]*margin-top:\s*auto/);
-  assert.match(css, /\.event-list\s*\{[^}]*max-height:\s*calc\(5 \* 1\.4em \+ 4 \* 10px\)/);
+  assert.match(css, /\.event-list\s*\{[^}]*max-height:\s*calc\(5 \* 1\.5rem \+ 4 \* 10px\)/);
   assert.match(css, /\.board-mid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/);
   assert.match(css, /\.board-card\[hidden\]\s*\{\s*display:\s*none/);
   assert.equal(/\.btn-primary[^{]*\{[^}]*backdrop-filter/.test(css), false);
@@ -45,8 +45,11 @@ test('office.css stacks and fits the small screens (nav, dashboard, console)', (
   assert.match(css, /@media \(max-width:\s*720px\)[^]*?\.board-mid\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   // gauge readout never overlaps the arc (no longer absolutely positioned over it)
   assert.equal(/\.gauge-read\s*\{[^}]*position:\s*absolute/.test(css), false);
-  // event rows keep time and label on one line
+  // event rows keep time and label on one line, at a fixed height so the
+  // list cap always shows exactly 5 whole rows (rem, not row font-size)
   assert.match(css, /\.event-row\s*\{[^}]*flex-wrap:\s*nowrap/);
+  assert.match(css, /\.event-row\s*\{[^}]*height:\s*1\.5rem/);
+  assert.match(css, /\.event-row\s*\{[^}]*line-height:\s*1\.5rem/);
   // chart card sizes to its content (no min-height floor, aligned to start)
   assert.match(css, /\.chart-box\s*\{[^}]*min-height:\s*0/);
   assert.match(css, /\.chart-box\s*\{[^}]*align-self:\s*start/);

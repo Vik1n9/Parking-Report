@@ -144,7 +144,7 @@ button { cursor: pointer; }
   gap: 10px;
   flex: 0 1 auto;
   margin-top: auto;
-  max-height: calc(5 * 1.4em + 4 * 10px);
+  max-height: calc(5 * 1.5rem + 4 * 10px);
   min-height: 0;
   overflow-y: auto;
 }
@@ -156,6 +156,8 @@ button { cursor: pointer; }
   justify-content: space-between;
   gap: 10px;
   min-width: 0;
+  height: 1.5rem;
+  line-height: 1.5rem;
   font-weight: 650;
   word-break: keep-all;
 }
