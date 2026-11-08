@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createTestDb } from './helpers/d1.js';
-import { getActiveZones, toApiZones } from '../src/routes/zones.js';
+import { getActiveZones, toApiZones, zonesResponse } from '../src/routes/zones.js';
 import { createReport, listReports, confirmReport, rejectReport } from '../src/routes/reports.js';
 import { listRecords } from '../src/routes/records.js';
 import { publicCurrent } from '../src/routes/public.js';
@@ -19,6 +19,18 @@ function post(body) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+function confirmRequest(body) {
+  return new Request('https://example.test/confirm', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+}
+
+async function confirm(db, id, body) {
+  return confirmReport(envWith(db), id, confirmRequest(body), IDENTITY);
 }
 
 function validBody(overrides = {}) {
@@ -235,5 +247,176 @@ test('the public endpoint rejects a malformed date', async () => {
   const db = await seededDb();
   const res = await publicCurrent(envWith(db), new URL('https://example.test/api/public/current?date=2026-9-9'));
   assert.equal(res.status, 400);
+  db.close();
+});
+
+test('/api/zones response carries the tower total', async () => {
+  const db = await seededDb();
+  const res = await zonesResponse(envWith(db));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.towerTotal, 1600);
+  assert.equal(body.zones.length, 10);
+  assert.equal(body.zones[0].code, 'floor_above');
+  db.close();
+});
+
+test('confirmReport applies console corrections to every snapshot', async () => {
+  const db = await seededDb();
+  const created = await (await createReport(envWith(db), post(validBody()), DEVICE)).json();
+  const res = await confirm(db, created.report.id, { values: { floor_below: { kind: 'spaces', value: 100 } } });
+  assert.equal(res.status, 201);
+  const { record } = await res.json();
+
+  assert.deepEqual(record.values.floor_below, { kind: 'spaces', value: 100 });
+  assert.match(record.guardReport, /車塔1下：100車位/);
+  assert.match(record.consoleReport, /車塔1下 100車位/);
+  assert.equal(record.excelValues.split('\t')[1], '100');
+  assert.equal(record.towerPct, 79); // 232 + 100 = 332 剩餘 → 已停 1268 → 79%
+  assert.equal(record.towerRemaining, 332);
+
+  const row = await db.prepare('SELECT values_json FROM records WHERE id = ?').bind(record.id).first();
+  assert.deepEqual(JSON.parse(row.values_json).floor_below, { kind: 'spaces', value: 100 });
+  db.close();
+});
+
+test('corrections record only zones the console actually changed, with the guard original', async () => {
+  const db = await seededDb();
+  const created = await (await createReport(envWith(db), post(validBody()), DEVICE)).json();
+  const res = await confirm(db, created.report.id, {
+    values: {
+      p1: { kind: 'tenths', value: 3 }, // identical to the guard
+      spin_b: { kind: 'carts', value: 4 }, // changed
+    },
+  });
+  const { record } = await res.json();
+  assert.deepEqual(record.corrections, { spin_b: { kind: 'carts', value: 2 } });
+  db.close();
+});
+
+test('confirm without values leaves corrections empty and the column NULL', async () => {
+  const db = await seededDb();
+  const created = await (await createReport(envWith(db), post(validBody()), DEVICE)).json();
+  const { record } = await (await confirm(db, created.report.id, {})).json();
+
+  assert.deepEqual(record.corrections, {});
+  assert.equal(record.displayBefore, null);
+  const row = await db.prepare('SELECT corrections_json FROM records WHERE id = ?').bind(record.id).first();
+  assert.equal(row.corrections_json, null);
+  db.close();
+});
+
+test('console corrections never rewrite the guard values on the report', async () => {
+  const db = await seededDb();
+  const created = await (await createReport(envWith(db), post(validBody()), DEVICE)).json();
+  const before = await db.prepare('SELECT values_json FROM reports WHERE id = ?').bind(created.report.id).first();
+
+  await confirm(db, created.report.id, { values: { floor_below: { kind: 'spaces', value: 100 } } });
+
+  const after = await db.prepare('SELECT values_json FROM reports WHERE id = ?').bind(created.report.id).first();
+  assert.equal(after.values_json, before.values_json);
+  assert.deepEqual(JSON.parse(after.values_json).floor_below, { kind: 'full' });
+  db.close();
+});
+
+test('confirm rejects invalid corrections before writing anything', async () => {
+  const db = await seededDb();
+  const created = await (await createReport(envWith(db), post(validBody()), DEVICE)).json();
+  const cases = [
+    { values: { nope: { kind: 'full' } } },
+    { values: { p1: { kind: 'sideways' } } },
+    { values: { p1: { kind: 'tenths', value: 12 } } },
+    { values: [] },
+  ];
+  for (const body of cases) {
+    const res = await confirm(db, created.report.id, body);
+    assert.equal(res.status, 400, `expected 400 for ${JSON.stringify(body)}`);
+  }
+  const report = await db.prepare('SELECT status FROM reports WHERE id = ?').bind(created.report.id).first();
+  assert.equal(report.status, 'pending');
+  const records = await db.prepare('SELECT COUNT(*) AS n FROM records').first();
+  assert.equal(records.n, 0);
+  db.close();
+});
+
+test('display_before accepts 0-9999 and rejects everything else', async () => {
+  const db = await seededDb();
+  for (const [i, value] of [0, 9999].entries()) {
+    const created = await (await createReport(envWith(db), post(validBody({ client_request_id: `req-display-${i}` })), DEVICE)).json();
+    const res = await confirm(db, created.report.id, { display_before: value });
+    assert.equal(res.status, 201);
+    const { record } = await res.json();
+    assert.equal(record.displayBefore, value);
+    const row = await db.prepare('SELECT display_before FROM records WHERE id = ?').bind(record.id).first();
+    assert.equal(row.display_before, value);
+  }
+
+  const invalid = [-1, 10000, 1.5, '12'];
+  for (const [i, value] of invalid.entries()) {
+    const created = await (await createReport(envWith(db), post(validBody({ client_request_id: `req-baddisplay-${i}` })), DEVICE)).json();
+    const res = await confirm(db, created.report.id, { display_before: value });
+    assert.equal(res.status, 400, `expected 400 for display_before ${JSON.stringify(value)}`);
+  }
+  db.close();
+});
+
+test('re-confirming an already confirmed report ignores new corrections', async () => {
+  const db = await seededDb();
+  const created = await (await createReport(envWith(db), post(validBody()), DEVICE)).json();
+  const first = await (await confirm(db, created.report.id, { values: { p1: { kind: 'tenths', value: 4 } } })).json();
+
+  const res = await confirm(db, created.report.id, { values: { p1: { kind: 'tenths', value: 8 } } });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.alreadyConfirmed, true);
+  assert.deepEqual(body.record, first.record);
+  assert.deepEqual(body.record.values.p1, { kind: 'tenths', value: 4 });
+
+  const row = await db.prepare('SELECT values_json FROM records WHERE id = ?').bind(first.record.id).first();
+  assert.equal(JSON.parse(row.values_json).p1.value, 4);
+  db.close();
+});
+
+test('towerRemaining sums tower spaces and is null when a tower zone is unreadable', async () => {
+  const db = await seededDb();
+  const created = await (await createReport(envWith(db), post(validBody()), DEVICE)).json();
+  const { record } = await (await confirm(db, created.report.id, {})).json();
+  assert.equal(record.towerRemaining, 232); // floor_above 232 + floor_below full
+  assert.equal(record.towerPct, 86);
+
+  const guiding = await (
+    await createReport(
+      envWith(db),
+      post(
+        validBody({
+          client_request_id: 'req-tower-guiding',
+          values: { floor_above: { kind: 'spaces', value: 500 }, floor_below: { kind: 'guiding' } },
+        })
+      ),
+      DEVICE
+    )
+  ).json();
+  const guided = await (await confirm(db, guiding.report.id, {})).json();
+  assert.equal(guided.record.towerRemaining, null);
+  assert.equal(guided.record.towerPct, null);
+  db.close();
+});
+
+test('the public endpoint never exposes console corrections or the display-board number', async () => {
+  const db = await seededDb();
+  const created = await (await createReport(envWith(db), post(validBody()), DEVICE)).json();
+  await confirm(db, created.report.id, {
+    values: { floor_below: { kind: 'spaces', value: 100 } },
+    display_before: 250,
+  });
+
+  const body = await (
+    await publicCurrent(envWith(db), new URL(`https://example.test/api/public/current?date=${created.report.businessDate}`))
+  ).json();
+  const entry = body.entries[0];
+  assert.ok(!('corrections' in entry), 'public entries must not expose corrections');
+  assert.ok(!('displayBefore' in entry), 'public entries must not expose displayBefore');
+  assert.ok(!('towerRemaining' in entry), 'public entries must not expose towerRemaining');
+  assert.equal(JSON.stringify(body).includes('display_before'), false);
   db.close();
 });

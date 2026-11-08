@@ -1,3 +1,5 @@
+import { json } from '../lib/http.js';
+
 export async function getActiveZones(db) {
   const { results } = await db
     .prepare(
@@ -27,4 +29,12 @@ export function toApiZones(zones) {
 
 export async function getSite(db) {
   return db.prepare('SELECT id, name, tower_total FROM sites WHERE id = 1').first();
+}
+
+export async function zonesResponse(env) {
+  const [zones, site] = await Promise.all([getActiveZones(env.DB), getSite(env.DB)]);
+  return json({
+    zones: toApiZones(zones),
+    towerTotal: (site || { tower_total: 1600 }).tower_total,
+  });
 }

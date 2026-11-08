@@ -1,6 +1,6 @@
 import { json } from '../lib/http.js';
 import { getActiveZones, getSite } from './zones.js';
-import { buildReport, buildExcelValues, buildTowerUsage, validateValue, formatTime, businessDate } from '../../public/js/parking-core.js';
+import { buildReport, buildExcelValues, buildTowerUsage, validateValue, normalizeInput, formatTime, businessDate } from '../../public/js/parking-core.js';
 import { mapRecord } from './records.js';
 
 const CLIENT_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
@@ -12,6 +12,23 @@ function fillValues(raw, zones) {
     out[zone.code] = value && typeof value === 'object' ? value : { kind: 'none' };
   }
   return out;
+}
+
+function sameValue(a, b) {
+  return a.kind === b.kind && a.value === b.value;
+}
+
+function normalizeValue(raw, zone) {
+  if (!raw || typeof raw !== 'object' || typeof raw.kind !== 'string') return { kind: 'none' };
+  return normalizeInput(raw, zone);
+}
+
+function parseDisplayBefore(raw) {
+  if (raw === undefined || raw === null) return { ok: true, value: null };
+  if (!Number.isInteger(raw) || raw < 0 || raw > 9999) {
+    return { ok: false, error: 'display_before 必須是 0-9999 的整數' };
+  }
+  return { ok: true, value: raw };
 }
 
 export function shapeReport(row) {
@@ -131,11 +148,39 @@ export async function confirmReport(env, id, request, identity) {
   } catch {
     body = {};
   }
-  const remarks = body && typeof body.remarks === 'object' && !Array.isArray(body.remarks) ? body.remarks : null;
+  if (!body || typeof body !== 'object' || Array.isArray(body)) body = {};
+  const remarks = typeof body.remarks === 'object' && !Array.isArray(body.remarks) ? body.remarks : null;
 
   const zones = await getActiveZones(env.DB);
+  const byCode = new Map(zones.map((z) => [z.code, z]));
+
+  const input = body.values;
+  if (input !== undefined && input !== null && (typeof input !== 'object' || Array.isArray(input))) {
+    return json({ error: 'values 必須是 { 區域code: {kind, value} } 的物件' }, 400);
+  }
+  const correctionsInput = input == null ? {} : input;
+  for (const [code, value] of Object.entries(correctionsInput)) {
+    const zone = byCode.get(code);
+    if (!zone) return json({ error: `未知區域: ${code}` }, 400);
+    const check = validateValue(value, zone);
+    if (!check.ok) return json({ error: `區域 ${code}: ${check.error}` }, 400);
+  }
+
+  const display = parseDisplayBefore(body.display_before);
+  if (!display.ok) return json({ error: display.error }, 400);
+
   const site = (await getSite(env.DB)) || { tower_total: 1600 };
-  const values = JSON.parse(report.values_json || '{}');
+  const guardValues = fillValues(JSON.parse(report.values_json || '{}'), zones);
+  const finalValues = { ...guardValues };
+  const corrections = {};
+  for (const [code, value] of Object.entries(correctionsInput)) {
+    const zone = byCode.get(code);
+    const original = normalizeValue(guardValues[code], zone);
+    finalValues[code] = normalizeValue(value, zone);
+    if (!sameValue(finalValues[code], original)) corrections[code] = original;
+  }
+  const correctionsJson = Object.keys(corrections).length ? JSON.stringify(corrections) : null;
+
   const reportTime = new Date(report.submitted_at);
   const device = await env.DB
     .prepare('SELECT label FROM guard_devices WHERE id = ?')
@@ -143,24 +188,27 @@ export async function confirmReport(env, id, request, identity) {
     .first();
   const deviceLabel = device?.label ?? null;
 
-  const tower = buildTowerUsage(values, zones, { towerTotal: site.tower_total });
+  const tower = buildTowerUsage(finalValues, zones, { towerTotal: site.tower_total });
   const confirmedAt = new Date().toISOString();
 
   const insertRecord = env.DB
     .prepare(
       `INSERT INTO records
         (report_id, site_id, business_date, values_json, guard_report, console_report, excel_values,
-         tower_usage_pct, remarks_json, prepared_by, report_time, confirmed_at)
-       VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         tower_usage_pct, tower_remaining, corrections_json, display_before, remarks_json, prepared_by, report_time, confirmed_at)
+       VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       report.id,
       report.business_date,
-      report.values_json,
-      buildReport(values, zones, { style: 'guard', time: reportTime }),
-      buildReport(values, zones, { style: 'console', time: reportTime, deviceLabel }),
-      buildExcelValues(values, zones).map((cell) => cell.value).join('\t'),
+      JSON.stringify(finalValues),
+      buildReport(finalValues, zones, { style: 'guard', time: reportTime }),
+      buildReport(finalValues, zones, { style: 'console', time: reportTime, deviceLabel }),
+      buildExcelValues(finalValues, zones).map((cell) => cell.value).join('\t'),
       tower.valid ? tower.percent : null,
+      tower.valid ? tower.remaining : null,
+      correctionsJson,
+      display.value,
       remarks ? JSON.stringify(remarks) : null,
       identity.email,
       formatTime(reportTime),

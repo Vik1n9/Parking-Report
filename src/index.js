@@ -1,6 +1,6 @@
 import { json } from './lib/http.js';
 import { verifyDeviceToken, verifyAccess } from './auth.js';
-import { getActiveZones, toApiZones } from './routes/zones.js';
+import { zonesResponse } from './routes/zones.js';
 import { createReport, listReports, confirmReport, rejectReport } from './routes/reports.js';
 import { listRecords } from './routes/records.js';
 import { publicCurrent } from './routes/public.js';
@@ -27,7 +27,7 @@ export default {
       }
 
       if (request.method === 'GET' && path === '/api/zones') {
-        return json({ zones: toApiZones(await getActiveZones(env.DB)) });
+        return zonesResponse(env);
       }
 
       if (path === '/api/reports') {

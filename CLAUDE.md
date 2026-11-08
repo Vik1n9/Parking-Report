@@ -12,13 +12,13 @@ Old static version: branch `legacy-static` (serves GitHub Pages site). `main` = 
 - `src/export/xlsx.js`: ExcelJS manager template (ROC year, side-by-side date tables, alternating remaining-spaces/remarks rows).
 - `public/guard.html`: guard page. Layout/interaction MUST NOT change (glare, one-hand, first-screen principles in PRODUCT.md); behavior locked by string assertions in `test/guard-ui.test.js`.
 - `public/CenterConsole.html` control console; `public/ManagerDashboard.html` manager read-only; `public/secretary.html` secretary export.
-- `migrations/`: D1 schema. `0002_seed.sql` seeds 10 zones; `0003_value_model.sql` value-model migration (`unit` replaces `is_car`, `tokens_json`→`values_json`, old values auto-converted).
+- `migrations/`: D1 schema. `0002_seed.sql` seeds 10 zones; `0003_value_model.sql` value-model migration (`unit` replaces `is_car`, `tokens_json`→`values_json`, old values auto-converted); `0005_console_review.sql` adds record corrections, tower remaining, display-board number.
 - `scripts/provision-device.mjs`: generate guard device token.
 
 ## Constraints
 1. Explicit timezone always: format via `formatTime`/`businessDate` (default `Asia/Taipei`); never `getHours()`. DB timestamps = UTC ISO. Report time = guard submit time (`client_submitted_at`, kept for offline resend).
 2. `values` storage: `{zone_code: {kind, value}}` object (not positional array). Kinds: `spaces`/`tenths`/`carts`/`full`/`guiding`/`none`. Ranges: spaces 0–9999, tenths 1–9, carts 1–99; last three carry no value. Number always = how many can still park. Zone definitions only in D1 `zones` table (`unit` column sets bare-number semantics); no zone constants in `parking-core.js`.
-3. Server recomputes: on confirm, all snapshots recomputed from `reports.values_json`; `raw_input` is audit only.
+3. Server recomputes all snapshots on confirm from guard original values plus console corrections; `reports.values_json` is always the guard's original, `records.values_json` the final values; `raw_input` audit only.
 4. Guard page offline-first: LINE share/copy 100% local; API submit goes to localStorage queue with retry, never blocks.
 5. Tests must pass in both `TZ=Asia/Taipei` and `TZ=UTC`. Test data uses pseudonyms for filler name and device code.
 6. Manager page public: `/ManagerDashboard` and `/api/public/current` unauthenticated; endpoint must not return `prepared_by`, `remarks`, `report_id`, device code.

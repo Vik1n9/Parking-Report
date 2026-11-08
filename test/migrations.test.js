@@ -65,3 +65,52 @@ test('the migration converts legacy token strings into structured values', async
   assert.deepEqual(values.asphalt, { kind: 'none' });
   db.close();
 });
+
+test('0005 adds the console-review columns', async () => {
+  const db = createTestDb();
+  const cols = (await db.prepare("SELECT name FROM pragma_table_info('records')").all()).results.map((r) => r.name);
+  assert.ok(cols.includes('corrections_json'));
+  assert.ok(cols.includes('tower_remaining'));
+  assert.ok(cols.includes('display_before'));
+  db.close();
+});
+
+test('0005 backfills tower_remaining only when every tower zone is spaces or full', async () => {
+  const db = createTestDb({
+    migrations: ['0001_init.sql', '0002_seed.sql', '0003_value_model.sql', '0004_site_events.sql'],
+  });
+
+  async function insertLegacy(id, values) {
+    const json = JSON.stringify(values);
+    await db
+      .prepare(
+        `INSERT INTO reports (id, site_id, device_id, status, client_request_id, values_json, business_date, submitted_at)
+         VALUES (?, 1, NULL, 'confirmed', ?, ?, '2026-09-01', '2026-09-01T04:00:00.000Z')`
+      )
+      .bind(id, `legacy-000${id}`, json)
+      .run();
+    await db
+      .prepare(
+        `INSERT INTO records (report_id, site_id, business_date, values_json, guard_report, prepared_by, report_time, confirmed_at)
+         VALUES (?, 1, '2026-09-01', ?, 'legacy', 'console@example.test', '12:00', '2026-09-01T04:10:00.000Z')`
+      )
+      .bind(id, json)
+      .run();
+  }
+
+  await insertLegacy(1, { floor_above: { kind: 'spaces', value: 100 }, floor_below: { kind: 'spaces', value: 50 } });
+  await insertLegacy(2, { floor_above: { kind: 'spaces', value: 200 }, floor_below: { kind: 'full' } });
+  await insertLegacy(3, { floor_above: { kind: 'spaces', value: 100 }, floor_below: { kind: 'guiding' } });
+
+  db.applyMigration('0005_console_review.sql');
+
+  const { results } = await db
+    .prepare('SELECT report_id, tower_remaining FROM records ORDER BY report_id')
+    .all();
+  assert.deepEqual(results, [
+    { report_id: 1, tower_remaining: 150 },
+    { report_id: 2, tower_remaining: 200 },
+    { report_id: 3, tower_remaining: null },
+  ]);
+  db.close();
+});
