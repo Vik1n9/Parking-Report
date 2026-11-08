@@ -3,30 +3,26 @@
 ## 已上線（2026-11-09）
 
 - 網址：`https://parking.voriens.dev`（Worker custom domain；`workers.dev`、preview URL 已關閉）
-- 線上 D1 `parking-report` 已套用 0003–0005
-- Zero Trust：team `voriens.cloudflareaccess.com`；登入方式「Email 驗證碼」（One-time PIN）
-- Access 應用「停車回報後台」（單一應用、單一 AUD，已寫入 secret `ACCESS_AUD`），destinations：
-  - `parking.voriens.dev/CenterConsole*`
-  - `parking.voriens.dev/secretary*`
-  - `parking.voriens.dev/api/records*`
-  - `parking.voriens.dev/api/reports/*`（確認／退回）
-  - `GET /api/reports`（待確認清單）與保全 `POST /api/reports` 同路徑，**不能**加進 Access；Worker 改讀 `CF_Authorization` cookie 驗證中控身分
-  - **不要綁裸網域**：會擋到 `/guard` 與保全送出
-- 保全裝置已綁 7 台：A1（保全隊長）、10（南側入口）、12（北側入口）、紡外、P1、P3、車巡。token 只存 SHA-256；設定連結只交給使用者一次
+- 線上 D1 `parking-report` 已套用 0003–0006
+- 登入：預設角色帳號（`admin`、`console`、`secretary`、`captain`＝A1、`patrol`＝車巡、`manager`），全站需登入，權限表見 `docs/superpowers/plans/2026-11-09-account-login.md`
+- 初始密碼只在管理者本機 `~/parking-accounts.txt`（0600）；每個帳號第一次登入必須改密碼
+- 審核：車巡上傳 → 隊長 `/review` 複核（可改、保留車巡原值）→ 中控確認；適應期隊長可直接上傳給中控
+- Cloudflare Access 應用、Email 驗證碼、`ACCESS_*` secrets 已刪除；舊裝置 token 全部作廢
 
 ## 待辦
 
-- [ ] 允許登入後台的 email：目前只有管理者本人。加人：Zero Trust → Access → Applications → 停車回報後台 → Policies → 後台人員 → Include Emails
-- [ ] 把各裝置設定連結傳給對應保全，各點一次 → 保全頁顯示「裝置綁定完成」
-- [ ] 試點驗收（計畫段 4 第 3 點）：
-  - [ ] 保全手機輸入一半鎖屏再開，數字還在；送出後中控 8 秒內看到
-  - [ ] 中控改一區數字確認，LINE 文、Excel、主管頁都用修正值
+- [ ] 管理者用 `admin` 登入改密碼，再到 `/admin` 確認六個帳號；初始密碼交給各角色後刪掉 `~/parking-accounts.txt`
+- [ ] 保全隊長、車巡手機各登入一次並改密碼，把 `/guard`（隊長另加 `/review`）加到主畫面
+- [ ] 試點驗收：
+  - [ ] 車巡送出 → 隊長複核頁 8 秒內出現 → 通過 → 中控 8 秒內出現
+  - [ ] 隊長直接送出 → 直接到中控
+  - [ ] 保全手機輸入一半鎖屏再開，數字還在
+  - [ ] 隊長、中控各改一區數字，LINE 文、Excel、主管頁都用最終值；中控列表顯示「隊長修正」「已修正」
   - [ ] 顯示牌數字＝車塔1上＋車塔1下剩餘
   - [ ] LINE 分享按鈕在手機能開 LINE 選群組；電腦端至少能複製
-  - [ ] 未登入開 `/CenterConsole`、`/secretary`、`/api/records` 被 Access 擋；`/guard`、`/ManagerDashboard`、`/api/public/current` 不被擋（2026-11-09 已用 HTTP 驗過）
-- [x] 試點文件（計畫段 4 第 2 點）：紙本備援 SOP、保全操作卡、中控操作卡、試點紀錄表，在 `docs/pilot/`
-- [ ] 列印、護貝 10 區卡與操作卡
-- [ ] 段 6、段 8 新增 `/api/events*`、`/api/stats*` 時，加進同一個 Access 應用的 destinations
+  - [x] 未登入任何頁面導到 `/login`、API 回 401；必須改密碼前不能進後台；外站 Origin 的 POST 被擋（2026-11-09 已用 HTTP 驗過）
+- [x] 試點文件內容參考在 `docs/pilot/`（護貝卡、操作卡由使用者另行設計）
+- [ ] 段 6、段 8 新增頁面／API 時，加進 `src/index.js` 權限表與 `test/access-matrix.test.js`
 
 ## 之後（已規劃、本次不做）
 

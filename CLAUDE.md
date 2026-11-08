@@ -32,7 +32,7 @@ Old static version: branch `legacy-static` (serves GitHub Pages site). `main` = 
 ## Deployment
 Live since 2026-11-09 at `https://parking.voriens.dev` (custom domain; workers.dev off). Details and open items in `TODO.md`.
 - Accounts: `npm run accounts:seed -- --out <local-file>` creates the six preset accounts; `npm run account:create -- <username> <role> [display_name] [--post <code>] [--local]` creates one or resets a password. Generated passwords are shown once; never put them in VCS or chat.
-- Cloudflare Access: the 「停車回報後台」 app and One-time PIN are still configured on the live zone; remove them only in segment D after the account rollout is accepted. Code no longer verifies Access JWTs.
+- Login = preset role accounts only (2026-11-09). Cloudflare Access app and One-time PIN deleted; Zero Trust org `voriens` kept but unused. New gated pages/APIs → add to the permission tables in `src/index.js` and the plan file, plus `test/access-matrix.test.js`.
 - Test data uses pseudonyms for display names and post codes; production post codes are `A1` (captain) and `車巡` (patrol).
 
 ## Commands

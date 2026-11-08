@@ -5,7 +5,7 @@
 | 日期 | 2026-11-09 |
 | 分支 | `feat/console-review-and-reports` |
 | 參考 | `/Volumes/NAS/Projects/products/web/japan-wall`（`worker/lib/auth.ts`、`worker/routes/auth.ts`、`scripts/admin-create.mjs`、`docs/decisions.md` 帳號段） |
-| 狀態 | 段 A、B、C 完成，接段 D（部署） |
+| 狀態 | 段 A–D 完成（2026-11-09 上線；Access 應用、OTP、Access secrets 已刪除） |
 
 ## 使用者已定（2026-11-09）
 
