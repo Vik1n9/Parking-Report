@@ -10,9 +10,17 @@
 </head>
 <body>
 <div id="chrome"></div>
-<main class="app">
-  <div class="queue" id="queueList"></div>
-  <div class="log" id="recordList"></div>
+<main class="app app-console">
+  <div class="console-cols">
+    <section class="console-col">
+      <h2 class="console-heading">待確認 <b id="pendingCount">0</b></h2>
+      <div class="queue" id="queueList"></div>
+    </section>
+    <section class="console-col">
+      <h2 class="console-heading">今日紀錄 <b id="recordCount">0</b></h2>
+      <div class="log" id="recordList"></div>
+    </section>
+  </div>
 </main>
 <div class="sheet-backdrop" id="confirmSheet">
   <div class="sheet glass">
@@ -99,6 +107,7 @@ async function loadQueue() {
   const data = await apiFetch('/api/reports?status=pending');
   pendingReportsCache = data.reports || [];
   const reports = pendingReportsCache;
+  $('pendingCount').textContent = String(reports.length);
   $('queueList').innerHTML = reports.map((report) => `
     <div class="queue-item">
       <div><b>${escapeHtml(formatTime(report.submittedAt))}</b> ${escapeHtml(report.deviceLabel || '')} ${report.reviewedBy ? '<span class="tag-fixed">隊長已複核</span>' : ''}</div>
@@ -115,6 +124,7 @@ async function loadRecords() {
   const today = businessDate(new Date());
   const data = await apiFetch(`/api/records?from=${today}&to=${today}`);
   const records = data.records || [];
+  $('recordCount').textContent = String(records.length);
   $('recordList').innerHTML = records.map((record) => {
     const bits = [`<b>${escapeHtml(record.reportTime)}</b>`];
     if (record.towerRemaining != null) bits.push(`剩餘 ${escapeHtml(record.towerRemaining)}`);

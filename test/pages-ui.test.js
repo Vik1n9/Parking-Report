@@ -74,6 +74,25 @@ test('admin page lists six roles and confirms destructive actions twice', () => 
   assert.equal(/[^A-Za-z_]prompt\(/.test(body), false);
 });
 
+test('console groups queue and records with count headings', () => {
+  const html = read('CenterConsole.html');
+  assert.match(html, /class="app app-console"/);
+  assert.match(html, /class="console-cols"/);
+  assert.match(html, /class="console-heading">待確認 <b id="pendingCount">0<\/b><\/h2>/);
+  assert.match(html, /class="console-heading">今日紀錄 <b id="recordCount">0<\/b><\/h2>/);
+  assert.match(html, /\$\('pendingCount'\)\.textContent/);
+  assert.match(html, /\$\('recordCount'\)\.textContent/);
+  assert.ok(html.indexOf('id="queueList"') < html.indexOf('id="recordList"'), 'queue column must come before records column');
+});
+
+test('admin create form starts on a disabled role placeholder', () => {
+  const html = read('admin.html');
+  assert.match(html, /<select id="createRole" required>/);
+  assert.match(html, /<option value="" disabled selected>選擇角色<\/option>/);
+  assert.match(html, /if \(!role\)/);
+  assert.match(html, /請選擇角色/);
+});
+
 test('review page polls awaiting_captain and posts review actions', () => {
   const html = read('review.html');
   const body = pageBody(html);

@@ -24,7 +24,8 @@
       </div>
       <div class="form-field">
         <span>角色</span>
-        <select id="createRole">
+        <select id="createRole" required>
+          <option value="" disabled selected>選擇角色</option>
           <option value="admin">後台管理者</option>
           <option value="console">中控</option>
           <option value="secretary">秘書</option>
@@ -233,6 +234,11 @@ async function doCreate(event) {
   const displayName = $('createDisplayName').value.trim();
   const role = $('createRole').value;
   const postCode = $('createPostCode').value.trim();
+  if (!role) {
+    $('createError').textContent = '請選擇角色';
+    $('createError').hidden = false;
+    return;
+  }
   if (!USERNAME_RE.test(username)) {
     $('createError').textContent = '帳號限 2–32 字的小寫 a–z、0–9、_ . -';
     $('createError').hidden = false;
