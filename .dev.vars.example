@@ -1,4 +1,5 @@
 # 本機開發用（wrangler dev 自動載入），已 gitignore
-# DEV_MODE=1 時 Access 驗證停用，改用 header x-dev-user 模擬登入身分
+# DEV_MODE=1 只讓 session cookie 不加 Secure（本機 http://localhost 才收得到）
+# 登入一律使用資料庫裡的帳號；不再有 Access 驗證或 x-dev-user 模擬登入
 # 絕對不要在部署設定中開啟 DEV_MODE
 DEV_MODE=1

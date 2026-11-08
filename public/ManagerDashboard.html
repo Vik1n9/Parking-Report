@@ -12,110 +12,234 @@
 <body>
 <main class="app board">
   <div class="banner" id="failBanner">無法更新</div>
-  <div class="board-when" id="when"></div>
-  <div class="hero-pct" id="gaugePct">—</div>
-  <span class="status-word" id="statusWord"></span>
-  <div class="meta-row">
-    <div><b id="remainingNum">—</b> <span>剩餘</span></div>
-    <div><b id="occupiedNum">—</b> <span>已停</span></div>
-    <div><b id="capacityNum">—</b> <span>總格</span></div>
+  <div class="board-shell">
+    <div class="board-when" id="when"></div>
+    <div class="board-kpis">
+      <div class="board-kpi" id="statusCard"><b id="statusWord">順暢</b><span>目前狀態</span></div>
+      <div class="board-kpi" id="aboveCard"><b id="aboveNum">—</b><span>車塔一樓以上</span></div>
+      <div class="board-kpi" id="belowCard"><b id="belowNum">—</b><span>車塔一樓以下</span></div>
+      <div class="board-kpi" id="outsideCard"><b id="outsideNum">—</b><span>紡外大致成數</span></div>
+    </div>
+    <div class="board-mid">
+      <div class="board-card">
+        <div class="gauge-wrap">
+          <svg viewBox="0 0 240 140" role="img">
+            <path d="M20 120 A100 100 0 0 1 220 120" fill="none" stroke="#e8e8ea" stroke-width="22" stroke-linecap="round"/>
+            <path id="gaugeArc" d="M20 120 A100 100 0 0 1 220 120" fill="none" stroke="#ff5a1f" stroke-width="22" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314"/>
+          </svg>
+          <div class="gauge-read"><b id="gaugeCenter">—</b><span>目前車塔內百分比</span></div>
+        </div>
+      </div>
+      <div class="board-card" id="eventCard" hidden>
+        <div class="event-list" id="eventList"></div>
+      </div>
+    </div>
+    <div class="board-bottom">
+      <div class="board-card chart-box" id="chartBox"></div>
+      <div class="board-card" id="shotCard" hidden>
+        <div class="shot-when" id="shotWhen"></div>
+        <div id="shotList"></div>
+      </div>
+    </div>
   </div>
-  <div class="ex-list" id="exList"></div>
-  <div class="zone-list" id="zoneList"></div>
-  <div class="chart-box" id="chartBox"></div>
 </main>
 <script type="module">
-import { formatValue, buildTowerUsage } from './js/parking-core.js';
-import { exceptionItems, towerStatusWord } from './js/office-exceptions.js';
+import { buildTowerUsage, formatTime, formatValue } from './js/parking-core.js';
+import { apiFetch } from './js/session.js';
 
 const POLL_MS = 30000;
+const ARC = 314;
+const KIND_WORD = { guiding: '引導', jam: '塞車', special: '車禍' };
 const $ = (id) => document.getElementById(id);
-let zones = [];
 let towerTotal = 1600;
 let lastOk = null;
+let chartPoints = [];
+let selectedTime = null;
 
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function pctClass(pct) {
-  if (pct == null) return '';
-  return pct >= 90 ? 'hot' : pct >= 70 ? 'warm' : 'cool';
+function fieldStatus(events) {
+  const open = (events || []).filter((event) => !event.clearedAt);
+  if (open.some((event) => event.kind === 'guiding')) return { word: '引導', cls: 'warm' };
+  if (open.some((event) => event.kind === 'jam')) return { word: '擁塞', cls: 'hot' };
+  if (open.some((event) => event.kind === 'special')) return { word: '車禍', cls: 'hot' };
+  return { word: '順暢', cls: 'cool' };
+}
+
+function renderStatus(events) {
+  const status = fieldStatus(events);
+  $('statusWord').textContent = status.word;
+  $('statusCard').className = `board-kpi ${status.cls}`;
+}
+
+function spaceLabel(value) {
+  if (!value) return '—';
+  if (value.kind === 'full') return '滿';
+  if (value.kind === 'spaces') return String(value.value);
+  return formatValue(value);
+}
+
+function outsideTenths(values, zones) {
+  const nums = [];
+  for (const zone of zones.filter((z) => !z.inTower)) {
+    const value = values?.[zone.code] ?? { kind: 'none' };
+    if (value.kind === 'full') nums.push(0);
+    else if (value.kind === 'tenths') nums.push(value.value);
+  }
+  if (!nums.length) return '—';
+  const avg = Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
+  if (avg <= 0) return '滿';
+  return `${avg}成`;
 }
 
 function renderEmpty() {
-  $('gaugePct').textContent = '—';
-  $('gaugePct').className = 'hero-pct';
-  $('statusWord').textContent = '';
-  $('statusWord').className = 'status-word';
-  $('remainingNum').textContent = '—';
-  $('occupiedNum').textContent = '—';
-  $('capacityNum').textContent = String(towerTotal);
-  $('exList').innerHTML = '';
-  $('zoneList').innerHTML = '';
+  $('aboveNum').textContent = '—';
+  $('belowNum').textContent = '—';
+  $('outsideNum').textContent = '—';
+  $('gaugeCenter').textContent = '—';
+  $('gaugeArc').style.strokeDashoffset = String(ARC);
+  $('eventCard').hidden = true;
+  $('eventList').innerHTML = '';
   $('chartBox').innerHTML = '';
+  $('shotCard').hidden = true;
+  $('shotWhen').textContent = '';
+  $('shotList').innerHTML = '';
+}
+
+function eventLine(event) {
+  const start = formatTime(event.occurredAt);
+  const end = event.clearedAt ? formatTime(event.clearedAt) : '';
+  const clock = end ? `${start}–${end}` : start;
+  const bits = [KIND_WORD[event.kind] || event.kind];
+  if (event.zoneLabel) bits.push(event.zoneLabel);
+  if (event.detail) bits.push(event.detail);
+  return { clock, text: bits.join(' '), open: !event.clearedAt };
+}
+
+function renderEvents(events) {
+  const rows = [...events].sort((a, b) => String(a.occurredAt).localeCompare(String(b.occurredAt)));
+  if (!rows.length) {
+    $('eventCard').hidden = true;
+    $('eventList').innerHTML = '';
+    return;
+  }
+  const open = rows.some((event) => !event.clearedAt);
+  $('eventCard').hidden = false;
+  $('eventCard').className = open ? 'board-card accent' : 'board-card';
+  $('eventList').innerHTML = rows.map((event) => {
+    const line = eventLine(event);
+    return `<div class="event-row"><span class="event-time">${escapeHtml(line.clock)}</span><span>${escapeHtml(line.text)}</span></div>`;
+  }).join('');
+  $('eventList').scrollTop = $('eventList').scrollHeight;
+}
+
+function renderShot(entry, zones) {
+  if (!entry) {
+    $('shotCard').hidden = true;
+    $('shotWhen').textContent = '';
+    $('shotList').innerHTML = '';
+    return;
+  }
+  const values = entry.values || {};
+  $('shotCard').hidden = false;
+  $('shotWhen').textContent = entry.reportTime;
+  $('shotList').innerHTML = zones.map((zone) => {
+    const text = formatValue(values[zone.code] ?? { kind: 'none' });
+    return `<div class="shot-row"><span>${escapeHtml(zone.label)}</span><b>${escapeHtml(text)}</b></div>`;
+  }).join('');
+}
+
+function renderChart(points, selected) {
+  if (points.length < 1) {
+    $('chartBox').innerHTML = '';
+    return;
+  }
+  const W = 640, H = 200, PAD_L = 8, PAD_R = 8, PAD_T = 12, PAD_B = 28;
+  const innerW = W - PAD_L - PAD_R;
+  const innerH = H - PAD_T - PAD_B;
+  const slotW = innerW / points.length;
+  const gap = 3;
+  const barW = Math.max(4, slotW - gap);
+  const x = (i) => PAD_L + i * slotW + gap / 2;
+  const y = (pct) => PAD_T + innerH - (pct / 100) * innerH;
+  const bars = points.map((p, i) => {
+    const top = y(p.towerPct);
+    const height = Math.max(2, PAD_T + innerH - top);
+    const fill = p.towerPct >= 90 ? '#ff3b30' : p.towerPct >= 70 ? '#ff5a1f' : '#34c759';
+    const on = p.reportTime === selected;
+    const extra = on ? ' stroke="#1d1d1f" stroke-width="2"' : '';
+    return `<rect x="${x(i).toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${height.toFixed(1)}" rx="3" fill="${fill}"${extra}/>`;
+  }).join('');
+  const step = Math.max(1, Math.floor((points.length - 1) / 4));
+  const labels = points.map((p, i) => {
+    const show = i === 0 || i === points.length - 1 || i % step === 0;
+    if (!show) return '';
+    return `<text x="${(x(i) + barW / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="#6e6e73">${escapeHtml(p.reportTime)}</text>`;
+  }).join('');
+  const hits = points.map((p, i) =>
+    `<rect class="chart-hit" data-i="${i}" x="${(PAD_L + i * slotW).toFixed(1)}" y="0" width="${slotW.toFixed(1)}" height="${H}" fill="transparent" pointer-events="all"/>`
+  ).join('');
+  $('chartBox').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img">${bars}${labels}${hits}</svg>`;
 }
 
 function render(data) {
-  zones = data.zones || zones;
   towerTotal = data.towerTotal || towerTotal;
   const entries = data.entries || [];
   const latest = entries[entries.length - 1];
   const bits = [data.businessDate];
   if (latest?.reportTime) bits.push(latest.reportTime);
   $('when').textContent = bits.filter(Boolean).join('  ');
+  renderStatus(data.events || []);
+  renderEvents(data.events || []);
+  chartPoints = entries.filter((row) => row.towerPct != null);
+  if (selectedTime && !chartPoints.some((row) => row.reportTime === selectedTime)) selectedTime = null;
+  renderChart(chartPoints, selectedTime);
+  renderShot(chartPoints.find((row) => row.reportTime === selectedTime), data.zones || []);
   if (!latest) {
-    renderEmpty();
+    $('aboveNum').textContent = '—';
+    $('belowNum').textContent = '—';
+    $('outsideNum').textContent = '—';
+    $('gaugeCenter').textContent = '—';
+    $('gaugeArc').style.strokeDashoffset = String(ARC);
     return;
   }
   const values = latest.values || {};
+  const zones = data.zones || [];
   const tower = buildTowerUsage(values, zones, { towerTotal });
   const pct = latest.towerPct ?? (tower.valid ? tower.percent : null);
-  $('gaugePct').textContent = pct == null ? '—' : `${pct}%`;
-  $('gaugePct').className = `hero-pct ${pctClass(pct)}`;
-  $('statusWord').textContent = towerStatusWord(pct);
-  $('statusWord').className = `status-word ${pctClass(pct)}`;
-  $('remainingNum').textContent = tower.valid ? String(tower.remaining) : '—';
-  $('occupiedNum').textContent = tower.valid ? String(tower.occupied) : '—';
-  $('capacityNum').textContent = String(towerTotal);
-  $('exList').innerHTML = exceptionItems(values, zones).map((item) =>
-    `<div class="ex-item"><span>${escapeHtml(item.label)}</span><b>${escapeHtml(item.display)}</b></div>`
-  ).join('');
-  $('zoneList').innerHTML = zones.map((zone) => {
-    const value = values[zone.code] ?? { kind: 'none' };
-    return `<div class="zone-item"><span>${escapeHtml(zone.label)}</span><b>${escapeHtml(formatValue(value))}</b></div>`;
-  }).join('');
-  renderChart(entries);
-}
-
-function renderChart(records) {
-  const points = records.filter((r) => r.towerPct != null);
-  if (points.length < 1) {
-    $('chartBox').innerHTML = '';
-    return;
-  }
-  const W = 900, H = 220, PAD_L = 36, PAD_R = 12, PAD_T = 12, PAD_B = 28;
-  const innerW = W - PAD_L - PAD_R;
-  const innerH = H - PAD_T - PAD_B;
-  const x = (i) => PAD_L + (points.length === 1 ? innerW / 2 : (i / (points.length - 1)) * innerW);
-  const y = (pct) => PAD_T + innerH - (pct / 100) * innerH;
-  const line = points.map((p, i) => `${x(i).toFixed(1)},${y(p.towerPct).toFixed(1)}`).join(' ');
-  $('chartBox').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img"><polyline points="${line}" fill="none" stroke="#007AFF" stroke-width="3" stroke-linejoin="round"/></svg>`;
+  $('aboveNum').textContent = spaceLabel(values.floor_above);
+  $('belowNum').textContent = spaceLabel(values.floor_below);
+  $('outsideNum').textContent = outsideTenths(values, zones);
+  $('gaugeCenter').textContent = pct == null ? '—' : `${pct}%`;
+  const offset = pct == null ? ARC : ARC * (1 - pct / 100);
+  $('gaugeArc').style.strokeDashoffset = String(offset);
+  $('gaugeArc').style.stroke = pct >= 90 ? '#ff3b30' : pct >= 70 ? '#ff5a1f' : '#34c759';
 }
 
 async function refresh() {
   try {
-    const response = await fetch('/api/public/current');
-    const data = await response.json();
-    if (!response.ok) throw new Error('bad');
+    const data = await apiFetch('/api/dashboard/current');
     lastOk = data;
     $('failBanner').classList.remove('show');
     render(data);
-  } catch {
+  } catch (err) {
+    if (err.message === 'unauthorized' || err.message === 'must-change-password') return;
     $('failBanner').classList.add('show');
     if (lastOk) render(lastOk);
   }
 }
+
+$('chartBox').addEventListener('click', (ev) => {
+  const hit = ev.target.closest('[data-i]');
+  if (!hit || !lastOk) return;
+  const point = chartPoints[Number(hit.dataset.i)];
+  if (!point) return;
+  selectedTime = point.reportTime === selectedTime ? null : point.reportTime;
+  renderChart(chartPoints, selectedTime);
+  renderShot(selectedTime ? point : null, lastOk.zones || []);
+});
 
 refresh();
 setInterval(refresh, POLL_MS);

@@ -1,56 +1,52 @@
 # CLAUDE.md
 
-## 專案
+## Project
+Parking report system (full-stack). Guard reports spaces on site → control center confirms → record to D1 → secretary exports manager report → manager reads read-only dashboard. Cloudflare Workers + D1.
+Old static version: branch `legacy-static` (serves GitHub Pages site). `main` = full-stack.
 
-停車回報系統（全端）。保全在現場回報車位 → 中控確認 → 紀錄進 D1 → 秘書匯出主管報表 → 主管看唯讀儀表板。部署在 Cloudflare Workers + D1。
+## Structure
+- `public/js/parking-core.js`: sole source of value semantics and wording (normalize, validate, two report frames, Excel values, tower utilization). No zone knowledge; all functions take caller-supplied `zones`. ESM shared by Worker and browser; never reimplement elsewhere.
+- `src/index.js`: Worker entry. Non-`/api/*` → page gate then static assets; `/api/*` → Origin check, session and role matrix. `wrangler.jsonc` uses `run_worker_first: true` so pages cannot bypass the gate.
+- `src/auth.js`: single auth core — six roles, PBKDF2-SHA256 passwords, D1 sessions, login rate limits, Origin check, cookie helpers. No Access JWT, no device tokens.
+- `src/routes/`: `auth` (login/logout/me/change-password), `users` (admin list/create/reset/status/patch), zones, reports (submit/queue/confirm/reject), records (query), dashboard (manager read-only).
+- `src/export/xlsx.js`: ExcelJS manager template (ROC year, side-by-side date tables, alternating remaining-spaces/remarks rows).
+- `public/guard.html`: guard page. Layout/interaction MUST NOT change (glare, one-hand, first-screen principles in PRODUCT.md); behavior locked by string assertions in `test/guard-ui.test.js`; sends queued reports with the session cookie. Tower usage, LINE preview and history cards removed at owner request (2026-11-09); do not re-add. Bottom bar `送出` button (website-only submit, no LINE) added at owner request (2026-11-09).
+- `public/CenterConsole.html` control console; `public/ManagerDashboard.html` manager read-only; `public/secretary.html` secretary export.
+- `public/login.html`: login and forced password change. `public/review.html`: phone-first captain review. `public/admin.html`: account management.
+- `public/js/session.js`: browser session bootstrap (`loadMe`, `logout`, `apiFetch` redirects). `public/js/value-edit.js`: shared per-zone correction parsing for console and captain review.
+- `migrations/`: D1 schema. `0002_seed.sql` seeds 10 zones; `0003_value_model.sql` value-model migration (`unit` replaces `is_car`, `tokens_json`→`values_json`, old values auto-converted); `0005_console_review.sql` adds record corrections, tower remaining, display-board number; `0006_accounts_review.sql` adds users/sessions/login_attempts, report review columns, `submitted_by`, and `awaiting_captain`.
+- `scripts/account-create.mjs`: create or reset one role account. `scripts/accounts-seed.mjs`: create the six preset accounts, passwords only to a local 0600 file.
 
-舊的純靜態版完整保存在 `legacy-static` 分支（GitHub Pages 線上站由該分支提供），main 是全端版。
+## Constraints
+1. Explicit timezone always: format via `formatTime`/`businessDate` (default `Asia/Taipei`); never `getHours()`. DB timestamps = UTC ISO. Report time = guard submit time (`client_submitted_at`, kept for offline resend).
+2. `values` storage: `{zone_code: {kind, value}}` object (not positional array). Kinds: `spaces`/`tenths`/`carts`/`full`/`guiding`/`none`. Ranges: spaces 0–9999, tenths 1–9, carts 1–99; last three carry no value. Number always = how many can still park. Zone definitions only in D1 `zones` table (`unit` column sets bare-number semantics); no zone constants in `parking-core.js`.
+3. Server recomputes all snapshots on confirm from the captain-reviewed values (`reviewed_values_json`) when present, else the uploader original; `reports.values_json` is always the uploader's original, `reviewed_values_json` the captain's result, `records.values_json` the final values; `records.corrections_json` holds console changes relative to that base and `records.captain_corrections_json` the captain's changes separately; `raw_input` audit only. Patrol submissions start at `awaiting_captain`; captain submissions go straight to `pending`.
+4. Guard page offline-first: LINE share/copy 100% local; API submit goes to localStorage queue with retry, never blocks.
+5. Tests must pass in both `TZ=Asia/Taipei` and `TZ=UTC`. Test data uses pseudonyms for display names and post codes.
+6. All pages except `/login` and static assets require a session; access follows the role matrix (guard: captain/patrol/admin; console: console/admin; secretary: secretary/admin; manager dashboard: manager/console/secretary/admin; admin users: admin). Unauthenticated → 302 `/login?next=…`; must-change-password → `/login?change=1`; wrong role → the role's home. `/api/*` returns 401/403 instead of redirecting. Manager dashboard is no longer public and must not return `prepared_by`, `remarks`, `report_id`, or device/post codes.
+7. No Cloudflare Access secrets (`ACCESS_TEAM_DOMAIN`/`ACCESS_AUD`) and no device tokens; `DEV_MODE=1` only drops the session cookie's `Secure` flag, never bypasses login. Passwords: PBKDF2-SHA256 100,000 iterations, `pbkdf2$100000$<salt>$<hash>`; minimum 8 chars; new and reset accounts must change on first login. Sessions: 256-bit random token in `parking_session` cookie (HttpOnly, SameSite=Lax, Path=/, Secure except local `DEV_MODE=1`), only SHA-256 stored in D1, 30-day fixed expiry. Login: 5 failures per account+IP or 20 per IP → 15-minute lock (IPv6 keyed by /64). Every mutating API request must carry an `Origin` equal to the request origin. Disable or reset password → delete all sessions for that user. Never commit passwords or put them in `wrangler.jsonc`.
 
-## 結構
+## Active plan
+`docs/superpowers/plans/2026-11-09-account-login.md`: preset shared role accounts replace Cloudflare Access and device tokens. Segments A (backend auth), B (captain review flow), C (login/admin/review UI) are implemented; segment D (deployment and Access removal) remains. Work in order and stop for user approval at permission checkpoints. Field facts and pilot order remain in `docs/superpowers/plans/2026-11-09-pilot-first-full-stack.md`. Out of scope this round: reject feedback to guard, shifts/holiday classes, audit log, LINE Messaging API push, zones admin UI.
 
-- `public/js/parking-core.js` — **唯一**值語意與措辭來源（正規化、驗證、兩種外框的報表、Excel 值、車塔使用率）。不含任何區域知識，所有函式吃呼叫端傳入的 `zones`。ESM，Worker 與瀏覽器共用同一份，禁止在別處重複實作
-- `src/index.js` — Worker 進入點：非 `/api/*` 走靜態資產，`/api/*` 走路由
-- `src/auth.js` — 保全裝置 token（Bearer，SHA-256 存 D1）+ Cloudflare Access JWT 驗證
-- `src/routes/` — zones（公開）、reports（送出/佇列/確認/退回）、records（查詢）、public（主管頁公開唯讀）
-- `src/export/xlsx.js` — ExcelJS 生成主管模板格式（ROC 年、並排日期表、剩餘車位數/備註交錯列）
-- `public/guard.html` — 保全頁。**版型/互動不得改動**（強光、單手、首屏原則見 PRODUCT.md），行為由 `test/guard-ui.test.js` 字串斷言鎖定
-- `public/CenterConsole.html` — 中控台；`public/ManagerDashboard.html` — 主管唯讀儀表板；`public/secretary.html` — 秘書匯出
-- `migrations/` — D1 schema；`0002_seed.sql` 10 區 seed，`0003_value_model.sql` 值模型遷移（`unit` 取代 `is_car`、`tokens_json`→`values_json`、舊值自動轉換）
-- `scripts/provision-device.mjs` — 產生保全裝置 token
+## Deployment
+Live since 2026-11-09 at `https://parking.voriens.dev` (custom domain; workers.dev off). Details and open items in `TODO.md`.
+- Accounts: `npm run accounts:seed -- --out <local-file>` creates the six preset accounts; `npm run account:create -- <username> <role> [display_name] [--post <code>] [--local]` creates one or resets a password. Generated passwords are shown once; never put them in VCS or chat.
+- Login = preset role accounts only (2026-11-09). Cloudflare Access app and One-time PIN deleted; Zero Trust org `voriens` kept but unused. New gated pages/APIs → add to the permission tables in `src/index.js` and the plan file, plus `test/access-matrix.test.js`.
+- Test data uses pseudonyms for display names and post codes; production post codes are `A1` (captain) and `車巡` (patrol).
 
-## 關鍵約束
-
-1. **時間一律顯式時區**：所有格式化經 `formatTime`/`businessDate`（預設 `Asia/Taipei`），禁止 `getHours()`。資料庫時間戳一律 UTC ISO。回報時間 = 保全送出時間（`client_submitted_at`，離線補送也保留原時間）
-2. **values 儲存格式**：`{zone_code: {kind, value}}` 物件（非位置陣列）。六種 kind：`spaces`/`tenths`/`carts`/`full`/`guiding`/`none`，值域 spaces 0–9999、tenths 1–9、carts 1–99，後三種不得帶 value。數字一律代表「還能停多少」。區域定義只在 D1 的 `zones` 表（`unit` 欄決定裸數字語意），`parking-core.js` 不得再出現任何區域常數
-3. **伺服器重算**：確認時由 `reports.values_json` 重算所有快照，`raw_input` 僅稽核
-4. **保全頁離線優先**：LINE 分享/複製 100% 本機可用；API 送出進 localStorage 佇列重試，永不阻塞
-5. 測試必須雙時區通過：`TZ=Asia/Taipei` 與 `TZ=UTC`。測試資料的填表人與裝置代號一律用假名
-6. **主管頁公開**：`/ManagerDashboard` 與 `/api/public/current` 免認證，該端點不得回傳 `prepared_by`、`remarks`、`report_id`、裝置代號
-7. **Access 設定走 secret**：`ACCESS_TEAM_DOMAIN`/`ACCESS_AUD` 用 `wrangler secret put`，不要寫進 `wrangler.jsonc` 的 vars（會被部署洗掉）
-
-## 上線待辦
-
-明細與逐步指令見 `TODO.md`。三件事全部沒做完，線上就不是可用狀態。
-
-1. **線上 D1 跑 migrations** — `npm run db:migrate`。⚠️ 目前卡住：現有 wrangler 憑證對該 D1 回 `code: 7403`（無權限），需換有權限的 Cloudflare 帳號。沒跑的話線上 schema 還是舊的 `tokens_json`/`is_car`，所有 API 會炸
-2. **Access 兩個 secret** — `npx wrangler secret put ACCESS_TEAM_DOMAIN` / `ACCESS_AUD`，並建三個 **path-scoped** application（`/CenterConsole*`、`/secretary*`、`/api/records*`）。**絕不要綁裸網域** — 那會把 `/guard` 與 `POST /api/reports` 一起擋掉，保全沒有 Access 身分就完全無法回報。主管頁不設 Access
-3. **正式保全裝置發 token** — `npm run device:provision -- <代號>`，代號會直接出現在中控回報的標題（`中控回報：12:37 A1回報`），所以用現場慣用的哨點代號。token 只顯示一次、只存 SHA-256，永遠不進版控
-
-未做、也不打算在這輪做的：退回流程回饋給保全（中控按退回後保全端收不到通知）、班次／`shifts` 與假日分類、稽核 log、LINE Messaging API 推播、zones 設定後台。
-
-## 指令
-
+## Commands
 ```bash
-npm test                      # 雙時區跑法見 .github/workflows/ci.yml
-npm run dev                   # wrangler dev（載入 .dev.vars 的 DEV_MODE=1）
-npm run db:migrate:local      # 本地 D1 migrations
-npm run db:migrate            # 線上 D1 migrations
+npm test                      # dual-TZ run: .github/workflows/ci.yml
+npm run dev                   # wrangler dev (loads DEV_MODE=1 from .dev.vars)
+npm run db:migrate:local      # local D1 migrations
+npm run db:migrate            # live D1 migrations
 npm run deploy                # wrangler deploy
-npm run device:provision -- <名稱>   # 產生保全裝置 token + 設定連結
+npm run account:create -- <username> <role> [display_name] [--post <code>] [--local]
+npm run accounts:seed -- --out <file> [--local]   # six preset accounts; 0600 file
+npm run demo:seed -- --local|--remote [--days 7] [--seed 1]   # demo- marked hourly data
+npm run demo:clear -- --local|--remote   # remove only demo data
 ```
 
-## 本機開發認證
-
-`.dev.vars` 設 `DEV_MODE=1`（已 gitignore，範本見 `.dev.vars.example`）：Access 驗證停用，改用 header `x-dev-user: <email>` 模擬登入。**部署設定絕不開 DEV_MODE**。
-
-線上認證 fail-closed：`ACCESS_TEAM_DOMAIN`/`ACCESS_AUD` 未設定時，所有 Access 端點一律 401。
+## Local auth
+`.dev.vars` `DEV_MODE=1` (gitignored; template `.dev.vars.example`) only drops the `Secure` flag so `http://localhost` receives the cookie. Log in with an account from the local D1; there is no Access check and no `x-dev-user` header. `npm run preview:local` seeds six accounts with the local-only password `local-dev-pass` (all `must_change_pw=0`) for browser previews. Never enable `DEV_MODE` in deploy config.

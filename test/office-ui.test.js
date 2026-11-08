@@ -17,36 +17,95 @@ test('office.css exists with glass control tokens', () => {
   assert.match(css, /prefers-reduced-transparency/);
   assert.match(css, /\.queue-item\s*\{[^}]*flex-direction:\s*column/);
   assert.match(css, /\.app\.board\s*\{[^}]*padding-top:\s*calc\(20px \+ var\(--safe-top\)\)/);
+  assert.match(css, /overflow-x:\s*clip/);
+  assert.match(css, /word-break:\s*keep-all/);
+  assert.match(css, /\.shot-row\s*\{/);
+  assert.match(css, /\.chart-hit/);
   assert.match(css, /\.ex-list\s*\{[^}]*margin-bottom/);
   assert.match(css, /\.ex-item b\s*\{/);
   assert.match(css, /\.status-word\.hot/);
+  assert.match(css, /\.event-list::before[^{]*\{[^}]*margin-top:\s*auto/);
+  assert.match(css, /\.event-list\s*\{[^}]*max-height:\s*calc\(5 \* 1\.5rem \+ 4 \* 10px\)/);
+  assert.match(css, /\.board-mid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/);
+  assert.match(css, /\.board-card\[hidden\]\s*\{\s*display:\s*none/);
   assert.equal(/\.btn-primary[^{]*\{[^}]*backdrop-filter/.test(css), false);
 });
 
-test('mountChrome renders console/export without product copy', () => {
+test('office.css stacks and fits the small screens (nav, dashboard, console)', () => {
+  const css = fs.readFileSync(path.join(here, '..', 'public', 'css', 'office.css'), 'utf8');
+  // narrow-screen top bar: two rows, tabs full-width with 44px targets, date hidden, content offset
+  assert.match(css, /\.app\s*\{\s*padding-top:\s*calc\(118px \+ var\(--safe-top\)\)/);
+  assert.match(css, /\.chrome-bar\s*\{[^}]*flex-wrap:\s*wrap/);
+  assert.match(css, /\.seg\s*\{[^}]*flex:\s*1 1 100%/);
+  assert.match(css, /\.seg-item\s*\{[^}]*flex:\s*1 1 0/);
+  assert.match(css, /\.seg-item\s*\{[^}]*min-height:\s*44px/);
+  assert.match(css, /\.chrome-date\s*\{\s*display:\s*none/);
+  assert.match(css, /\.chrome-logout\s*\{\s*min-height:\s*44px/);
+  // dashboard below 720px: gauge and event cards stack at full width
+  assert.match(css, /@media \(max-width:\s*720px\)[^]*?\.board-mid\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  // gauge readout never overlaps the arc (no longer absolutely positioned over it)
+  assert.equal(/\.gauge-read\s*\{[^}]*position:\s*absolute/.test(css), false);
+  // event rows keep time and label on one line, at a fixed height so the
+  // list cap always shows exactly 5 whole rows (rem, not row font-size)
+  assert.match(css, /\.event-row\s*\{[^}]*flex-wrap:\s*nowrap/);
+  assert.match(css, /\.event-row\s*\{[^}]*height:\s*1\.5rem/);
+  assert.match(css, /\.event-row\s*\{[^}]*line-height:\s*1\.5rem/);
+  // chart card sizes to its content (no min-height floor, aligned to start)
+  assert.match(css, /\.chart-box\s*\{[^}]*min-height:\s*0/);
+  assert.match(css, /\.chart-box\s*\{[^}]*align-self:\s*start/);
+  // board-mid keeps the same gap before the chart card as between the other cards
+  assert.match(css, /\.board-mid\s*\{[^}]*margin-bottom:\s*12px/);
+  // console at >= 1024px: two columns, queue left, records right
+  assert.match(css, /@media \(min-width:\s*1024px\)[^]*?\.console-cols\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/);
+  assert.match(css, /\.app-console\s*\{\s*width:\s*min\(100%,\s*1120px\)/);
+  assert.match(css, /\.console-heading\s*\{/);
+});
+
+test('mountChrome filters nav by role and shows the signed-in user', () => {
   const el = { innerHTML: '' };
-  mountChrome(el, { current: 'console', date: '2026-09-13' });
+  mountChrome(el, { current: 'console', date: '2026-09-13', me: { displayName: '中控', role: 'console' } });
+  assert.match(el.innerHTML, /class="glass chrome-bar"/);
+  assert.match(el.innerHTML, /class="seg"/);
   assert.match(el.innerHTML, /href="\/CenterConsole"/);
-  assert.match(el.innerHTML, /href="\/secretary"/);
-  assert.match(el.innerHTML, />中控</);
-  assert.match(el.innerHTML, />匯出</);
-  assert.match(el.innerHTML, /2026-09-13/);
+  assert.match(el.innerHTML, /href="\/ManagerDashboard"/);
+  assert.equal(el.innerHTML.includes('href="/secretary"'), false);
   assert.match(el.innerHTML, /aria-current="page"/);
   assert.match(el.innerHTML, /class="seg-item is-current" href="\/CenterConsole" aria-current="page">中控</);
+  assert.match(el.innerHTML, /2026-09-13/);
+  assert.match(el.innerHTML, /中控/);
+  assert.match(el.innerHTML, /data-logout/);
+  assert.match(el.innerHTML, />登出</);
   assert.equal(el.innerHTML.includes('停車回報'), false);
   assert.equal(el.innerHTML.includes('唯讀'), false);
   assert.equal(el.innerHTML.includes('儀表板'), false);
   assert.equal(el.innerHTML.includes('中控台'), false);
 });
 
-test('mountChrome marks 匯出 current', () => {
+test('mountChrome renders a role-less nav with only the current item', () => {
   const el = { innerHTML: '' };
   mountChrome(el, { current: 'export', date: '2026-09-13' });
-  assert.match(el.innerHTML, />中控</);
-  assert.match(el.innerHTML, />匯出</);
-  assert.match(el.innerHTML, /href="\/CenterConsole"/);
   assert.match(el.innerHTML, /class="seg-item is-current" href="\/secretary" aria-current="page">匯出</);
+  assert.equal(el.innerHTML.includes('/CenterConsole'), false);
+  assert.equal(el.innerHTML.includes('data-logout'), false);
   assert.equal(el.innerHTML.includes('aria-current="page">中控'), false);
+});
+
+test('mountChrome follows the role matrix', () => {
+  const cases = [
+    ['secretary', 'export', ['/secretary', '/ManagerDashboard'], ['/CenterConsole', '/review', '/guard', '/admin']],
+    ['captain', 'review', ['/review', '/guard'], ['/CenterConsole', '/secretary', '/ManagerDashboard', '/admin']],
+    ['patrol', 'guard', ['/guard'], ['/review', '/CenterConsole', '/secretary', '/ManagerDashboard', '/admin']],
+    ['manager', 'dashboard', ['/ManagerDashboard'], ['/CenterConsole', '/secretary', '/review', '/guard', '/admin']],
+    ['admin', 'admin', ['/CenterConsole', '/secretary', '/ManagerDashboard', '/review', '/guard', '/admin'], []],
+  ];
+  for (const [role, current, present, absent] of cases) {
+    const el = { innerHTML: '' };
+    mountChrome(el, { current, date: '2026-09-13', me: { displayName: role, role } });
+    for (const href of present) assert.ok(el.innerHTML.includes(`href="${href}"`), `${role} should see ${href}`);
+    for (const href of absent) assert.equal(el.innerHTML.includes(`href="${href}"`), false, `${role} should not see ${href}`);
+    assert.match(el.innerHTML, /aria-current="page"/);
+    assert.match(el.innerHTML, /data-logout/);
+  }
 });
 
 function pageBody(file) {
@@ -63,12 +122,44 @@ test('manager board has hero and no annotative copy', () => {
   assert.match(html, /viewport-fit=cover/);
   assert.equal(html.includes('user-scalable=no'), false);
   assert.match(html, /class="app board"/);
-  assert.match(html, /id="gaugePct"/);
-  assert.match(html, /id="exList"/);
-  assert.match(html, /office-exceptions\.js/);
-  assert.ok(html.indexOf('id="failBanner"') < html.indexOf('id="gaugePct"'));
+  assert.match(html, /id="gaugeCenter"/);
+  assert.ok(html.indexOf('id="gaugeCenter"') < html.indexOf('id="eventList"'));
+  assert.match(html, /id="statusWord"/);
+  assert.match(html, /id="aboveNum"/);
+  assert.match(html, /id="belowNum"/);
+  assert.match(html, /id="outsideNum"/);
+  assert.ok(html.indexOf('id="statusCard"') < html.indexOf('id="aboveCard"'));
+  assert.ok(html.indexOf('id="statusWord"') < html.indexOf('id="aboveNum"'));
+  assert.match(body, />目前狀態</);
+  assert.match(body, />順暢</);
+  assert.match(html, /word: '引導'/);
+  assert.match(html, /word: '擁塞'/);
+  assert.match(html, /word: '車禍'/);
+  assert.ok(html.indexOf("kind === 'guiding'") < html.indexOf("kind === 'jam'"));
+  assert.ok(html.indexOf("kind === 'jam'") < html.indexOf("kind === 'special'"));
+  assert.match(html, /special: '車禍'/);
+  assert.match(body, />車塔一樓以上</);
+  assert.match(body, />車塔一樓以下</);
+  assert.match(body, />紡外大致成數</);
+  assert.match(body, /目前車塔內百分比/);
+  assert.match(html, /<rect /);
+  assert.match(html, /id="eventList"/);
+  assert.match(html, /id="shotList"/);
+  assert.match(html, /id="shotCard"/);
+  assert.match(html, /data-i/);
+  assert.match(html, /chart-hit/);
+  assert.match(html, /point\.reportTime === selectedTime \? null : point\.reportTime/);
+  assert.equal(html.includes('id="histList"'), false);
+  assert.match(html, /site_events|eventList|KIND_WORD/);
+  assert.match(html, /localeCompare\(String\(b\.occurredAt\)\)/);
+  assert.match(html, /scrollTop = \$\('eventList'\)\.scrollHeight/);
+  assert.ok(html.indexOf('id="failBanner"') < html.indexOf('id="statusWord"'));
   assert.equal(body.includes('href="/CenterConsole"'), false);
   assert.equal(body.includes('異常'), false);
+  assert.equal(body.includes('office-exceptions.js'), false);
+  assert.match(html, /\/api\/dashboard\/current/);
+  assert.equal(html.includes('/api/public/current'), false);
+  assert.match(html, /import \{ apiFetch \} from '\.\/js\/session\.js'/);
   for (const word of FORBIDDEN) assert.equal(body.includes(word), false);
 });
 
@@ -79,6 +170,9 @@ test('secretary is download with 2/3/4 day chips', () => {
   assert.match(html, /office-dates\.js/);
   assert.match(html, /mountChrome\(/);
   assert.match(html, /current:\s*'export'/);
+  assert.match(html, /loadMe\(/);
+  assert.match(html, /apiFetch\(/);
+  assert.equal(html.includes('authBanner'), false);
   assert.match(body, />最近 2 天</);
   assert.match(body, />最近 3 天</);
   assert.match(body, />最近 4 天</);
@@ -109,4 +203,29 @@ test('console confirm sheet previews report and copies', () => {
   assert.match(html, /async function doReject\(\) \{[\s\S]*try \{[\s\S]*catch \(err\)/);
   assert.match(html, /\$\('remarkRows'\)\.hidden = true/);
   assert.equal(html.includes('leave banner'), false);
+  assert.match(html, /import \{[^}]*\bparseCorrection\b[^}]*\bmergeCorrections\b[^}]*\} from '\.\/js\/value-edit\.js'/);
+  assert.match(html, /import \{[^}]*\bloadMe\b[^}]*\bapiFetch\b[^}]*\} from '\.\/js\/session\.js'/);
+  assert.match(html, /parseCorrection\(/);
+  assert.match(html, /mergeCorrections\(/);
+  assert.match(html, /buildTowerUsage\(/);
+  assert.match(html, /id="boardTarget"/);
+  assert.match(html, /顯示牌應設為/);
+  assert.match(html, /id="displayBefore"/);
+  assert.match(html, /調整前顯示牌數字/);
+  assert.match(html, /id="lineShareBtn"/);
+  assert.match(html, /LINE 分享/);
+  assert.match(html, /line\.me\/R\/share\?text=/);
+  assert.match(html, /encodeURIComponent/);
+  assert.match(html, /保全原值/);
+  assert.match(html, /已修正/);
+  assert.match(html, /隊長已複核/);
+  assert.match(html, /隊長修正/);
+  assert.match(html, /車巡原值/);
+  assert.equal(html.includes('x-dev-user'), false);
+  assert.equal(html.includes('devHeaders'), false);
+  assert.equal(html.includes('authBanner'), false);
+  assert.match(html, /towerRemaining/);
+  assert.match(html, /display_before/);
+  assert.equal(/\balert\(/.test(body), false);
+  assert.equal(/[^A-Za-z_]confirm\(/.test(body), false);
 });

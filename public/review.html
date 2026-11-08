@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f5f7">
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./css/office.css">
+<title>複核</title>
+</head>
+<body>
+<div id="chrome"></div>
+<main class="app">
+  <div class="queue" id="reviewList"></div>
+  <p class="review-empty" id="emptyLine" hidden>沒有待複核</p>
+</main>
+<div class="sheet-backdrop" id="reviewSheet">
+  <div class="sheet glass review-sheet">
+    <p class="review-sheet-head" id="sheetHead"></p>
+    <div id="reviewRows"></div>
+    <input class="review-reason" type="text" id="rejectReason" maxlength="200" autocomplete="off" placeholder="退回原因">
+    <div class="action-row">
+      <button class="btn" id="cancelReviewBtn" type="button">取消</button>
+      <button class="btn btn-danger" id="rejectReviewBtn" type="button">退回</button>
+      <button class="btn-primary" id="approveBtn" type="button">通過</button>
+    </div>
+  </div>
+</div>
+<div class="toast glass" id="toast"></div>
+<script type="module">
+import { mountChrome } from './js/office-chrome.js';
+import { businessDate, formatTime, formatValue } from './js/parking-core.js';
+import { loadMe, logout, apiFetch } from './js/session.js';
+import { parseCorrection, mergeCorrections } from './js/value-edit.js';
+
+const POLL_MS = 8000;
+const $ = (id) => document.getElementById(id);
+
+let zones = [];
+let reports = [];
+let active = null;
+let sheetOpen = false;
+let sheetBusy = false;
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function showToast(message) {
+  const toast = $('toast');
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+function isRedirectError(err) {
+  return err?.message === 'unauthorized' || err?.message === 'must-change-password';
+}
+
+function valueLine(zone, value) {
+  return `<span class="review-value">${escapeHtml(zone.label)} ${escapeHtml(formatValue(value ?? { kind: 'none' }))}</span>`;
+}
+
+function renderList() {
+  $('emptyLine').hidden = reports.length > 0;
+  $('reviewList').innerHTML = reports.map((report) => `
+    <button class="review-item" data-id="${report.id}" type="button">
+      <span class="review-head"><b>${escapeHtml(formatTime(report.submittedAt))}</b><span>${escapeHtml(report.deviceLabel || '')}</span></span>
+      <span class="review-values">${zones.map((zone) => valueLine(zone, report.values?.[zone.code])).join('')}</span>
+    </button>
+  `).join('');
+}
+
+async function loadReports() {
+  const data = await apiFetch('/api/reports?status=awaiting_captain');
+  reports = data.reports || [];
+  if (sheetOpen) return;
+  renderList();
+}
+
+async function refresh() {
+  try {
+    await loadReports();
+  } catch (err) {
+    if (!isRedirectError(err)) showToast(err.message);
+  }
+}
+
+function baseValues() {
+  const base = {};
+  for (const zone of zones) base[zone.code] = active?.values?.[zone.code] ?? { kind: 'none' };
+  return base;
+}
+
+function sheetState() {
+  const base = baseValues();
+  const parsedValues = {};
+  const rows = new Map();
+  let invalid = false;
+
+  $('reviewRows').querySelectorAll('.review-row').forEach((row) => {
+    const zone = zones.find((z) => z.code === row.dataset.row);
+    if (!zone) return;
+    const input = row.querySelector('[data-value]');
+    const fixed = row.querySelector('.remark-fixed');
+    const error = row.querySelector('.remark-error');
+    row.classList.remove('is-invalid', 'is-changed');
+    fixed.hidden = true;
+    error.hidden = true;
+    const text = input.value.trim();
+    if (!text) return;
+    const parsed = parseCorrection(text, zone);
+    if (!parsed.ok) {
+      invalid = true;
+      row.classList.add('is-invalid');
+      error.textContent = parsed.error;
+      error.hidden = false;
+      return;
+    }
+    parsedValues[zone.code] = parsed.value;
+    rows.set(zone.code, { row, fixed });
+  });
+
+  const { corrections } = mergeCorrections(base, parsedValues);
+  for (const [code, { row, fixed }] of rows) {
+    if (!corrections[code]) continue;
+    row.classList.add('is-changed');
+    fixed.textContent = `車巡原值：${formatValue(base[code])}`;
+    fixed.hidden = false;
+  }
+  return { corrections, invalid };
+}
+
+function updateSheet() {
+  if (!active) return;
+  const state = sheetState();
+  $('approveBtn').disabled = sheetBusy || state.invalid;
+}
+
+function openReport(report) {
+  active = report;
+  sheetOpen = true;
+  sheetBusy = false;
+  $('sheetHead').textContent = `${formatTime(report.submittedAt)} ${report.deviceLabel || ''}`.trim();
+  $('reviewRows').innerHTML = zones.map((zone) => {
+    const guard = report.values?.[zone.code] ?? { kind: 'none' };
+    return `
+    <div class="review-row" data-row="${escapeHtml(zone.code)}">
+      <span class="remark-zone">${escapeHtml(zone.label)}</span>
+      <div class="review-cell">
+        <span class="review-guard">車巡：${escapeHtml(formatValue(guard))}</span>
+        <input type="text" inputmode="text" autocomplete="off" data-value aria-label="${escapeHtml(zone.label)} 數值" placeholder="${escapeHtml(formatValue(guard))}">
+        <p class="remark-fixed" hidden></p>
+        <p class="remark-error" hidden></p>
+      </div>
+    </div>
+  `;
+  }).join('');
+  $('rejectReason').value = '';
+  $('reviewSheet').classList.add('show');
+  updateSheet();
+}
+
+function closeSheet() {
+  $('reviewSheet').classList.remove('show');
+  active = null;
+  sheetOpen = false;
+  sheetBusy = false;
+}
+
+async function approve() {
+  if (!active || sheetBusy) return;
+  const state = sheetState();
+  if (state.invalid) return;
+  sheetBusy = true;
+  $('approveBtn').disabled = true;
+  try {
+    await apiFetch(`/api/reports/${active.id}/review`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ values: state.corrections }),
+    });
+    closeSheet();
+    showToast('已送中控');
+    await refresh();
+  } catch (err) {
+    if (!isRedirectError(err)) showToast(err.message);
+  } finally {
+    sheetBusy = false;
+    if (sheetOpen) $('approveBtn').disabled = sheetState().invalid;
+  }
+}
+
+async function reject() {
+  if (!active || sheetBusy) return;
+  sheetBusy = true;
+  $('rejectReviewBtn').disabled = true;
+  try {
+    await apiFetch(`/api/reports/${active.id}/review-reject`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reason: $('rejectReason').value.slice(0, 200) }),
+    });
+    closeSheet();
+    showToast('已退回');
+    await refresh();
+  } catch (err) {
+    if (!isRedirectError(err)) showToast(err.message);
+  } finally {
+    sheetBusy = false;
+    $('rejectReviewBtn').disabled = false;
+  }
+}
+
+$('reviewList').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-id]');
+  if (!button) return;
+  const report = reports.find((item) => item.id === Number(button.dataset.id));
+  if (report) openReport(report);
+});
+$('reviewRows').addEventListener('input', updateSheet);
+$('cancelReviewBtn').addEventListener('click', closeSheet);
+$('approveBtn').addEventListener('click', approve);
+$('rejectReviewBtn').addEventListener('click', reject);
+$('reviewSheet').addEventListener('click', (event) => {
+  if (event.target === $('reviewSheet')) closeSheet();
+});
+
+const me = await loadMe();
+if (me) {
+  mountChrome($('chrome'), { current: 'review', date: businessDate(new Date()), me });
+  document.querySelector('[data-logout]')?.addEventListener('click', logout);
+  try {
+    const data = await apiFetch('/api/zones');
+    zones = data.zones || [];
+  } catch {
+    zones = [];
+  }
+  await refresh();
+  setInterval(() => {
+    if (!sheetOpen) refresh();
+  }, POLL_MS);
+}
+</script>
+</body>
+</html>

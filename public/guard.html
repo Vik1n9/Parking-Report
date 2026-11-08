@@ -25,6 +25,7 @@
   --sans:'Helvetica Neue','PingFang TC','Microsoft JhengHei',sans-serif;
   --calc:'Avenir Next','Arial Rounded MT Bold','Helvetica Neue','PingFang TC','Microsoft JhengHei',sans-serif;
   --mono:'SF Mono','Cascadia Code','Consolas',monospace;
+  --bar-h:75px;
 }
 *{box-sizing:border-box}
 html{overflow-x:hidden;background:var(--bg)}
@@ -47,7 +48,7 @@ button{
   max-width:440px;
   min-height:100vh;
   margin:0 auto;
-  padding:12px 12px 130px;
+  padding:12px 12px calc(var(--bar-h) + 8px + env(safe-area-inset-bottom));
 }
 .topbar{
   position:sticky;
@@ -222,6 +223,8 @@ button{
   background:var(--surface);
   color:var(--text);
   font-weight:950;
+  white-space:nowrap;
+  padding:4px;
 }
 .mode-btn.active{
   border-color:var(--amber);
@@ -231,6 +234,7 @@ button{
 .mode-btn:disabled{
   background:#dce2e8;
   color:#4c5866;
+  font-size:.8rem;
 }
 .keypad{
   display:grid;
@@ -239,7 +243,7 @@ button{
   padding:12px;
 }
 .key{
-  min-height:58px;
+  min-height:48px;
   border:2px solid var(--border);
   border-radius:10px;
   background:var(--key-bg);
@@ -249,7 +253,7 @@ button{
   font-weight:950;
   box-shadow:0 3px 0 var(--border);
 }
-.key:active,.fn-btn:active,.bottom-btn:active,.mode-btn:active,.mini-btn:active,.zone-chip:active,.history-load:active{transform:scale(.98)}
+.key:active,.fn-btn:active,.bottom-btn:active,.mode-btn:active,.mini-btn:active,.zone-chip:active{transform:scale(.98)}
 @keyframes pressPulse{
   0%{transform:scale(1);filter:brightness(1)}
   42%{transform:scale(.94);filter:brightness(.9)}
@@ -263,8 +267,7 @@ button.press-flash{
 .bottom-btn:focus-visible,
 .mode-btn:focus-visible,
 .mini-btn:focus-visible,
-.zone-chip:focus-visible,
-.history-load:focus-visible{
+.zone-chip:focus-visible{
   outline:4px solid var(--focus);
   outline-offset:2px;
 }
@@ -317,75 +320,6 @@ button.press-flash{
   color:var(--key-ink);
   border-color:var(--border);
 }
-.tower{
-  padding:12px 13px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-}
-.tower-title{
-  color:var(--sub);
-  font-size:.8rem;
-  font-weight:900;
-}
-.tower-num{
-  font-size:1.3rem;
-  font-weight:950;
-}
-.preview{
-  white-space:pre-wrap;
-  line-height:1.72;
-  padding:13px;
-  margin:0;
-  font-size:.92rem;
-  background:#e6f7eb;
-  border-left:4px solid var(--green);
-}
-.history-list{
-  max-height:190px;
-  overflow:auto;
-  padding:4px 8px 8px;
-}
-.history-item{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:8px;
-  border-bottom:1px solid #708090;
-  padding:10px 4px;
-}
-.history-time{
-  color:var(--accent);
-  font-family:var(--mono);
-  font-size:.72rem;
-  font-weight:900;
-}
-.history-preview{
-  margin-top:3px;
-  color:var(--text);
-  font-family:var(--mono);
-  font-size:.76rem;
-  max-width:230px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.history-load{
-  min-height:38px;
-  border:2px solid var(--accent);
-  border-radius:8px;
-  background:#dcecff;
-  color:#062a5f;
-  font-weight:900;
-  padding:7px 11px;
-}
-.empty{
-  color:var(--sub);
-  text-align:center;
-  padding:18px 0;
-  font-size:.82rem;
-}
 .bottom-bar{
   position:fixed;
   left:0;
@@ -400,7 +334,7 @@ button.press-flash{
   max-width:440px;
   margin:0 auto;
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:repeat(4,minmax(0,1fr));
   gap:8px;
 }
 .bottom-btn{
@@ -409,14 +343,16 @@ button.press-flash{
   border-radius:10px;
   font-weight:950;
   letter-spacing:.04em;
+  text-wrap:balance;
 }
-.share{grid-column:1/-1;background:var(--green);color:#ffffff;font-size:1rem}
+.submit{background:#07111f;color:#ffffff;font-size:1rem}
+.share{background:var(--green);color:#ffffff;font-size:1rem}
 .copy{background:var(--accent);color:#ffffff}
 .reset{background:var(--surface);color:var(--text);border:2px solid var(--border)}
 .toast{
   position:fixed;
   left:50%;
-  bottom:124px;
+  bottom:calc(var(--bar-h) + env(safe-area-inset-bottom));
   z-index:30;
   transform:translateX(-50%) translateY(18px);
   opacity:0;
@@ -456,12 +392,13 @@ button.press-flash{
 }
 @media(prefers-reduced-motion:reduce){
   button.press-flash{animation:none}
-  .key:active,.fn-btn:active,.bottom-btn:active,.mode-btn:active,.mini-btn:active,.zone-chip:active,.history-load:active{transform:none}
+  .key:active,.fn-btn:active,.bottom-btn:active,.mode-btn:active,.mini-btn:active,.zone-chip:active{transform:none}
 }
 @media(max-height:880px) and (max-width:440px){
+  :root{--bar-h:59px}
   .app{
     min-height:100dvh;
-    padding:8px 10px 60px;
+    padding:8px 10px calc(var(--bar-h) + 12px + env(safe-area-inset-bottom));
   }
   .topbar{
     margin:-8px -10px 8px;
@@ -552,19 +489,19 @@ button.press-flash{
     padding:6px 10px calc(6px + env(safe-area-inset-bottom));
   }
   .bottom-inner{
-    grid-template-columns:1fr 1fr 1fr;
+    grid-template-columns:repeat(4,minmax(0,1fr));
     gap:6px;
   }
   .bottom-btn{
-    min-height:40px;
+    min-height:44px;
     border-radius:8px;
     font-size:.7rem;
     letter-spacing:0;
+    line-height:1.15;
     padding:4px 2px;
   }
+  .submit{font-size:.8rem}
   .share{grid-column:auto;font-size:.75rem}
-  .toast{bottom:58px}
-  .secondary-card{display:none}
 }
 </style>
 </head>
@@ -610,27 +547,11 @@ button.press-flash{
     </div>
     <div class="keypad" id="keypad"></div>
   </section>
-
-  <section class="card secondary-card">
-    <div class="tower">
-      <div class="tower-title">車塔停放使用率</div>
-      <div class="tower-num" id="towerUsage">—</div>
-    </div>
-  </section>
-
-  <section class="card secondary-card">
-    <div class="card-head"><span class="label">LINE 回報預覽</span></div>
-    <pre class="preview" id="linePreview"></pre>
-  </section>
-
-  <section class="card secondary-card">
-    <div class="card-head"><span class="label">保全回報歷史</span></div>
-    <div class="history-list" id="historyList"></div>
-  </section>
 </main>
 
 <div class="bottom-bar">
   <div class="bottom-inner">
+    <button class="bottom-btn submit" id="submitBtn">送出</button>
     <button class="bottom-btn share" id="shareLineBtn">分享到 LINE</button>
     <button class="bottom-btn copy" id="copyLineBtn">複製 LINE 回報</button>
     <button class="bottom-btn reset" id="resetBtn">清除重填</button>
@@ -639,7 +560,7 @@ button.press-flash{
 <div class="toast" id="toast">已複製</div>
 
 <script type="module">
-import { normalizeInput, formatValue, buildReport, buildTowerUsage, formatTime } from './js/parking-core.js';
+import { normalizeInput, formatValue, buildReport, formatTime } from './js/parking-core.js';
 
 const FALLBACK_ZONES = [
   { code: 'floor_above', label: '車塔1上', position: 0, unit: 'spaces', inTower: true },
@@ -654,7 +575,6 @@ const FALLBACK_ZONES = [
   { code: 'asphalt',     label: '柏油路',   position: 9, unit: 'tenths', inTower: false },
 ];
 const ZONES_CACHE_KEY = 'parking_guard_zones_v1';
-const TOWER_TOTAL_CACHE_KEY = 'parking_guard_tower_total_v1';
 
 function loadCachedZones() {
   try {
@@ -665,16 +585,16 @@ function loadCachedZones() {
 }
 
 let zones = loadCachedZones();
-let towerTotal = Number(localStorage.getItem(TOWER_TOTAL_CACHE_KEY)) || 1600;
 
 const HISTORY_STORAGE_KEY = 'parking_guard_history_v1';
 const OUTBOX_STORAGE_KEY = 'parking_guard_outbox_v1';
-const DEVICE_KEY_STORAGE = 'parking_guard_device_key_v1';
 const MAX_HISTORY = 30;
 const AUTO_ADVANCE_CAR_DIGITS = 3;
 const AUTO_ADVANCE_DELAY_MS = 650;
 const SYNC_RETRY_MS = 30000;
 const DEDUPE_WINDOW_MS = 3000;
+const DRAFT_STORAGE_KEY = 'parking_guard_draft_v1';
+const DRAFT_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 
 let currentTime = new Date();
 let currentIndex = 0;
@@ -687,6 +607,7 @@ let outbox = [];
 let syncing = false;
 let lastSyncedAt = null;
 let syncError = null;
+let draftDirty = false;
 
 const $ = (id) => document.getElementById(id);
 const clockDisplay = $('clockDisplay');
@@ -703,9 +624,7 @@ const prevBtn = $('prevBtn');
 const nextBtn = $('nextBtn');
 const deleteDigitBtn = $('deleteDigitBtn');
 const currentInputValue = $('currentInputValue');
-const towerUsage = $('towerUsage');
-const linePreview = $('linePreview');
-const historyList = $('historyList');
+const submitBtn = $('submitBtn');
 const shareLineBtn = $('shareLineBtn');
 const copyLineBtn = $('copyLineBtn');
 const resetBtn = $('resetBtn');
@@ -714,17 +633,6 @@ const syncStatus = $('syncStatus');
 
 function formatClock(date) {
   return formatTime(date);
-}
-
-function formatHistoryTimeLabel(date) {
-  return new Intl.DateTimeFormat('zh-TW', {
-    timeZone: 'Asia/Taipei',
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(date);
 }
 
 function showToast(message) {
@@ -753,6 +661,7 @@ function currentZone() {
 }
 
 function commitDraft() {
+  draftDirty = true;
   cells[currentIndex] = draft ? normalizeInput(draft, currentZone()) : { kind: 'none' };
 }
 
@@ -783,6 +692,7 @@ function movePrev() {
 function inputDigit(digit) {
   cancelAutoAdvance();
   const zone = currentZone();
+  draftDirty = true;
 
   if (entryMode === 'cart') {
     cells[currentIndex] = digit === '0' ? { kind: 'full' } : { kind: 'carts', value: Number(digit) };
@@ -808,6 +718,7 @@ function inputDigit(digit) {
 
 function clearCurrent() {
   cancelAutoAdvance();
+  if (cells[currentIndex].kind !== 'none') draftDirty = true;
   draft = '';
   cells[currentIndex] = { kind: 'none' };
   render();
@@ -826,24 +737,28 @@ function deleteDigit() {
     render();
     return;
   }
+  if (cells[currentIndex].kind !== 'none') draftDirty = true;
   draft = '';
   cells[currentIndex] = { kind: 'none' };
   render();
 }
 
 function markFull() {
+  if (cells[currentIndex].kind !== 'full') draftDirty = true;
   draft = '';
   cells[currentIndex] = { kind: 'full' };
   moveNext();
 }
 
 function markEmpty() {
+  if (cells[currentIndex].kind !== 'none') draftDirty = true;
   draft = '';
   cells[currentIndex] = { kind: 'none' };
   moveNext();
 }
 
 function markGuiding() {
+  if (cells[currentIndex].kind !== 'guiding') draftDirty = true;
   draft = '';
   cells[currentIndex] = { kind: 'guiding' };
   moveNext();
@@ -853,6 +768,7 @@ function resetAll() {
   if (!confirm('確定要清除目前回報並重新輸入嗎？')) return;
   cells = zones.map(() => ({ kind: 'none' }));
   currentTime = new Date();
+  clearDraft();
   moveTo(0);
 }
 
@@ -901,35 +817,7 @@ function renderZones() {
   });
 }
 
-function renderHistory() {
-  if (!historyEntries.length) {
-    historyList.innerHTML = '<div class="empty">尚無保全回報歷史</div>';
-    return;
-  }
-  historyList.innerHTML = historyEntries.slice().reverse().map((entry) => `
-    <div class="history-item">
-      <div>
-        <div class="history-time">${entry.timeLabel}</div>
-        <div class="history-preview">${entry.preview}</div>
-      </div>
-      <button class="history-load" data-id="${entry.id}">載入</button>
-    </div>
-  `).join('');
-  historyList.querySelectorAll('.history-load').forEach((button) => {
-    button.addEventListener('click', () => {
-      const entry = historyEntries.find((item) => item.id === button.dataset.id);
-      if (!entry) return;
-      cells = zones.map((zone) => entry.values?.[zone.code] ?? { kind: 'none' });
-      draft = '';
-      currentTime = new Date(entry.timestamp);
-      moveTo(0);
-    });
-  });
-}
-
 function render() {
-  const values = valuesObject();
-  const tower = buildTowerUsage(values, zones, { towerTotal });
   const completed = cells.filter((cell) => cell.kind !== 'none').length;
   const isSpacesZone = currentZone().unit === 'spaces';
 
@@ -941,11 +829,9 @@ function render() {
   cartModeBtn.disabled = isSpacesZone;
   cartModeBtn.textContent = isSpacesZone ? '台車模式不可用' : '台車模式';
   currentInputValue.textContent = cells[currentIndex].kind === 'none' ? '—' : formatValue(cells[currentIndex]);
-  towerUsage.textContent = tower.valid ? `${tower.percent}%` : '—';
-  towerUsage.style.color = !tower.valid ? 'var(--sub)' : tower.percent >= 90 ? 'var(--red)' : tower.percent >= 70 ? 'var(--amber)' : 'var(--green)';
-  linePreview.textContent = buildReport(values, zones, { style: 'guard', time: currentTime });
   document.title = `保全停車回報 ${completed}/${zones.length}`;
   renderZones();
+  saveDraft();
 }
 
 function valuesObject() {
@@ -954,6 +840,59 @@ function valuesObject() {
     out[zone.code] = cells[index];
   });
   return out;
+}
+
+function saveDraft() {
+  if (!draftDirty) return;
+  try {
+    const values = valuesObject();
+    const hasValue = Object.values(values).some((cell) => cell && cell.kind !== 'none');
+    if (hasValue) {
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
+        values,
+        time: currentTime.toISOString(),
+        savedAt: Date.now(),
+      }));
+    } else {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    }
+    draftDirty = false;
+  } catch {}
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return;
+    let stored = null;
+    try {
+      stored = JSON.parse(raw);
+    } catch {
+      stored = null;
+    }
+    const fresh = !!stored && typeof stored === 'object'
+      && typeof stored.savedAt === 'number'
+      && Date.now() - stored.savedAt <= DRAFT_MAX_AGE_MS;
+    const values = fresh && stored.values && typeof stored.values === 'object' ? stored.values : null;
+    if (!values) {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      return;
+    }
+    cells = zones.map((zone) => {
+      const value = values[zone.code];
+      return value && typeof value === 'object' && typeof value.kind === 'string' ? value : { kind: 'none' };
+    });
+    const savedTime = new Date(stored.time);
+    if (!Number.isNaN(savedTime.getTime())) currentTime = savedTime;
+    if (cells.some((cell) => cell.kind !== 'none')) showToast('已還原未送出的輸入');
+  } catch {}
+}
+
+function clearDraft() {
+  draftDirty = false;
+  try {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch {}
 }
 
 async function refreshZones() {
@@ -967,22 +906,11 @@ async function refreshZones() {
     zones = data.zones;
     if (changed) {
       cells = zones.map(() => ({ kind: 'none' }));
+      clearDraft();
       moveTo(0);
       showToast('區域設定已更新');
     }
   } catch {}
-}
-
-function getDeviceKey() {
-  return localStorage.getItem(DEVICE_KEY_STORAGE) || '';
-}
-
-function setupDeviceKeyFromHash() {
-  const match = location.hash.match(/^#key=([A-Za-z0-9_-]+)$/);
-  if (!match) return false;
-  localStorage.setItem(DEVICE_KEY_STORAGE, match[1]);
-  history.replaceState(null, '', location.pathname + location.search);
-  return true;
 }
 
 function loadOutbox() {
@@ -999,17 +927,19 @@ function saveOutbox() {
 }
 
 function renderSync() {
-  const hasKey = !!getDeviceKey();
   syncStatus.className = 'sync-chip';
   if (syncError === 'unauthorized') {
     syncStatus.classList.add('bad');
-    syncStatus.textContent = '裝置未授權，請聯絡中控';
+    syncStatus.textContent = '登入已過期，點此重新登入';
+  } else if (syncError === 'forbidden') {
+    syncStatus.classList.add('bad');
+    syncStatus.textContent = '此帳號不能送出回報';
   } else if (syncing) {
     syncStatus.classList.add('warn');
     syncStatus.textContent = '同步中…';
   } else if (outbox.length) {
-    syncStatus.classList.add(hasKey ? 'warn' : 'bad');
-    syncStatus.textContent = hasKey ? `待同步 ${outbox.length}` : '未綁定裝置，僅存本機';
+    syncStatus.classList.add('warn');
+    syncStatus.textContent = `待同步 ${outbox.length}`;
   } else if (lastSyncedAt) {
     syncStatus.classList.add('good');
     syncStatus.textContent = `已同步 ${formatClock(lastSyncedAt)}`;
@@ -1020,8 +950,7 @@ function renderSync() {
 
 async function flushOutbox() {
   if (syncing) return;
-  const hasKey = !!getDeviceKey();
-  if (!hasKey || !outbox.length) {
+  if (!outbox.length) {
     renderSync();
     return;
   }
@@ -1035,9 +964,9 @@ async function flushOutbox() {
       try {
         response = await fetch('/api/reports', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: {
             'content-type': 'application/json',
-            'authorization': `Bearer ${getDeviceKey()}`,
           },
           body: JSON.stringify({
             client_request_id: item.clientRequestId,
@@ -1049,8 +978,12 @@ async function flushOutbox() {
       } catch {
         throw new Error('network');
       }
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 401) {
         syncError = 'unauthorized';
+        break;
+      }
+      if (response.status === 403) {
+        syncError = 'forbidden';
         break;
       }
       if (response.ok || response.status === 400 || response.status === 422) {
@@ -1095,21 +1028,41 @@ function saveHistory() {
 
 function addHistory() {
   const now = Date.now();
-  if (addHistory.lastAt && now - addHistory.lastAt < DEDUPE_WINDOW_MS) return;
+  if (addHistory.lastAt && now - addHistory.lastAt < DEDUPE_WINDOW_MS) return false;
   addHistory.lastAt = now;
 
   const id = `${now}-${Math.random().toString(36).slice(2, 8)}`;
   const values = valuesObject();
-  const timeLabel = formatHistoryTimeLabel(currentTime);
   const preview = zones.map((zone, index) => `${zone.label}${formatValue(cells[index])}`).join(' ');
-  historyEntries.push({ id, timestamp: currentTime.getTime(), timeLabel, values, preview });
+  historyEntries.push({ id, timestamp: currentTime.getTime(), values, preview });
   historyEntries = historyEntries.slice(-MAX_HISTORY);
   saveHistory();
-  renderHistory();
   enqueueSubmit(historyEntries[historyEntries.length - 1]);
+  clearDraft();
+  return true;
+}
+
+function submitReport() {
+  currentTime = new Date();
+  render();
+  if (cells.every((cell) => cell.kind === 'none')) {
+    showToast('尚未填寫');
+    return;
+  }
+  const queued = addHistory();
+  if (!queued) return;
+  cells = zones.map(() => ({ kind: 'none' }));
+  currentTime = new Date();
+  clearDraft();
+  moveTo(0);
+  showToast(navigator.onLine === false ? '離線中，已排入待送' : '已送出');
 }
 
 async function copyReport(message) {
+  if (!message) {
+    currentTime = new Date();
+    render();
+  }
   const text = message || buildReport(valuesObject(), zones, { style: 'guard', time: currentTime });
   try {
     await navigator.clipboard.writeText(text);
@@ -1148,6 +1101,8 @@ function fallbackCopyText(text) {
 }
 
 async function shareToLine() {
+  currentTime = new Date();
+  render();
   const text = buildReport(valuesObject(), zones, { style: 'guard', time: currentTime });
   await copyReport(text);
   const lineUrl = `https://line.me/R/share?text=${encodeURIComponent(text)}`;
@@ -1172,9 +1127,13 @@ clearCellBtn.addEventListener('click', clearCurrent);
 prevBtn.addEventListener('click', movePrev);
 nextBtn.addEventListener('click', moveNext);
 deleteDigitBtn.addEventListener('click', deleteDigit);
+submitBtn.addEventListener('click', submitReport);
 shareLineBtn.addEventListener('click', shareToLine);
 copyLineBtn.addEventListener('click', () => copyReport());
 resetBtn.addEventListener('click', resetAll);
+syncStatus.addEventListener('click', () => {
+  if (syncError === 'unauthorized') location.href = '/login?next=/guard';
+});
 document.addEventListener('pointerdown', (event) => {
   const button = event.target.closest('button');
   if (!button) return;
@@ -1185,13 +1144,13 @@ window.addEventListener('online', refreshZones);
 window.addEventListener('load', flushOutbox);
 setInterval(flushOutbox, SYNC_RETRY_MS);
 
-if (setupDeviceKeyFromHash()) {
-  showToast('裝置綁定完成');
-}
+try {
+  localStorage.removeItem('parking_guard_device_key_v1');
+} catch {}
 loadOutbox();
 renderKeypad();
 loadHistory();
-renderHistory();
+loadDraft();
 render();
 renderSync();
 flushOutbox();

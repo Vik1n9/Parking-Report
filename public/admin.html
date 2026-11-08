@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f5f7">
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./css/office.css">
+<title>帳號</title>
+</head>
+<body>
+<div id="chrome"></div>
+<main class="app">
+  <section class="glass admin-create">
+    <form id="createForm" novalidate>
+      <div class="form-field">
+        <span>帳號</span>
+        <input id="createUsername" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="32">
+      </div>
+      <div class="form-field">
+        <span>顯示名稱</span>
+        <input id="createDisplayName" type="text" autocomplete="off" maxlength="20">
+      </div>
+      <div class="form-field">
+        <span>角色</span>
+        <select id="createRole" required>
+          <option value="" disabled selected>選擇角色</option>
+          <option value="admin">後台管理者</option>
+          <option value="console">中控</option>
+          <option value="secretary">秘書</option>
+          <option value="captain">保全隊長</option>
+          <option value="patrol">車巡保全</option>
+          <option value="manager">主管</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <span>代號</span>
+        <input id="createPostCode" type="text" autocomplete="off" maxlength="20">
+      </div>
+      <button class="btn-primary admin-submit" id="createBtn" type="submit">新增帳號</button>
+      <p class="form-error" id="createError" hidden></p>
+    </form>
+  </section>
+  <div class="admin-list" id="userList"></div>
+</main>
+<div class="sheet-backdrop" id="passwordPanel">
+  <div class="sheet glass">
+    <p class="admin-password-label" id="passwordLabel">新密碼</p>
+    <code class="admin-password" id="generatedPassword"></code>
+    <div class="action-row">
+      <button class="btn" id="copyPasswordBtn" type="button">複製</button>
+      <button class="btn-primary" id="closePasswordBtn" type="button">關閉</button>
+    </div>
+  </div>
+</div>
+<div class="toast glass" id="toast"></div>
+<script type="module">
+import { mountChrome } from './js/office-chrome.js';
+import { businessDate, formatTime } from './js/parking-core.js';
+import { loadMe, logout, apiFetch } from './js/session.js';
+
+const ROLE_LABELS = {
+  admin: '後台管理者',
+  console: '中控',
+  secretary: '秘書',
+  captain: '保全隊長',
+  patrol: '車巡保全',
+  manager: '主管',
+};
+const USERNAME_RE = /^[a-z0-9_.-]{2,32}$/;
+const $ = (id) => document.getElementById(id);
+
+let users = [];
+let me = null;
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function showToast(message) {
+  const toast = $('toast');
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+function isRedirectError(err) {
+  return err?.message === 'unauthorized' || err?.message === 'must-change-password';
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('已複製');
+  } catch {
+    showToast('複製失敗');
+  }
+}
+
+function formatLastLogin(value) {
+  if (!value) return '—';
+  return `${businessDate(value)} ${formatTime(value)}`;
+}
+
+function showPassword(label, password) {
+  $('passwordLabel').textContent = label;
+  $('generatedPassword').textContent = password;
+  $('passwordPanel').classList.add('show');
+}
+
+function closePassword() {
+  $('passwordPanel').classList.remove('show');
+  $('generatedPassword').textContent = '';
+}
+
+function twoStep(button, run) {
+  if (button.dataset.armed === '1') {
+    clearTimeout(Number(button.dataset.timer || 0));
+    delete button.dataset.armed;
+    run();
+    return;
+  }
+  button.dataset.armed = '1';
+  button.dataset.label = button.textContent;
+  button.textContent = '再按一次確認';
+  button.dataset.timer = String(setTimeout(() => {
+    delete button.dataset.armed;
+    if (button.isConnected) button.textContent = button.dataset.label;
+  }, 4000));
+}
+
+function rowError(row, message) {
+  const error = row.querySelector('.admin-error');
+  if (!error) return;
+  error.textContent = message || '';
+  error.hidden = !message;
+}
+
+async function loadUsers() {
+  const data = await apiFetch('/api/admin/users');
+  users = data.users || [];
+  renderUsers();
+}
+
+function renderUsers() {
+  $('userList').innerHTML = users.map((user) => {
+    const disabled = user.status === 'disabled';
+    return `
+    <div class="admin-row" data-user="${escapeHtml(user.username)}">
+      <div class="admin-head"><b>${escapeHtml(user.username)}</b><span class="admin-role">${escapeHtml(ROLE_LABELS[user.role] || user.role)}</span></div>
+      <div class="admin-meta">狀態：${disabled ? '停用' : '啟用'} · 上次登入：${escapeHtml(formatLastLogin(user.lastLoginAt))}</div>
+      <div class="admin-edit">
+        <label>顯示名稱<input data-field="displayName" type="text" autocomplete="off" maxlength="20" value="${escapeHtml(user.displayName)}"></label>
+        <label>代號<input data-field="postCode" type="text" autocomplete="off" maxlength="20" value="${escapeHtml(user.postCode || '')}"></label>
+        <button class="btn" data-action="save" type="button">儲存</button>
+      </div>
+      <div class="action-row">
+        <button class="btn" data-action="reset" type="button">重設密碼</button>
+        <button class="btn btn-danger" data-action="status" type="button">${disabled ? '啟用' : '停用'}</button>
+      </div>
+      <p class="admin-error" hidden></p>
+    </div>
+  `;
+  }).join('');
+  wireRows();
+}
+
+async function setStatus(row, username, status) {
+  rowError(row, '');
+  try {
+    await apiFetch(`/api/admin/users/${encodeURIComponent(username)}/status`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    await loadUsers();
+  } catch (err) {
+    if (!isRedirectError(err)) rowError(row, err.message);
+  }
+}
+
+async function resetPassword(row, user) {
+  rowError(row, '');
+  try {
+    const data = await apiFetch(`/api/admin/users/${encodeURIComponent(user.username)}/reset-password`, { method: 'POST' });
+    showPassword(`${user.displayName} 新密碼`, data.password);
+  } catch (err) {
+    if (!isRedirectError(err)) rowError(row, err.message);
+  }
+}
+
+async function saveUser(row, user) {
+  rowError(row, '');
+  const displayName = row.querySelector('[data-field="displayName"]').value.trim();
+  const postCode = row.querySelector('[data-field="postCode"]').value.trim();
+  try {
+    await apiFetch(`/api/admin/users/${encodeURIComponent(user.username)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ displayName, postCode }),
+    });
+    await loadUsers();
+  } catch (err) {
+    if (!isRedirectError(err)) rowError(row, err.message);
+  }
+}
+
+function wireRows() {
+  document.querySelectorAll('.admin-row').forEach((row) => {
+    const user = users.find((item) => item.username === row.dataset.user);
+    if (!user) return;
+    row.querySelector('[data-action="save"]').addEventListener('click', () => saveUser(row, user));
+    row.querySelector('[data-action="reset"]').addEventListener('click', (event) => {
+      twoStep(event.currentTarget, () => resetPassword(row, user));
+    });
+    const statusBtn = row.querySelector('[data-action="status"]');
+    if (user.status === 'disabled') {
+      statusBtn.addEventListener('click', () => setStatus(row, user.username, 'active'));
+    } else {
+      statusBtn.addEventListener('click', (event) => {
+        twoStep(event.currentTarget, () => setStatus(row, user.username, 'disabled'));
+      });
+    }
+  });
+}
+
+async function doCreate(event) {
+  event.preventDefault();
+  $('createError').hidden = true;
+  $('createError').textContent = '';
+  const username = $('createUsername').value.trim().toLowerCase();
+  const displayName = $('createDisplayName').value.trim();
+  const role = $('createRole').value;
+  const postCode = $('createPostCode').value.trim();
+  if (!role) {
+    $('createError').textContent = '請選擇角色';
+    $('createError').hidden = false;
+    return;
+  }
+  if (!USERNAME_RE.test(username)) {
+    $('createError').textContent = '帳號限 2–32 字的小寫 a–z、0–9、_ . -';
+    $('createError').hidden = false;
+    return;
+  }
+  if (!displayName) {
+    $('createError').textContent = '請輸入顯示名稱';
+    $('createError').hidden = false;
+    return;
+  }
+  $('createBtn').disabled = true;
+  try {
+    const body = { username, displayName, role };
+    if (postCode) body.postCode = postCode;
+    const data = await apiFetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    $('createForm').reset();
+    showPassword(`${data.user?.displayName || username} 新密碼`, data.password);
+    await loadUsers();
+  } catch (err) {
+    if (!isRedirectError(err)) {
+      $('createError').textContent = err.message;
+      $('createError').hidden = false;
+    }
+  } finally {
+    $('createBtn').disabled = false;
+  }
+}
+
+$('createForm').addEventListener('submit', doCreate);
+$('copyPasswordBtn').addEventListener('click', () => copyText($('generatedPassword').textContent));
+$('closePasswordBtn').addEventListener('click', closePassword);
+$('passwordPanel').addEventListener('click', (event) => {
+  if (event.target === $('passwordPanel')) closePassword();
+});
+
+me = await loadMe();
+if (me) {
+  mountChrome($('chrome'), { current: 'admin', date: businessDate(new Date()), me });
+  document.querySelector('[data-logout]')?.addEventListener('click', logout);
+  try {
+    await loadUsers();
+  } catch (err) {
+    if (!isRedirectError(err)) showToast(err.message);
+  }
+}
+</script>
+</body>
+</html>

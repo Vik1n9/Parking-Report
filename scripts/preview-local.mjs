@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto';
 import { writeFileSync, existsSync, copyFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -11,10 +10,19 @@ import {
   buildTowerUsage,
   formatTime,
 } from '../public/js/parking-core.js';
+import { hashPassword } from '../src/auth.js';
 
 const HOST = 'http://127.0.0.1:8787';
-const TOKEN = 'preview-A1-not-a-secret';
-const TOKEN_HASH = createHash('sha256').update(TOKEN).digest('hex');
+const DEV_PASSWORD = 'local-dev-pass';
+const DEV_PASSWORD_HASH = await hashPassword(DEV_PASSWORD);
+const ACCOUNTS = [
+  ['admin', 'admin', '後台管理者', null],
+  ['console', 'console', '中控', null],
+  ['secretary', 'secretary', '秘書', null],
+  ['captain', 'captain', '保全隊長', 'A1'],
+  ['patrol', 'patrol', '車巡保全', '車巡'],
+  ['manager', 'manager', '主管', null],
+];
 const seedOnly = process.argv.includes('--seed-only');
 const noOpen = process.argv.includes('--no-open');
 
@@ -67,42 +75,86 @@ function snapshot(partial, at, deviceLabel) {
     console: buildReport(values, ZONES, { style: 'console', time: at, deviceLabel }),
     excel: buildExcelValues(values, ZONES).map((cell) => cell.value).join('\t'),
     towerPct: tower.valid ? tower.percent : null,
+    towerRemaining: tower.valid ? tower.remaining : null,
     reportTime: formatTime(at),
   };
 }
 
+function towerSpaces(n) {
+  return n <= 0 ? { kind: 'full' } : { kind: 'spaces', value: n };
+}
+
+function sceneAt(above, below, extra = {}) {
+  const { floor_above: _a, floor_below: _b, ...rest } = extra;
+  return {
+    floor_above: towerSpaces(above),
+    floor_below: towerSpaces(below),
+    ...rest,
+  };
+}
+
 const SCENES = {
-  open: {
-    floor_above: { kind: 'spaces', value: 420 },
-    floor_below: { kind: 'spaces', value: 180 },
+  open: sceneAt(420, 180, {
     p1: { kind: 'tenths', value: 8 },
     p3: { kind: 'tenths', value: 7 },
     spin_a: { kind: 'tenths', value: 6 },
     asphalt: { kind: 'none' },
-  },
-  busy: {
-    floor_above: { kind: 'spaces', value: 232 },
-    floor_below: { kind: 'full' },
+  }),
+  busy: sceneAt(232, 0, {
     p1: { kind: 'tenths', value: 3 },
     p3: { kind: 'tenths', value: 2 },
     spin_a: { kind: 'tenths', value: 1 },
     spin_b: { kind: 'carts', value: 2 },
     spin_c: { kind: 'guiding' },
-    spin_d: { kind: 'none' },
-    spin_e: { kind: 'none' },
     asphalt: { kind: 'none' },
-  },
-  tight: {
-    floor_above: { kind: 'spaces', value: 40 },
-    floor_below: { kind: 'full' },
+  }),
+  tight: sceneAt(40, 0, {
     p1: { kind: 'full' },
     p3: { kind: 'tenths', value: 1 },
     spin_a: { kind: 'full' },
     spin_b: { kind: 'carts', value: 4 },
     spin_c: { kind: 'guiding' },
     asphalt: { kind: 'none' },
-  },
+  }),
 };
+
+const TODAY_EVENTS = [
+  { kind: 'jam', zone: 'p1', start: '09:12', end: '09:28' },
+  { kind: 'jam', zone: 'p3', start: '10:05', end: '10:22' },
+  { kind: 'jam', zone: 'spin_a', start: '11:18', end: '11:36' },
+  { kind: 'jam', zone: 'p1', start: '11:50', end: '12:14' },
+  { kind: 'guiding', start: '12:37' },
+  { kind: 'jam', zone: 'p1', start: '12:52', end: '13:10' },
+  { kind: 'special', zone: 'p3', start: '13:18', end: '13:55' },
+  { kind: 'jam', zone: 'spin_b', start: '14:08', end: '14:31' },
+  { kind: 'special', zone: 'p1', start: '14:40', end: '15:12' },
+  { kind: 'jam', zone: 'p3', start: '15:20', end: '15:38' },
+  { kind: 'special', zone: 'spin_c', start: '15:44' },
+  { kind: 'jam', zone: 'p1', start: '16:06' },
+];
+
+const TODAY_CURVE = [
+  ['08:40', 720, 380],
+  ['09:05', 610, 310],
+  ['09:25', 520, 240],
+  ['09:50', 450, 180],
+  ['10:15', 390, 130],
+  ['10:40', 340, 90],
+  ['11:05', 300, 50],
+  ['11:30', 270, 20],
+  ['11:55', 250, 0],
+  ['12:20', 220, 0],
+  ['12:45', 180, 0],
+  ['13:10', 140, 0],
+  ['13:35', 95, 0],
+  ['14:00', 60, 0],
+  ['14:25', 35, 0],
+  ['14:50', 20, 0],
+  ['15:15', 45, 0],
+  ['15:40', 80, 0],
+  ['16:05', 130, 15],
+  ['16:30', 190, 40],
+];
 
 function run(cmd, args, env = {}) {
   return new Promise((resolve, reject) => {
@@ -118,7 +170,8 @@ async function waitReady() {
   const deadline = Date.now() + 30000;
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(`${HOST}/api/zones`);
+      // /css/* 是公開路徑；/api/zones 現在需要登入，不能再拿來探測。
+      const res = await fetch(`${HOST}/css/office.css`);
       if (res.ok) return;
     } catch {}
     await new Promise((r) => setTimeout(r, 300));
@@ -138,37 +191,68 @@ function buildSql() {
   const d2 = shiftCivil(today, -2);
   const d3 = shiftCivil(today, -3);
   const rows = [
-    { id: 1, date: d3, clock: '09:20', scene: 'open', status: 'confirmed' },
-    { id: 2, date: d3, clock: '14:05', scene: 'busy', status: 'confirmed' },
-    { id: 3, date: d2, clock: '10:40', scene: 'busy', status: 'confirmed' },
-    { id: 4, date: d2, clock: '15:18', scene: 'tight', status: 'confirmed' },
-    { id: 5, date: d1, clock: '11:02', scene: 'busy', status: 'confirmed' },
-    { id: 6, date: d1, clock: '16:44', scene: 'tight', status: 'confirmed' },
-    { id: 7, date: today, clock: '09:15', scene: 'open', status: 'confirmed' },
-    { id: 8, date: today, clock: '12:37', scene: 'busy', status: 'confirmed' },
-    { id: 9, date: today, clock: '15:50', scene: 'tight', status: 'pending' },
-    { id: 10, date: today, clock: '16:10', scene: 'busy', status: 'pending' },
+    { id: 1, date: d3, clock: '09:20', scene: SCENES.open, status: 'confirmed' },
+    { id: 2, date: d3, clock: '11:10', scene: SCENES.busy, status: 'confirmed' },
+    { id: 3, date: d3, clock: '14:05', scene: SCENES.tight, status: 'confirmed' },
+    { id: 4, date: d3, clock: '16:20', scene: SCENES.busy, status: 'confirmed' },
+    { id: 5, date: d2, clock: '09:40', scene: SCENES.open, status: 'confirmed' },
+    { id: 6, date: d2, clock: '12:15', scene: SCENES.busy, status: 'confirmed' },
+    { id: 7, date: d2, clock: '15:18', scene: SCENES.tight, status: 'confirmed' },
+    { id: 8, date: d2, clock: '17:05', scene: SCENES.busy, status: 'confirmed' },
+    { id: 9, date: d1, clock: '10:02', scene: SCENES.open, status: 'confirmed' },
+    { id: 10, date: d1, clock: '12:40', scene: SCENES.busy, status: 'confirmed' },
+    { id: 11, date: d1, clock: '14:55', scene: SCENES.tight, status: 'confirmed' },
+    { id: 12, date: d1, clock: '16:44', scene: SCENES.busy, status: 'confirmed' },
   ];
+  TODAY_CURVE.forEach(([clock, above, below], index) => {
+    rows.push({
+      id: 20 + index,
+      date: today,
+      clock,
+      scene: sceneAt(above, below, index >= 11 ? SCENES.tight : index >= 7 ? SCENES.busy : SCENES.open),
+      status: 'confirmed',
+    });
+  });
+  rows.push(
+    { id: 50, date: today, clock: '16:50', scene: SCENES.tight, status: 'pending' },
+    { id: 51, date: today, clock: '17:05', scene: SCENES.busy, status: 'pending' },
+  );
 
   const statements = [
     'DELETE FROM records;',
     'DELETE FROM reports;',
-    'DELETE FROM guard_devices;',
-    `INSERT INTO guard_devices (id, label, token_hash) VALUES (1, 'A1', ${sqlStr(TOKEN_HASH)});`,
+    'DELETE FROM site_events;',
+    'DELETE FROM sessions;',
+    'DELETE FROM login_attempts;',
+    'DELETE FROM users;',
+    ...ACCOUNTS.map(
+      ([username, role, displayName, postCode]) =>
+        `INSERT INTO users (username, display_name, role, post_code, password_hash, status, must_change_pw, created_at)
+     VALUES (${sqlStr(username)}, ${sqlStr(displayName)}, ${sqlStr(role)}, ${postCode === null ? 'NULL' : sqlStr(postCode)}, ${sqlStr(DEV_PASSWORD_HASH)}, 'active', 0, ${sqlStr(new Date().toISOString())});`
+    ),
+    ...TODAY_EVENTS.map((event) => {
+      const zone = event.zone == null ? 'NULL' : sqlStr(event.zone);
+      const occurred = sqlStr(taipeiInstant(today, event.start).toISOString());
+      const cleared = event.end ? sqlStr(taipeiInstant(today, event.end).toISOString()) : 'NULL';
+      const detail = event.detail == null ? 'NULL' : sqlStr(event.detail);
+      return `INSERT INTO site_events (site_id, business_date, kind, zone_code, occurred_at, cleared_at, detail, created_by)
+     VALUES (1, ${sqlStr(today)}, ${sqlStr(event.kind)}, ${zone}, ${occurred}, ${cleared}, ${detail}, 'console');`;
+    }),
   ];
 
   for (const row of rows) {
     const at = taipeiInstant(row.date, row.clock);
-    const snap = snapshot(SCENES[row.scene], at, 'A1');
+    const submitter = row.status === 'pending' ? 'captain' : row.id % 2 === 0 ? 'patrol' : 'captain';
+    const snap = snapshot(row.scene, at, submitter === 'patrol' ? '車巡' : 'A1');
     const submitted = at.toISOString();
     statements.push(
-      `INSERT INTO reports (id, site_id, device_id, status, client_request_id, values_json, raw_input, business_date, submitted_at, confirmed_at)
-       VALUES (${row.id}, 1, 1, ${sqlStr(row.status)}, ${sqlStr(`preview-${row.id}`)}, ${sqlJson(snap.values)}, ${sqlStr('preview')}, ${sqlStr(row.date)}, ${sqlStr(submitted)}, ${row.status === 'confirmed' ? sqlStr(submitted) : 'NULL'});`,
+      `INSERT INTO reports (id, site_id, submitted_by, status, client_request_id, values_json, raw_input, business_date, submitted_at, confirmed_at)
+       VALUES (${row.id}, 1, ${sqlStr(submitter)}, ${sqlStr(row.status)}, ${sqlStr(`preview-${row.id}`)}, ${sqlJson(snap.values)}, ${sqlStr('preview')}, ${sqlStr(row.date)}, ${sqlStr(submitted)}, ${row.status === 'confirmed' ? sqlStr(submitted) : 'NULL'});`,
     );
     if (row.status === 'confirmed') {
       statements.push(
-        `INSERT INTO records (report_id, site_id, business_date, values_json, guard_report, console_report, excel_values, tower_usage_pct, remarks_json, prepared_by, report_time, confirmed_at)
-         VALUES (${row.id}, 1, ${sqlStr(row.date)}, ${sqlJson(snap.values)}, ${sqlStr(snap.guard)}, ${sqlStr(snap.console)}, ${sqlStr(snap.excel)}, ${snap.towerPct ?? 'NULL'}, ${sqlJson(row.scene === 'busy' ? { p1: '施工' } : {})}, 'console@example.test', ${sqlStr(snap.reportTime)}, ${sqlStr(submitted)});`,
+        `INSERT INTO records (report_id, site_id, business_date, values_json, guard_report, console_report, excel_values, tower_usage_pct, tower_remaining, remarks_json, prepared_by, report_time, confirmed_at)
+         VALUES (${row.id}, 1, ${sqlStr(row.date)}, ${sqlJson(snap.values)}, ${sqlStr(snap.guard)}, ${sqlStr(snap.console)}, ${sqlStr(snap.excel)}, ${snap.towerPct ?? 'NULL'}, ${snap.towerRemaining ?? 'NULL'}, ${sqlJson(row.scene === 'busy' ? { p1: '施工' } : {})}, 'console', ${sqlStr(snap.reportTime)}, ${sqlStr(submitted)});`,
       );
     }
   }
@@ -184,11 +268,13 @@ writeFileSync(sqlPath, sql);
 await run('npx', ['wrangler', 'd1', 'execute', 'parking-report', '--local', '--yes', '--file', sqlPath]);
 
 console.log('');
+console.log(`${HOST}/login`);
 console.log(`${HOST}/ManagerDashboard`);
 console.log(`${HOST}/CenterConsole`);
 console.log(`${HOST}/secretary`);
-console.log(`${HOST}/guard#key=${TOKEN}`);
-console.log(`confirmed ${d3}..${today} · pending 2 · device A1`);
+console.log(`${HOST}/guard`);
+console.log(`confirmed ${d3}..${today} · pending 2 · events ${TODAY_EVENTS.length}`);
+console.log(`登入帳號：${ACCOUNTS.map(([username]) => username).join(' / ')}　密碼：${DEV_PASSWORD}`);
 console.log('');
 
 if (seedOnly) process.exit(0);
