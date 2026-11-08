@@ -210,5 +210,36 @@ test('guard page has a submit button that queues the report without LINE', () =>
   assert.equal(submitBody.includes('line.me'), false);
   assert.equal(submitBody.includes('clipboard'), false);
   assert.match(html, /submitBtn\.addEventListener\('click', submitReport\)/);
-  assert.match(html, /\.bottom-inner\{\s*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  const baseBottomInner = html.match(/\.bottom-inner\{[\s\S]*?\}/)[0];
+  assert.match(baseBottomInner, /max-width:440px/);
+  assert.match(baseBottomInner, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+});
+
+test('guard page bottom bar stays one row and clears the keypad at every size', () => {
+  assert.equal(html.includes('grid-template-columns:1fr 1fr'), false);
+  assert.match(html, /--bar-h:75px/);
+  assert.match(
+    html,
+    /\.app\{[\s\S]*?padding:12px 12px calc\(var\(--bar-h\) \+ 8px \+ env\(safe-area-inset-bottom\)\)/
+  );
+  assert.match(
+    html,
+    /\.toast\{[\s\S]*?bottom:calc\(var\(--bar-h\) \+ env\(safe-area-inset-bottom\)\)/
+  );
+  assert.equal(html.includes('bottom:124px'), false);
+  assert.equal(html.includes('padding:12px 12px 130px'), false);
+
+  const compactCss = html.slice(html.indexOf('@media(max-height:880px) and (max-width:440px)'));
+  assert.match(compactCss, /:root\{--bar-h:59px\}/);
+  assert.match(compactCss, /\.bottom-btn\{[\s\S]*?min-height:44px/);
+  assert.equal(compactCss.includes('.toast{bottom:58px}'), false);
+
+  const baseBottomBtn = html.match(/\.bottom-btn\{[\s\S]*?\}/)[0];
+  assert.match(baseBottomBtn, /min-height:52px/);
+  const baseKey = html.match(/\.key\{[\s\S]*?\}/)[0];
+  assert.match(baseKey, /min-height:48px/);
+  const modeBtn = html.match(/\.mode-btn\{[\s\S]*?\}/)[0];
+  assert.match(modeBtn, /white-space:nowrap/);
+  const disabledModeBtn = html.match(/\.mode-btn:disabled\{[\s\S]*?\}/)[0];
+  assert.match(disabledModeBtn, /font-size:\.8rem/);
 });

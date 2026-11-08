@@ -25,6 +25,7 @@
   --sans:'Helvetica Neue','PingFang TC','Microsoft JhengHei',sans-serif;
   --calc:'Avenir Next','Arial Rounded MT Bold','Helvetica Neue','PingFang TC','Microsoft JhengHei',sans-serif;
   --mono:'SF Mono','Cascadia Code','Consolas',monospace;
+  --bar-h:75px;
 }
 *{box-sizing:border-box}
 html{overflow-x:hidden;background:var(--bg)}
@@ -47,7 +48,7 @@ button{
   max-width:440px;
   min-height:100vh;
   margin:0 auto;
-  padding:12px 12px 130px;
+  padding:12px 12px calc(var(--bar-h) + 8px + env(safe-area-inset-bottom));
 }
 .topbar{
   position:sticky;
@@ -222,6 +223,8 @@ button{
   background:var(--surface);
   color:var(--text);
   font-weight:950;
+  white-space:nowrap;
+  padding:4px;
 }
 .mode-btn.active{
   border-color:var(--amber);
@@ -231,6 +234,7 @@ button{
 .mode-btn:disabled{
   background:#dce2e8;
   color:#4c5866;
+  font-size:.8rem;
 }
 .keypad{
   display:grid;
@@ -239,7 +243,7 @@ button{
   padding:12px;
 }
 .key{
-  min-height:58px;
+  min-height:48px;
   border:2px solid var(--border);
   border-radius:10px;
   background:var(--key-bg);
@@ -330,7 +334,7 @@ button.press-flash{
   max-width:440px;
   margin:0 auto;
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:repeat(4,minmax(0,1fr));
   gap:8px;
 }
 .bottom-btn{
@@ -347,7 +351,7 @@ button.press-flash{
 .toast{
   position:fixed;
   left:50%;
-  bottom:124px;
+  bottom:calc(var(--bar-h) + env(safe-area-inset-bottom));
   z-index:30;
   transform:translateX(-50%) translateY(18px);
   opacity:0;
@@ -390,9 +394,10 @@ button.press-flash{
   .key:active,.fn-btn:active,.bottom-btn:active,.mode-btn:active,.mini-btn:active,.zone-chip:active{transform:none}
 }
 @media(max-height:880px) and (max-width:440px){
+  :root{--bar-h:59px}
   .app{
     min-height:100dvh;
-    padding:8px 10px 60px;
+    padding:8px 10px calc(var(--bar-h) + 12px + env(safe-area-inset-bottom));
   }
   .topbar{
     margin:-8px -10px 8px;
@@ -487,7 +492,7 @@ button.press-flash{
     gap:6px;
   }
   .bottom-btn{
-    min-height:40px;
+    min-height:44px;
     border-radius:8px;
     font-size:.7rem;
     letter-spacing:0;
@@ -496,7 +501,6 @@ button.press-flash{
   }
   .submit{font-size:.8rem}
   .share{grid-column:auto;font-size:.75rem}
-  .toast{bottom:58px}
 }
 </style>
 </head>
