@@ -25,7 +25,7 @@ Old static version: branch `legacy-static` (serves GitHub Pages site). `main` = 
 7. Access config via secrets: `ACCESS_TEAM_DOMAIN`/`ACCESS_AUD` with `wrangler secret put`; never in `wrangler.jsonc` vars (deploy wipes them).
 
 ## Active plan
-`docs/superpowers/plans/2026-11-09-full-stack-console-reports-deploy.md`: console correction, events, meeting reports, Astryx office UI, Cloudflare deploy. Read it first; it holds field facts and user decisions. Stop and ask the user at each permission checkpoint (§2).
+`docs/superpowers/plans/2026-11-09-pilot-first-full-stack.md`: pilot-first order (go-live slice → pilot → ops alerts/events → reports). Office pages stay plain HTML + `office.css`, no build step; Astryx deferred (§6 criteria). Read it first; it holds field facts and user decisions. Stop and ask the user at each permission checkpoint (§2).
 
 ## Go-live TODO
 Details in `TODO.md`. All three incomplete → not usable online.
