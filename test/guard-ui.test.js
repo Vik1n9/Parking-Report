@@ -22,11 +22,9 @@ test('guard page keeps legacy structural constraints', () => {
 
   assert.match(html, /class="card order-card"/);
   assert.match(html, /class="card input-card"/);
-  assert.match(html, /class="card secondary-card"/);
   assert.match(html, /@media\(max-height:880px\) and \(max-width:440px\)/);
   assert.match(html, /\.fn-grid\{grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(html, /\.share\{grid-column:auto/);
-  assert.match(html, /\.secondary-card\{display:none\}/);
   assert.equal(html.includes('id="emptyBtn"'), false);
   assert.match(html, /id="deleteDigitBtn"/);
   assert.match(
@@ -37,6 +35,21 @@ test('guard page keeps legacy structural constraints', () => {
     html,
     /<div class="value-display"[\s\S]+id="currentInputValue"[\s\S]+<div class="keypad" id="keypad">/
   );
+});
+
+test('guard page omits tower usage, LINE preview, and history cards', () => {
+  assert.equal(html.includes('id="towerUsage"'), false);
+  assert.equal(html.includes('id="linePreview"'), false);
+  assert.equal(html.includes('id="historyList"'), false);
+  assert.equal(html.includes('車塔停放使用率'), false);
+  assert.equal(html.includes('LINE 回報預覽'), false);
+  assert.equal(html.includes('保全回報歷史'), false);
+  assert.equal(html.includes('secondary-card'), false);
+  assert.equal(html.includes('renderHistory'), false);
+  assert.equal(html.includes('buildTowerUsage'), false);
+  assert.equal(html.includes('TOWER_TOTAL_CACHE_KEY'), false);
+  assert.equal(html.includes('class="preview"'), false);
+  assert.equal(html.includes('history-load'), false);
 });
 
 test('guard page keeps legacy keypad behavior', () => {
@@ -187,5 +200,5 @@ test('guard page keeps unsent input in a draft that survives reloads', () => {
   assert.match(resetAllBody, /clearDraft\(\);/);
   assert.match(refreshZonesBody, /clearDraft\(\);/);
 
-  assert.match(html, /renderHistory\(\);\s*\n\s*loadDraft\(\);\s*\n\s*render\(\);/);
+  assert.match(html, /loadHistory\(\);\s*\n\s*loadDraft\(\);\s*\n\s*render\(\);/);
 });
