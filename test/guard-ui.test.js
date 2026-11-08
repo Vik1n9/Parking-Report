@@ -147,3 +147,40 @@ test('guard page only de-dupes rapid double taps, not repeated identical reading
   assert.match(html, /DEDUPE_WINDOW_MS\s*=\s*3000/);
   assert.equal(/last\.preview === preview/.test(html), false);
 });
+
+test('guard page keeps unsent input in a draft that survives reloads', () => {
+  assert.match(html, /DRAFT_STORAGE_KEY = 'parking_guard_draft_v1'/);
+  assert.match(html, /DRAFT_MAX_AGE_MS = 3 \* 60 \* 60 \* 1000/);
+  assert.match(html, /function saveDraft\(\)/);
+  assert.match(html, /function loadDraft\(\)/);
+  assert.match(html, /function clearDraft\(\)/);
+  assert.match(html, /已還原未送出的輸入/);
+
+  const saveDraftBody = html.match(/function saveDraft\(\) \{[\s\S]*?\n\}/)[0];
+  const loadDraftBody = html.match(/function loadDraft\(\) \{[\s\S]*?\n\}/)[0];
+  const clearDraftBody = html.match(/function clearDraft\(\) \{[\s\S]*?\n\}/)[0];
+  const renderBody = html.match(/function render\(\) \{[\s\S]*?\n\}/)[0];
+  assert.match(saveDraftBody, /valuesObject\(\)/);
+  assert.match(saveDraftBody, /time: currentTime\.toISOString\(\)/);
+  assert.match(saveDraftBody, /savedAt: Date\.now\(\)/);
+  assert.match(renderBody, /saveDraft\(\);/);
+
+  const bodies = { saveDraft: saveDraftBody, loadDraft: loadDraftBody, clearDraft: clearDraftBody };
+  for (const [name, body] of Object.entries(bodies)) {
+    const tryIndex = body.indexOf('try {');
+    const storageIndex = body.indexOf('localStorage');
+    const catchIndex = body.indexOf('catch', tryIndex);
+    assert.ok(tryIndex !== -1, `${name} wraps localStorage access in try`);
+    assert.ok(storageIndex > tryIndex, `${name} touches localStorage only inside try`);
+    assert.ok(catchIndex > storageIndex, `${name} catches storage failures`);
+  }
+
+  const addHistoryBody = html.match(/function addHistory\(\) \{[\s\S]*?\n\}/)[0];
+  const resetAllBody = html.match(/function resetAll\(\) \{[\s\S]*?\n\}/)[0];
+  const refreshZonesBody = html.match(/async function refreshZones\(\) \{[\s\S]*?\n\}/)[0];
+  assert.match(addHistoryBody, /enqueueSubmit\([^)]*\);\s*\n\s*clearDraft\(\);/);
+  assert.match(resetAllBody, /clearDraft\(\);/);
+  assert.match(refreshZonesBody, /clearDraft\(\);/);
+
+  assert.match(html, /renderHistory\(\);\s*\n\s*loadDraft\(\);\s*\n\s*render\(\);/);
+});

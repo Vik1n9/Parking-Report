@@ -675,6 +675,8 @@ const AUTO_ADVANCE_CAR_DIGITS = 3;
 const AUTO_ADVANCE_DELAY_MS = 650;
 const SYNC_RETRY_MS = 30000;
 const DEDUPE_WINDOW_MS = 3000;
+const DRAFT_STORAGE_KEY = 'parking_guard_draft_v1';
+const DRAFT_MAX_AGE_MS = 3 * 60 * 60 * 1000;
 
 let currentTime = new Date();
 let currentIndex = 0;
@@ -687,6 +689,7 @@ let outbox = [];
 let syncing = false;
 let lastSyncedAt = null;
 let syncError = null;
+let draftDirty = false;
 
 const $ = (id) => document.getElementById(id);
 const clockDisplay = $('clockDisplay');
@@ -753,6 +756,7 @@ function currentZone() {
 }
 
 function commitDraft() {
+  draftDirty = true;
   cells[currentIndex] = draft ? normalizeInput(draft, currentZone()) : { kind: 'none' };
 }
 
@@ -783,6 +787,7 @@ function movePrev() {
 function inputDigit(digit) {
   cancelAutoAdvance();
   const zone = currentZone();
+  draftDirty = true;
 
   if (entryMode === 'cart') {
     cells[currentIndex] = digit === '0' ? { kind: 'full' } : { kind: 'carts', value: Number(digit) };
@@ -808,6 +813,7 @@ function inputDigit(digit) {
 
 function clearCurrent() {
   cancelAutoAdvance();
+  if (cells[currentIndex].kind !== 'none') draftDirty = true;
   draft = '';
   cells[currentIndex] = { kind: 'none' };
   render();
@@ -826,24 +832,28 @@ function deleteDigit() {
     render();
     return;
   }
+  if (cells[currentIndex].kind !== 'none') draftDirty = true;
   draft = '';
   cells[currentIndex] = { kind: 'none' };
   render();
 }
 
 function markFull() {
+  if (cells[currentIndex].kind !== 'full') draftDirty = true;
   draft = '';
   cells[currentIndex] = { kind: 'full' };
   moveNext();
 }
 
 function markEmpty() {
+  if (cells[currentIndex].kind !== 'none') draftDirty = true;
   draft = '';
   cells[currentIndex] = { kind: 'none' };
   moveNext();
 }
 
 function markGuiding() {
+  if (cells[currentIndex].kind !== 'guiding') draftDirty = true;
   draft = '';
   cells[currentIndex] = { kind: 'guiding' };
   moveNext();
@@ -853,6 +863,7 @@ function resetAll() {
   if (!confirm('確定要清除目前回報並重新輸入嗎？')) return;
   cells = zones.map(() => ({ kind: 'none' }));
   currentTime = new Date();
+  clearDraft();
   moveTo(0);
 }
 
@@ -920,6 +931,7 @@ function renderHistory() {
       const entry = historyEntries.find((item) => item.id === button.dataset.id);
       if (!entry) return;
       cells = zones.map((zone) => entry.values?.[zone.code] ?? { kind: 'none' });
+      draftDirty = true;
       draft = '';
       currentTime = new Date(entry.timestamp);
       moveTo(0);
@@ -946,6 +958,7 @@ function render() {
   linePreview.textContent = buildReport(values, zones, { style: 'guard', time: currentTime });
   document.title = `保全停車回報 ${completed}/${zones.length}`;
   renderZones();
+  saveDraft();
 }
 
 function valuesObject() {
@@ -954,6 +967,59 @@ function valuesObject() {
     out[zone.code] = cells[index];
   });
   return out;
+}
+
+function saveDraft() {
+  if (!draftDirty) return;
+  try {
+    const values = valuesObject();
+    const hasValue = Object.values(values).some((cell) => cell && cell.kind !== 'none');
+    if (hasValue) {
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
+        values,
+        time: currentTime.toISOString(),
+        savedAt: Date.now(),
+      }));
+    } else {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    }
+    draftDirty = false;
+  } catch {}
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return;
+    let stored = null;
+    try {
+      stored = JSON.parse(raw);
+    } catch {
+      stored = null;
+    }
+    const fresh = !!stored && typeof stored === 'object'
+      && typeof stored.savedAt === 'number'
+      && Date.now() - stored.savedAt <= DRAFT_MAX_AGE_MS;
+    const values = fresh && stored.values && typeof stored.values === 'object' ? stored.values : null;
+    if (!values) {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      return;
+    }
+    cells = zones.map((zone) => {
+      const value = values[zone.code];
+      return value && typeof value === 'object' && typeof value.kind === 'string' ? value : { kind: 'none' };
+    });
+    const savedTime = new Date(stored.time);
+    if (!Number.isNaN(savedTime.getTime())) currentTime = savedTime;
+    if (cells.some((cell) => cell.kind !== 'none')) showToast('已還原未送出的輸入');
+  } catch {}
+}
+
+function clearDraft() {
+  draftDirty = false;
+  try {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch {}
 }
 
 async function refreshZones() {
@@ -967,6 +1033,7 @@ async function refreshZones() {
     zones = data.zones;
     if (changed) {
       cells = zones.map(() => ({ kind: 'none' }));
+      clearDraft();
       moveTo(0);
       showToast('區域設定已更新');
     }
@@ -1107,6 +1174,7 @@ function addHistory() {
   saveHistory();
   renderHistory();
   enqueueSubmit(historyEntries[historyEntries.length - 1]);
+  clearDraft();
 }
 
 async function copyReport(message) {
@@ -1192,6 +1260,7 @@ loadOutbox();
 renderKeypad();
 loadHistory();
 renderHistory();
+loadDraft();
 render();
 renderSync();
 flushOutbox();
