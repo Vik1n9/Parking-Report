@@ -47,3 +47,4 @@ npm run device:provision -- <name>   # guard token + setup link
 ## Local auth
 `.dev.vars` `DEV_MODE=1` (gitignored; template `.dev.vars.example`): Access check disabled; simulate login with header `x-dev-user: <email>`. Never enable DEV_MODE in deploy config.
 Prod auth fail-closed: if `ACCESS_TEAM_DOMAIN`/`ACCESS_AUD` unset, all Access endpoints return 401.
+Access JWT = RS256, verify against `/cdn-cgi/access/certs` `keys`; token from `Cf-Access-Jwt-Assertion` header or `CF_Authorization` cookie; `ACCESS_AUD` may be comma-separated.
