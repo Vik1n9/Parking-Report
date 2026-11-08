@@ -19,12 +19,19 @@
   <div class="sheet glass">
     <pre class="report" id="previewText"></pre>
     <div id="remarkRows"></div>
+    <p class="board-target" id="boardTarget">顯示牌應設為：—</p>
+    <div class="display-before" id="displayBeforeRow">
+      <span>調整前顯示牌數字</span>
+      <input type="number" inputmode="numeric" min="0" max="9999" step="1" id="displayBefore" autocomplete="off">
+    </div>
+    <p class="display-before-error" id="displayBeforeError" hidden></p>
     <div class="action-row" id="confirmActions">
       <button class="btn" id="cancelConfirmBtn" type="button">取消</button>
       <button class="btn-primary" id="doConfirmBtn" type="button">確認並複製</button>
     </div>
     <div class="action-row" id="doneActions" hidden>
-      <button class="btn-primary" id="copyAgainBtn" type="button">再複製</button>
+      <button class="btn-primary" id="lineShareBtn" type="button">LINE 分享</button>
+      <button class="btn" id="copyAgainBtn" type="button">再複製</button>
       <button class="btn" id="closeConfirmBtn" type="button">關閉</button>
     </div>
   </div>
@@ -40,7 +47,7 @@
 </div>
 <div class="toast glass" id="toast"></div>
 <script type="module">
-import { formatValue, businessDate, buildReport, formatTime } from './js/parking-core.js';
+import { normalizeInput, validateValue, formatValue, businessDate, buildReport, buildTowerUsage, formatTime } from './js/parking-core.js';
 import { mountChrome } from './js/office-chrome.js';
 
 const POLL_MS = 8000;
@@ -48,11 +55,13 @@ const $ = (id) => document.getElementById(id);
 mountChrome($('chrome'), { current: 'console', date: businessDate(new Date()) });
 
 let zones = [];
+let towerTotal = 1600;
 let pendingReportsCache = [];
 let pendingConfirm = null;
 let pendingRejectId = null;
 let lastConsoleText = '';
 let sheetOpen = false;
+let sheetBusy = false;
 
 function isLocalDev() {
   return location.hostname === 'localhost' || location.hostname === '127.0.0.1';
@@ -122,9 +131,11 @@ async function loadRecords() {
   const records = data.records || [];
   $('recordList').innerHTML = records.map((record) => {
     const bits = [`<b>${escapeHtml(record.reportTime)}</b>`];
+    if (record.towerRemaining != null) bits.push(`剩餘 ${escapeHtml(record.towerRemaining)}`);
     if (record.towerPct != null) bits.push(record.towerPct + '%');
     const sentry = sentryFromReport(record.consoleReport);
     if (sentry) bits.push(escapeHtml(sentry));
+    if (Object.keys(record.corrections || {}).length > 0) bits.push('<span class="tag-fixed">已修正</span>');
     return `
     <div class="log-item">
       <div>${bits.join(' ')}</div>
@@ -135,56 +146,156 @@ async function loadRecords() {
   }).join('');
 }
 
+function sameValue(a, b) {
+  return a?.kind === b?.kind && a?.value === b?.value;
+}
+
+function parseCorrection(text, zone) {
+  try {
+    const value = normalizeInput(text, zone);
+    const check = validateValue(value, zone);
+    if (!check.ok) return { ok: false, error: check.error || '值不正確' };
+    return { ok: true, value };
+  } catch {
+    return { ok: false, error: '無法解析' };
+  }
+}
+
+function sheetState() {
+  const merged = {};
+  const corrections = {};
+  let invalid = false;
+  for (const zone of zones) merged[zone.code] = pendingConfirm.values?.[zone.code] ?? { kind: 'none' };
+
+  $('remarkRows').querySelectorAll('.remark-row').forEach((row) => {
+    const zone = zones.find((z) => z.code === row.dataset.row);
+    if (!zone) return;
+    const input = row.querySelector('[data-value]');
+    const fixed = row.querySelector('.remark-fixed');
+    const error = row.querySelector('.remark-error');
+    row.classList.remove('is-invalid', 'is-changed');
+    fixed.hidden = true;
+    error.hidden = true;
+    const text = input.value.trim();
+    if (!text) return;
+    const parsed = parseCorrection(text, zone);
+    if (!parsed.ok) {
+      invalid = true;
+      row.classList.add('is-invalid');
+      error.textContent = parsed.error;
+      error.hidden = false;
+      return;
+    }
+    const guard = merged[zone.code];
+    if (!sameValue(parsed.value, guard)) {
+      merged[zone.code] = parsed.value;
+      corrections[zone.code] = parsed.value;
+      row.classList.add('is-changed');
+      fixed.textContent = `保全原值：${formatValue(guard)}`;
+      fixed.hidden = false;
+    }
+  });
+
+  const displayText = $('displayBefore').value.trim();
+  let displayBefore = null;
+  $('displayBeforeRow').classList.remove('is-invalid');
+  $('displayBeforeError').hidden = true;
+  if (displayText) {
+    if (!/^\d+$/.test(displayText) || Number(displayText) > 9999) {
+      invalid = true;
+      $('displayBeforeRow').classList.add('is-invalid');
+      $('displayBeforeError').textContent = '0–9999 整數';
+      $('displayBeforeError').hidden = false;
+    } else {
+      displayBefore = Number(displayText);
+    }
+  }
+
+  return { merged, corrections, displayBefore, invalid };
+}
+
+function updateSheet() {
+  if (!pendingConfirm) return;
+  const state = sheetState();
+  lastConsoleText = buildReport(state.merged, zones, {
+    style: 'console',
+    time: new Date(pendingConfirm.submittedAt),
+    deviceLabel: pendingConfirm.deviceLabel,
+  });
+  $('previewText').textContent = lastConsoleText;
+  const usage = buildTowerUsage(state.merged, zones, { towerTotal });
+  $('boardTarget').textContent = `顯示牌應設為：${usage.valid ? usage.remaining : '—'}`;
+  $('doConfirmBtn').disabled = sheetBusy || state.invalid;
+}
+
 function openConfirm(report) {
   pendingConfirm = report;
   sheetOpen = true;
-  lastConsoleText = buildReport(report.values, zones, {
-    style: 'console',
-    time: new Date(report.submittedAt),
-    deviceLabel: report.deviceLabel,
-  });
-  $('previewText').textContent = lastConsoleText;
-  const active = zones.filter((zone) => (report.values?.[zone.code]?.kind ?? 'none') !== 'none');
-  $('remarkRows').innerHTML = active.map((zone) => `
-    <label class="remark"><span>${escapeHtml(zone.label)}</span><input data-code="${zone.code}" maxlength="50"></label>
-  `).join('');
+  sheetBusy = false;
+  $('remarkRows').innerHTML = zones.map((zone) => {
+    const guard = report.values?.[zone.code] ?? { kind: 'none' };
+    return `
+    <div class="remark-row" data-row="${escapeHtml(zone.code)}">
+      <span class="remark-zone">${escapeHtml(zone.label)}</span>
+      <input class="remark-value" type="text" inputmode="text" autocomplete="off" data-value aria-label="${escapeHtml(zone.label)} 數值" placeholder="${escapeHtml(formatValue(guard))}">
+      <input class="remark-note" type="text" maxlength="50" autocomplete="off" data-code="${escapeHtml(zone.code)}" aria-label="${escapeHtml(zone.label)} 備註" placeholder="備註">
+      <p class="remark-fixed" hidden></p>
+      <p class="remark-error" hidden></p>
+    </div>
+  `;
+  }).join('');
   $('remarkRows').hidden = false;
+  $('displayBeforeRow').hidden = false;
+  $('displayBefore').value = '';
+  $('displayBeforeRow').classList.remove('is-invalid');
+  $('displayBeforeError').hidden = true;
   $('confirmActions').hidden = false;
   $('doneActions').hidden = true;
   $('confirmSheet').classList.add('show');
+  updateSheet();
 }
 
 function closeConfirm() {
   $('confirmSheet').classList.remove('show');
   pendingConfirm = null;
   sheetOpen = false;
+  sheetBusy = false;
 }
 
 async function doConfirm() {
-  if (!pendingConfirm) return;
+  if (!pendingConfirm || sheetBusy) return;
+  const state = sheetState();
+  if (state.invalid) return;
   const remarks = {};
   $('remarkRows').querySelectorAll('input[data-code]').forEach((input) => {
     const value = input.value.trim();
     if (value) remarks[input.dataset.code] = value;
   });
+  const body = { values: state.corrections, remarks };
+  if (state.displayBefore !== null) body.display_before = state.displayBefore;
+  sheetBusy = true;
   $('doConfirmBtn').disabled = true;
   try {
     const data = await fetchJson(`/api/reports/${pendingConfirm.id}/confirm`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...devHeaders() },
-      body: JSON.stringify({ remarks }),
+      body: JSON.stringify(body),
     });
-    lastConsoleText = data.record?.consoleReport || lastConsoleText;
+    const record = data.record || {};
+    lastConsoleText = record.consoleReport || lastConsoleText;
     $('previewText').textContent = lastConsoleText;
     $('remarkRows').hidden = true;
+    $('displayBeforeRow').hidden = true;
     $('confirmActions').hidden = true;
     $('doneActions').hidden = false;
+    $('boardTarget').textContent = `顯示牌應設為：${record.towerRemaining != null ? record.towerRemaining : '—'}`;
     await copyText(lastConsoleText);
     await refresh();
   } catch (err) {
     if (err.message !== 'unauthorized') showToast(err.message);
   } finally {
-    $('doConfirmBtn').disabled = false;
+    sheetBusy = false;
+    if (pendingConfirm) $('doConfirmBtn').disabled = sheetState().invalid;
   }
 }
 
@@ -242,7 +353,14 @@ $('recordList').addEventListener('click', async (event) => {
 $('cancelConfirmBtn').addEventListener('click', closeConfirm);
 $('closeConfirmBtn').addEventListener('click', closeConfirm);
 $('doConfirmBtn').addEventListener('click', doConfirm);
+$('remarkRows').addEventListener('input', updateSheet);
+$('displayBefore').addEventListener('input', updateSheet);
 $('copyAgainBtn').addEventListener('click', () => copyText(lastConsoleText));
+$('lineShareBtn').addEventListener('click', () => {
+  const url = `https://line.me/R/share?text=${encodeURIComponent(lastConsoleText)}`;
+  window.open(url, '_blank', 'noopener');
+  copyText(lastConsoleText);
+});
 $('cancelRejectBtn').addEventListener('click', closeReject);
 $('doRejectBtn').addEventListener('click', doReject);
 $('confirmSheet').addEventListener('click', (event) => {
@@ -256,6 +374,7 @@ $('rejectSheet').addEventListener('click', (event) => {
   try {
     const data = await fetchJson('/api/zones');
     zones = data.zones || [];
+    towerTotal = Number.isFinite(data.towerTotal) ? data.towerTotal : 1600;
   } catch {
     zones = [];
   }

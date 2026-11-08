@@ -381,3 +381,99 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .toast { transition: none; }
 }
+
+/* console review panel */
+#confirmSheet .sheet { width: min(100%, 640px); }
+.remark-row {
+  display: grid;
+  grid-template-columns: 4.6rem minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.remark-zone {
+  font-weight: 600;
+  word-break: keep-all;
+}
+.remark-row input {
+  min-height: 44px;
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 0 12px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--ink);
+}
+.remark-row input:focus,
+.display-before input:focus {
+  outline: 2px solid var(--tint);
+  outline-offset: 1px;
+}
+.remark-row.is-invalid input[data-value] { box-shadow: inset 0 0 0 2px var(--hot); }
+.remark-row.is-changed input[data-value] { box-shadow: inset 0 0 0 2px var(--tint); }
+.remark-fixed {
+  grid-column: 2 / 4;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.remark-error {
+  grid-column: 2 / 4;
+  margin: 0;
+  color: var(--hot);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.remark-fixed[hidden],
+.remark-error[hidden],
+.display-before[hidden],
+.display-before-error[hidden] { display: none; }
+.board-target {
+  margin: 14px 0 4px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.display-before {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.display-before span {
+  font-weight: 600;
+  word-break: keep-all;
+}
+.display-before input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  padding: 0 12px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.display-before.is-invalid input { box-shadow: inset 0 0 0 2px var(--hot); }
+.display-before-error {
+  margin: 4px 0 0;
+  color: var(--hot);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.tag-fixed {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 149, 0, 0.16);
+  color: #8a4b00;
+  font-size: 0.78rem;
+  font-weight: 700;
+  word-break: keep-all;
+}
+@media (max-width: 560px) {
+  .remark-row { grid-template-columns: 3.8rem minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+}
+
